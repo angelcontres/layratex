@@ -1,3 +1,3 @@
 # Etapa
 
-Estamos en la etapa inicial de documentación.
+La fase de requerimientos finalizó y ahora estamos en la etapa de diseño.
