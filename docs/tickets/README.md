@@ -19,8 +19,9 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 
 | Ticket | Título | Estado | Asignado |
 | :---: | :--- | :---: | :---: |
-| [TICKET-001](./TICKET-001-setup-entorno-rust-tauri.md) | Configuración del entorno de desarrollo (Rust + dependencias de sistema Fedora) | 🟡 En progreso | Ángel & Antigravity |
-| [TICKET-002](./TICKET-002-scaffolding-tauri-svelte-ts.md) | Inicialización del proyecto Tauri 2.0 con Svelte 5, Vite y TypeScript | ⚪ Pendiente | — |
-| [TICKET-003](./TICKET-003-layout-base-shell-ui.md) | Maquetación del Shell de la aplicación (Sidebar, Panel Editor, Panel Preview, Barra de Estado) | ⚪ Pendiente | — |
-| [TICKET-004](./TICKET-004-integracion-codemirror6-latex.md) | Montaje del editor CodeMirror 6 con resaltado de sintaxis LaTeX y atajos | ⚪ Pendiente | — |
-| [TICKET-005](./TICKET-005-preview-reactivo-katex.md) | Pipeline de vista previa reactiva instantánea con KaTeX (< 50 ms) | ⚪ Pendiente | — |
+| [TICKET-001](./TICKET-001-setup-entorno-rust-tauri.md) | Configuración del entorno de desarrollo (Rust + dependencias de sistema Fedora) | 🟢 Cerrado | Ángel & Antigravity |
+| [TICKET-002](./TICKET-002-scaffolding-tauri-svelte-ts.md) | Inicialización del proyecto Tauri 2.0 con Svelte 5, Vite y TypeScript | 🟢 Cerrado | Ángel & Antigravity |
+| [TICKET-003](./TICKET-003-layout-base-shell-ui.md) | Maquetación del Shell de la aplicación (Sidebar, Panel Editor, Panel Preview, Barra de Estado) | 🟢 Cerrado | Ángel & Antigravity |
+| [TICKET-004](./TICKET-004-integracion-codemirror6-latex.md) | Montaje del editor CodeMirror 6 con resaltado de sintaxis LaTeX y atajos | 🟢 Cerrado | Ángel & Antigravity |
+| [TICKET-005](./TICKET-005-preview-reactivo-katex.md) | Pipeline de vista previa reactiva instantánea con KaTeX (< 50 ms) | 🟢 Cerrado | Ángel & Antigravity |
+
