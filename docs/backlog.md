@@ -479,24 +479,56 @@ El equipo es de **1 persona**, por lo que el backlog está recortado para evitar
 
 ---
 
-### E7 — Colaboración en Tiempo Real (Futuro)
+---
 
-**Objetivo de negocio:** Permitir que múltiples usuarios editen simultáneamente un mismo documento.
+### E7 — Red P2P y Sincronización Multi-dispositivo (Local-First)
 
-**RF que agrupa:** RF-53
+**Objetivo de negocio:** Permitir la sincronización automática de documentos entre los dispositivos del propio usuario y colaboración con terceros mediante una red P2P descentralizada y libre de conflictos (CRDT).
 
-#### HU-30: Colaboración en tiempo real
-> Como usuario, quiero editar un documento simultáneamente con otros usuarios, para colaborar en la elaboración de la documentación.
+**RF que agrupa:** RF-53, RF-54, RF-55, RF-56, RF-57, RF-58, RF-59, RF-60, RF-61, RF-62
 
-- **Prioridad:** Futuro 🔴
-- **Story Points:** 13
-- **Sprint sugerido:** Backlog (sin sprint asignado)
-- **MVP:** No
+#### HU-30: Identidad y Emparejamiento de Dispositivos por Código QR
+> Como usuario con múltiples estaciones de trabajo (laptop y PC), quiero vincular mis dispositivos escaneando un código QR o ingresando una clave segura, para autorizar la sincronización mutua de mis proyectos sin crear cuentas en la nube.
+
+- **Prioridad:** P2 🟡
+- **Story Points:** 8
+- **Sprint sugerido:** Sprint 6
+- **MVP:** No (Post-Core)
+- **RF:** RF-54, RF-55, RF-62
 
 **Criterios de Aceptación:**
-1. **Given** dos usuarios conectados al mismo documento compartido, **when** el usuario A realiza una modificación, **then** el usuario B observa dicha modificación en su pantalla en tiempo real.
-2. **Given** dos usuarios editando en paralelo, **when** ambos modifican el mismo fragmento simultáneamente, **then** el sistema gestiona el conflicto sin pérdida de contenido de ningún usuario.
-3. **Given** un usuario que pierde la conexión, **when** se reconecta, **then** recibe los cambios pendientes y puede continuar editando.
+1. **Given** que abro la app en un dispositivo nuevo, **when** consulto el perfil de dispositivo, **then** cuenta con un par de claves Ed25519 y Device ID único generado localmente.
+2. **Given** que selecciono "Vincular dispositivo" en mi equipo A, **when** se genera el código QR efímero y lo escaneo desde el equipo B, **then** ambos dispositivos se autorizan mutuamente y muestran un código SAS de confirmación visual.
+3. **Given** un dispositivo vinculado previamente, **when** selecciono "Desvincular", **then** dicho dispositivo deja de recibir sincronizaciones futuras.
+
+#### HU-31: Descubrimiento y Sincronización Incremental P2P (CRDT)
+> Como usuario, quiero que mis cambios se sincronicen en segundo plano entre mis equipos conectados tan pronto como tengan conexión a red local o Internet, para trabajar de forma continua e ininterrumpida.
+
+- **Prioridad:** P2 🟡
+- **Story Points:** 13
+- **Sprint sugerido:** Sprint 7
+- **MVP:** No
+- **RF:** RF-56, RF-57, RF-58
+
+**Criterios de Aceptación:**
+1. **Given** dos dispositivos emparejados en la misma red Wi-Fi o en Internet, **when** se encienden, **then** se descubren automáticamente y establecen un túnel directo cifrado E2EE.
+2. **Given** que edito un documento en mi laptop mientras no tengo internet, **when** vuelvo a conectarme, **then** los deltas acumulados se sincronizan de forma compacta con mi PC de escritorio.
+3. **Given** modificaciones concurrentes en ambos dispositivos sobre el mismo archivo, **when** se reconectan, **then** el motor CRDT fusiona los cambios deterministamente sin generar archivos de conflicto duplicados.
+
+#### HU-32: Colaboración en Tiempo Real y Presencia Remota
+> Como usuario, quiero invitar a otro colaborador a un documento y ver su cursor y cambios en tiempo real, para redactar documentación en equipo.
+
+- **Prioridad:** P3 ⚪
+- **Story Points:** 8
+- **Sprint sugerido:** Sprint 8
+- **MVP:** No
+- **RF:** RF-53, RF-59, RF-60, RF-61
+
+**Criterios de Aceptación:**
+1. **Given** un documento abierto, **when** genero un enlace o clave de invitación con permiso de edición, **then** otro usuario puede unirse a la sesión de trabajo P2P.
+2. **Given** dos usuarios en la misma sesión activa, **when** el usuario remoto escribe o desplaza su cursor, **then** visualizo su cursor con su nombre/etiqueta y los cambios se aplican en < 1 segundo.
+3. **Given** el panel de red P2P, **when** lo abro, **then** veo la lista de pares conectados y el estado de la conexión en vivo.
+
 
 ---
 

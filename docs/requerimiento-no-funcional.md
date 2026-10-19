@@ -61,3 +61,63 @@ El sistema deberá alcanzar una compatibilidad mínima del 95 % con las estructu
 
 **CRITERIO DE VERIFICACIÓN:**  
 Crear documentos que contengan las estructuras LaTeX soportadas, compilar los documentos mediante un compilador LaTeX compatible y calcular el porcentaje de estructuras procesadas correctamente. El resultado deberá ser igual o superior al 95 %.
+
+## RNF-06 — Cifrado Extremo a Extremo (E2EE) en comunicaciones P2P
+
+**DESCRIPCIÓN:**  
+El sistema deberá cifrar el 100 % del tráfico de sincronización y mensajes P2P mediante criptografía moderna de extremo a extremo (E2EE), asegurando confidencialidad e integridad sin intermediarios con acceso en texto plano.
+
+**PRIORIDAD:** Must
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Capturar paquetes de red durante una sesión de sincronización P2P entre dos dispositivos y comprobar mediante análisis de tráfico que no es posible descifrar ni visualizar el contenido del documento sin la clave privada del usuario.
+
+## RNF-07 — Latencia de propagación P2P
+
+**DESCRIPCIÓN:**  
+El sistema deberá propagar y aplicar los deltas de edición entre dispositivos conectados en un tiempo inferior a 500 ms bajo redes locales (LAN) e inferior a 1500 ms bajo conexiones de Internet estándar (con RTT de red < 150 ms).
+
+**PRIORIDAD:** Should
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Medir el tiempo desde la emisión de una operación de edición en el dispositivo A hasta su renderizado en el dispositivo B en condiciones de red controladas.
+
+## RNF-08 — Soberanía y Privacidad Zero-Knowledge
+
+**DESCRIPCIÓN:**  
+El sistema deberá garantizar que los servidores de señalización, rendezvous o relays (STUN/TURN) no almacenen metadatos persistentes de los documentos ni tengan acceso a las claves de descifrado, operando bajo un modelo Zero-Knowledge.
+
+**PRIORIDAD:** Must
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Inspeccionar los logs y memoria de los nodos de señalización/relay para constatar que solo manejan tráfico opaco cifrado y direcciones de transporte sin datos de usuario.
+
+## RNF-09 — Convergencia matemática sin pérdida de datos (CRDT)
+
+**DESCRIPCIÓN:**  
+El sistema deberá garantizar una convergencia del 100 % en el estado final del documento tras cualquier secuencia arbitraria de ediciones offline y reconexiones concurrentes, sin generación de archivos duplicados de conflicto ni pérdida de operaciones.
+
+**PRIORIDAD:** Must
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Ejecutar batería de pruebas de estrés con múltiples ramas concurrentes de edición asíncrona y verificar que tras el intercambio de deltas todos los nodos obtienen exactamente el mismo árbol sintáctico y texto final.
+
+## RNF-10 — Eficiencia de red y compresión de deltas
+
+**DESCRIPCIÓN:**  
+El sistema deberá transmitir únicamente las mutaciones incrementales (deltas u operaciones compactas codificadas en binario) en lugar del documento completo en cada modificación, optimizando el consumo de ancho de banda y batería.
+
+**PRIORIDAD:** Should
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Monitorear el tamaño de carga transmitida por cada pulsación o cambio de párrafo y validar que el tamaño de paquete delta promedio no exceda los 2 KB.

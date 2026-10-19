@@ -635,14 +635,122 @@ El sistema deberá permitir al usuario modificar el contenido de un bloque de c�
 **CRITERIO DE VERIFICACIÓN:**  
 Modificar el contenido de un bloque de código y comprobar que los cambios se conservan.
 
-## RF-53 — Editar documento simultáneamente
+## RF-53 — Editar documento simultáneamente en tiempo real
 
 **DESCRIPCIÓN:**  
-El sistema deberá permitir que múltiples usuarios editen simultáneamente un mismo documento cuando se encuentren conectados al documento compartido para colaborar en la elaboración de la documentación.
+El sistema deberá permitir que múltiples instancias o usuarios editen simultáneamente un mismo documento mediante la red P2P cuando se encuentren conectados al espacio de trabajo compartido.
 
-**PRIORIDAD:** Won't Have (Evolución futura)
+**PRIORIDAD:** Should
 
 **FUENTE:** `Context-necesidad.md`
 
 **CRITERIO DE VERIFICACIÓN:**  
-Conectar dos usuarios al mismo documento, realizar una modificación desde el usuario A y comprobar que el usuario B puede observar dicha modificación.
+Conectar dos dispositivos autorizados al mismo documento, realizar una modificación desde el dispositivo A y comprobar que el dispositivo B refleja dicha modificación de manera reactiva en menos de 1 segundo.
+
+## RF-54 — Generar y gestionar identidad criptográfica del dispositivo
+
+**DESCRIPCIÓN:**  
+El sistema deberá generar de forma automática un par de claves criptográficas asimétricas y un identificador único soberano de dispositivo en la primera ejecución de la aplicación para identificar inequívocamente al nodo dentro del enjambre P2P sin requerir un registro centralizado.
+
+**PRIORIDAD:** Must
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Instalar la aplicación en un equipo nuevo, verificar la generación segura del par de claves en el almacenamiento local seguro y comprobar que el nodo cuenta con un Device ID único verificable.
+
+## RF-55 — Emparejar dispositivos de un mismo usuario
+
+**DESCRIPCIÓN:**  
+El sistema deberá permitir al usuario vincular dos o más de sus dispositivos (ej. laptop y PC de escritorio) mediante la generación y lectura de un código QR o la introducción de una clave segura de emparejamiento de un solo uso para autorizar la sincronización mutua de documentos.
+
+**PRIORIDAD:** Must
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Generar un código QR de vinculación en el dispositivo principal, escanear o ingresar el código en el segundo dispositivo y verificar que ambos dispositivos se reconocen como autorizados y de confianza mutua.
+
+## RF-56 — Descubrir nodos en la red P2P
+
+**DESCRIPCIÓN:**  
+El sistema deberá descubrir automáticamente los dispositivos vinculados tanto en redes locales (LAN vía multicast DNS o broadcast) como a través de Internet (utilizando servidores de señalización/rendezvous ligeros o DHT) estableciendo canales directos cifrados de comunicación.
+
+**PRIORIDAD:** Must
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Conectar dos dispositivos emparejados a diferentes redes de Internet, activar la aplicación en ambos y verificar que se establece una conexión directa peer-to-peer (o relay en caso de NAT simétrico estricto) en menos de 10 segundos.
+
+## RF-57 — Sincronizar documentos de forma incremental en segundo plano
+
+**DESCRIPCIÓN:**  
+El sistema deberá sincronizar automáticamente en segundo plano los cambios efectuados sobre los proyectos y documentos entre los dispositivos emparejados mediante el intercambio de deltas u operaciones compactas sin intervención manual del usuario.
+
+**PRIORIDAD:** Must
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Realizar cambios en un documento en el dispositivo A mientras el dispositivo B está desconectado. Conectar el dispositivo B y comprobar que los cambios pendientes se descargan e integran de forma automática e íntegra.
+
+## RF-58 — Resolver conflictos de concurrencia mediante CRDT
+
+**DESCRIPCIÓN:**  
+El sistema deberá resolver cualquier divergencia producida por ediciones concurrentes u offline en múltiples dispositivos empleando estructuras de datos libres de conflicto (CRDT), garantizando convergencia matemática eventual y preservación de todas las contribuciones sin sobreescrituras destructivas.
+
+**PRIORIDAD:** Must
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Editar concurrentemente el mismo párrafo desde dos dispositivos desconectados, reconectarlos a la red y comprobar que ambos convergen al mismo estado unificado sin errores ni pérdida de texto.
+
+## RF-59 — Compartir documentos con colaboradores externos
+
+**DESCRIPCIÓN:**  
+El sistema deberá permitir generar enlaces o tokens criptográficos de invitación con niveles de permiso configurables (sólo lectura o lectura/escritura) para invitar a otros usuarios a un espacio de trabajo o documento vía P2P.
+
+**PRIORIDAD:** Should
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Generar un enlace de invitación con permiso de sólo lectura, aceptarlo en un tercer dispositivo ajeno al usuario y comprobar que puede visualizar y recibir actualizaciones pero no modificar el documento.
+
+## RF-60 — Visualizar estado de la red y dispositivos conectados
+
+**DESCRIPCIÓN:**  
+El sistema deberá mostrar al usuario un indicador visual del estado de conectividad P2P, listando los dispositivos propios emparejados, su estado de conexión (en línea/desconectado), fecha de última sincronización y colaboradores activos en la sesión actual.
+
+**PRIORIDAD:** Should
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Abrir el panel de sincronización P2P y constatar que se visualiza la lista correcta de dispositivos vinculados con su estado en tiempo real.
+
+## RF-61 — Visualizar presencia y cursores remotos
+
+**DESCRIPCIÓN:**  
+El sistema deberá mostrar en tiempo real la posición del cursor, selecciones activas y el identificador de los dispositivos o colaboradores que se encuentren editando simultáneamente el mismo archivo LaTeX o componente visual.
+
+**PRIORIDAD:** Could
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Abrir el mismo archivo en dos equipos conectados, mover el cursor en el equipo A y verificar que en el equipo B se dibuja el cursor remoto con su respectiva etiqueta de usuario/dispositivo.
+
+## RF-62 — Gestionar y desvincular dispositivos
+
+**DESCRIPCIÓN:**  
+El sistema deberá permitir al usuario revocar la autorización de cualquiera de sus dispositivos emparejados previamente, impidiendo que el dispositivo revocado vuelva a recibir o enviar actualizaciones futuras en la red P2P.
+
+**PRIORIDAD:** Should
+
+**FUENTE:** `Context-necesidad.md`
+
+**CRITERIO DE VERIFICACIÓN:**  
+Revocar un dispositivo secundario desde el dispositivo principal y constatar que el dispositivo revocado deja de recibir sincronizaciones de nuevos cambios.
