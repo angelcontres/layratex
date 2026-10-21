@@ -47,7 +47,7 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 
 | Ticket | Título | Estado | Prioridad | Estimación |
 | :---: | :--- | :---: | :---: | :---: |
-| [TICKET-011](./TICKET-011-motor-compilacion-latex-backend.md) | Comando Tauri backend para compilación LaTeX en Rust (`tectonic` / `pdflatex`) | ⚪ Pendiente | Bloqueante (P1) | 8 SP |
+| [TICKET-011](./TICKET-011-motor-compilacion-latex-backend.md) | Comando Tauri backend para compilación LaTeX en Rust (`tectonic` / `pdflatex`) | 🟢 Cerrado | Bloqueante (P1) | 8 SP |
 | [TICKET-012](./TICKET-012-exportacion-pdf-pipeline.md) | Pipeline de compilación, visor y exportación de PDF con `Ctrl+B` | ⚪ Pendiente | Alta (P1) | 5 SP |
 | [TICKET-013](./TICKET-013-panel-errores-compilacion.md) | Captura y parseo de errores del compilador con salto a la línea afectada | ⚪ Pendiente | Media-Alta (P2) | 5 SP |
 

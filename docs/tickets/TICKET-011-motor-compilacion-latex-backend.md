@@ -1,7 +1,7 @@
 # TICKET-011: Comando Tauri Backend para Compilación LaTeX (Rust)
 
 - **Milestone:** Sprint 2 — Compilación a PDF y Exportación
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Bloqueante (P1)
 - **Tipo:** Core Backend / Rust
 
@@ -18,6 +18,6 @@ Implementar el comando backend en Rust (`compile_latex`) que recibe el código f
 5. Retornar los bytes del PDF en memoria o ruta temporal, junto al status de salida y mensajes de advertencia.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] Invocar el comando con un documento válido produce un PDF compilado en disco temporal sin congelar la interfaz.
-* [ ] Si la máquina no tiene ningún compilador instalado, retorna un mensaje amigable con instrucciones de instalación de TeX Live / MiKTeX / Tectonic.
-* [ ] No se producen fugas de procesos en segundo plano.
+* [x] Invocar el comando con un documento válido produce un PDF compilado en disco temporal sin congelar la interfaz.
+* [x] Si la máquina no tiene ningún compilador instalado, retorna un mensaje amigable con instrucciones de instalación de TeX Live / MiKTeX / Tectonic.
+* [x] No se producen fugas de procesos en segundo plano.
