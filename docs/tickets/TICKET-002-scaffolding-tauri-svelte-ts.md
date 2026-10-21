@@ -1,7 +1,7 @@
 # TICKET-002: Inicialización del Proyecto Tauri 2.0 con Svelte 5, Vite y TypeScript
 
 - **Milestone:** Sprint 0 — Scaffolding y Entorno Base
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Alta (Bloqueante)
 - **Tipo:** Scaffolding
 
@@ -20,6 +20,6 @@ Inicializar el proyecto base de escritorio de Layratex utilizando Tauri 2.0, Vit
 4. Configurar TailwindCSS v4 o v3 con PostCSS para estilos atómicos de alto rendimiento y cero CSS residual.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] El proyecto compila y arranca en modo desarrollo con `npm run tauri dev`.
-* [ ] La ventana nativa de escritorio se abre sin errores en la consola ni advertencias críticas.
-* [ ] Los cambios en componentes Svelte se reflejan con Hot Module Replacement (HMR) instantáneo (< 50 ms).
+* [x] El proyecto compila y arranca en modo desarrollo con `npm run tauri dev`.
+* [x] La ventana nativa de escritorio se abre sin errores en la consola ni advertencias críticas.
+* [x] Los cambios en componentes Svelte se reflejan con Hot Module Replacement (HMR) instantáneo (< 50 ms).

@@ -1,7 +1,7 @@
 # TICKET-001: Configuración del Entorno de Desarrollo (Rust + Tauri en Fedora Linux)
 
 - **Milestone:** Sprint 0 — Scaffolding y Entorno Base
-- **Estado:** 🟡 En progreso
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Alta (Bloqueante)
 - **Tipo:** Tarea de Infraestructura / Spike
 
@@ -18,7 +18,7 @@ Para compilar y ejecutar aplicaciones nativas de escritorio ultra-optimizadas co
      `sudo dnf install -y webkit2gtk4.1-devel openssl-devel curl wget libappindicator-gtk3-devel librsvg2-devel gcc gcc-c++ make`
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] `rustc --version` devuelve una versión estable moderna (>= 1.75).
-* [ ] `cargo --version` está disponible en el `PATH`.
-* [ ] Las librerías de `webkit2gtk4.1` y `openssl` están resueltas sin errores en el sistema.
-* [ ] `cargo create-tauri-app --version` o `npx @tauri-apps/cli --version` se ejecuta correctamente.
+* [x] `rustc --version` devuelve una versión estable moderna (>= 1.75).
+* [x] `cargo --version` está disponible en el `PATH`.
+* [x] Las librerías de `webkit2gtk4.1` y `openssl` están resueltas sin errores en el sistema.
+* [x] `cargo create-tauri-app --version` o `npx @tauri-apps/cli --version` se ejecuta correctamente.
