@@ -1,7 +1,7 @@
 # TICKET-004: Montaje del Editor CodeMirror 6 con Soporte LaTeX
 
 - **Milestone:** Sprint 0 — Scaffolding y Entorno Base
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Alta
 - **Tipo:** Core Feature / Editor
 
@@ -20,7 +20,7 @@ Integrar **CodeMirror 6** dentro de la vista de edición de Svelte. CodeMirror 6
 3. Exponer eventos reactivos de cambio de texto para sincronizar con el pipeline de previsualización sin bloquear la entrada de teclado.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] El editor carga instantáneamente al iniciar la aplicación.
-* [ ] El usuario puede teclear sin ningún retraso perceptible (latencia de tipeo < 16 ms / 60 FPS).
-* [ ] La sintaxis de LaTeX se colorea adecuadamente (comandos, argumentos, matemáticas en línea).
-* [ ] El atajo `Ctrl+Z` / `Ctrl+Y` funciona para deshacer y rehacer cambios locales.
+* [x] El editor carga instantáneamente al iniciar la aplicación.
+* [x] El usuario puede teclear sin ningún retraso perceptible (latencia de tipeo < 16 ms / 60 FPS).
+* [x] La sintaxis de LaTeX se colorea adecuadamente (comandos, argumentos, matemáticas en línea).
+* [x] El atajo `Ctrl+Z` / `Ctrl+Y` funciona para deshacer y rehacer cambios locales.

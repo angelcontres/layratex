@@ -1,7 +1,7 @@
 # TICKET-005: Pipeline de Vista Previa Reactiva Instantánea con KaTeX
 
 - **Milestone:** Sprint 0 — Scaffolding y Entorno Base
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Alta
 - **Tipo:** Core Feature / Preview
 
@@ -19,6 +19,6 @@ Implementar el nivel 1 de renderizado rápido (**RNF-04**): un visor que transfo
 3. Implementar debounce adaptativo (renderizado instantáneo para documentos pequeños, debounce de 80 ms para documentos grandes).
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] Las fórmulas matemáticas complejas (matrices, integrales, fracciones) se dibujan en pantalla con calidad tipográfica y sin parpadeos.
-* [ ] La actualización del visor ocurre en un intervalo inferior a 50 ms tras dejar de teclear.
-* [ ] Si la fórmula contiene un error sintáctico LaTeX, el visor muestra un mensaje amigable o resalta el fragmento en rojo sin crashear la aplicación.
+* [x] Las fórmulas matemáticas complejas (matrices, integrales, fracciones) se dibujan en pantalla con calidad tipográfica y sin parpadeos.
+* [x] La actualización del visor ocurre en un intervalo inferior a 50 ms tras dejar de teclear.
+* [x] Si la fórmula contiene un error sintáctico LaTeX, el visor muestra un mensaje amigable o resalta el fragmento en rojo sin crashear la aplicación.

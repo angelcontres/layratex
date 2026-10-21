@@ -1,7 +1,7 @@
 # TICKET-003: Maquetación del Shell de la Aplicación (UI Base)
 
 - **Milestone:** Sprint 0 — Scaffolding y Entorno Base
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Media
 - **Tipo:** UI / Layout
 
@@ -26,6 +26,6 @@ Diseñar e implementar el cascarón (Shell) visual de la aplicación: una interf
    * Tiempo de renderizado del último frame de preview.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] La interfaz se adapta dinámicamente al tamaño de ventana del usuario sin desbordamientos ni scrollbags no deseados.
-* [ ] El divisor central se puede arrastrar suavemente a 60 FPS sin lag.
-* [ ] La barra de estado muestra indicadores reactivos reales.
+* [x] La interfaz se adapta dinámicamente al tamaño de ventana del usuario sin desbordamientos ni scrollbags no deseados.
+* [x] El divisor central se puede arrastrar suavemente a 60 FPS sin lag.
+* [x] La barra de estado muestra indicadores reactivos reales.
