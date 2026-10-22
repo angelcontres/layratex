@@ -1,10 +1,26 @@
 <script lang="ts">
   import katex from 'katex';
+  import { FileText, Download, ExternalLink, Play } from '@lucide/svelte';
+
+  interface Props {
+    content?: string;
+    pdfBlobUrl?: string | null;
+    previewMode?: 'katex' | 'pdf';
+    onRenderTime?: (ms: number) => void;
+    onExportPdf?: () => void;
+    onOpenNative?: () => void;
+    onTriggerCompile?: () => void;
+  }
 
   let {
     content = '',
-    onRenderTime = (ms: number) => {}
-  } = $props();
+    pdfBlobUrl = null,
+    previewMode = $bindable<'katex' | 'pdf'>('katex'),
+    onRenderTime = () => {},
+    onExportPdf = () => {},
+    onOpenNative = () => {},
+    onTriggerCompile = () => {}
+  }: Props = $props();
 
   let renderedHtml = $state('');
 
@@ -87,20 +103,92 @@
 </script>
 
 <div class="h-full w-full overflow-hidden flex flex-col bg-[#161b22]">
-  <div class="flex items-center justify-between px-4 py-2 border-b border-[#21262d] bg-[#0d1117] text-xs font-mono text-[#8b949e]">
-    <div class="flex items-center gap-2">
-      <span class="w-2 h-2 rounded-full bg-[#58a6ff] animate-pulse"></span>
-      <span class="text-white font-semibold">Live Preview</span>
-      <span class="text-[#3fb950] bg-[#2386361a] px-1.5 py-0.5 rounded text-[10px]">KaTeX Vectorial</span>
+  <!-- Encabezado con Switcher de Vistas (KaTeX / PDF Compilado) -->
+  <div class="flex items-center justify-between px-3 py-1.5 border-b border-[#21262d] bg-[#0d1117] text-xs font-mono text-[#8b949e]">
+    <div class="flex items-center gap-1 bg-[#161b22] p-0.5 rounded border border-[#30363d]">
+      <button 
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors text-[11px] {previewMode === 'katex' ? 'bg-[#1f6feb] text-white font-medium' : 'text-[#8b949e] hover:text-[#c9d1d9]'}"
+        onclick={() => previewMode = 'katex'}
+      >
+        <span class="w-1.5 h-1.5 rounded-full {previewMode === 'katex' ? 'bg-white' : 'bg-[#58a6ff]'}"></span>
+        <span>KaTeX (En Vivo)</span>
+      </button>
+
+      <button 
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded transition-colors text-[11px] {previewMode === 'pdf' ? 'bg-[#238636] text-white font-medium' : 'text-[#8b949e] hover:text-[#c9d1d9]'}"
+        onclick={() => previewMode = 'pdf'}
+      >
+        <FileText size={12} />
+        <span>PDF Compilado</span>
+        {#if pdfBlobUrl}
+          <span class="w-1.5 h-1.5 rounded-full bg-[#3fb950]"></span>
+        {/if}
+      </button>
     </div>
-    <div class="text-[11px] text-[#8b949e]">
-      Actualización en tiempo real (&lt; 10 ms)
-    </div>
+
+    {#if previewMode === 'pdf' && pdfBlobUrl}
+      <div class="flex items-center gap-2">
+        <button 
+          class="flex items-center gap-1 px-2 py-1 rounded bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] hover:text-white text-[11px] transition-colors"
+          onclick={() => onOpenNative()}
+          title="Abrir en el visor predeterminado del sistema"
+        >
+          <ExternalLink size={12} />
+          <span>Visor SO</span>
+        </button>
+
+        <button 
+          class="flex items-center gap-1 px-2 py-1 rounded bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] hover:text-white text-[11px] transition-colors"
+          onclick={() => onExportPdf()}
+          title="Exportar archivo PDF"
+        >
+          <Download size={12} />
+          <span>Exportar</span>
+        </button>
+      </div>
+    {:else}
+      <div class="text-[11px] text-[#8b949e] hidden sm:block">
+        KaTeX Reactivo (&lt; 10 ms)
+      </div>
+    {/if}
   </div>
-  
-  <div class="flex-1 overflow-auto p-8 lg:p-12 bg-[#0d1117]">
-    <div class="max-w-2xl mx-auto bg-[#161b22] border border-[#30363d] rounded-lg shadow-2xl p-8 sm:p-12 text-[#c9d1d9] min-h-[600px]">
-      {@html renderedHtml}
+
+  <!-- Contenido de Vista Previa -->
+  {#if previewMode === 'katex'}
+    <div class="flex-1 overflow-auto p-8 lg:p-12 bg-[#0d1117]">
+      <div class="max-w-2xl mx-auto bg-[#161b22] border border-[#30363d] rounded-lg shadow-2xl p-8 sm:p-12 text-[#c9d1d9] min-h-[600px]">
+        {@html renderedHtml}
+      </div>
     </div>
-  </div>
+  {:else}
+    <!-- Vista Previa de Documento PDF Real -->
+    <div class="flex-1 w-full h-full overflow-hidden bg-[#0d1117] flex flex-col items-center justify-center">
+      {#if pdfBlobUrl}
+        <iframe
+          src={pdfBlobUrl}
+          title="Previsualización PDF Compilado"
+          class="w-full h-full border-0 bg-[#21262d]"
+        ></iframe>
+      {:else}
+        <div class="p-8 text-center max-w-sm space-y-4">
+          <div class="w-14 h-14 mx-auto rounded-full bg-[#161b22] border border-[#30363d] flex items-center justify-center text-[#58a6ff]">
+            <FileText size={28} />
+          </div>
+          <div>
+            <h4 class="text-white font-semibold text-sm">Sin Documento PDF Compilado</h4>
+            <p class="text-xs text-[#8b949e] mt-1 leading-relaxed">
+              El motor LaTeX aún no ha generado el archivo binario PDF para este documento.
+            </p>
+          </div>
+          <button
+            class="px-4 py-2 rounded bg-[#238636] hover:bg-[#2ea043] text-white text-xs font-semibold flex items-center justify-center gap-2 mx-auto transition-colors shadow-sm"
+            onclick={() => onTriggerCompile()}
+          >
+            <Play size={13} />
+            <span>Compilar Ahora (Ctrl+B)</span>
+          </button>
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>

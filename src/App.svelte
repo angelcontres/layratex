@@ -5,6 +5,7 @@
   import LatexEditor from './lib/editor/LatexEditor.svelte';
   import LatexPreview from './lib/preview/LatexPreview.svelte';
   import { fileService, type FileItem } from './lib/services/fileService';
+  import { compilerService } from './lib/services/compilerService';
   import { 
     FileCode, 
     QrCode, 
@@ -18,7 +19,14 @@
     Trash2, 
     Laptop,
     Check,
-    AlertCircle
+    AlertCircle,
+    Loader2,
+    ExternalLink,
+    X,
+    FileCheck,
+    Terminal,
+    Copy,
+    Eye
   } from '@lucide/svelte';
 
   let activeTab = $state<'files' | 'p2p' | 'settings'>('files');
@@ -71,6 +79,30 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   let statusMessageType = $state<'success' | 'error' | 'info'>('info');
   let recentFiles = $state<FileItem[]>([]);
 
+  // Estado de Compilación & Exportación de PDF (Sprint 2: TICKET-012)
+  let isCompiling = $state(false);
+  let compilationTimeMs = $state<number | null>(null);
+  let compilationEngine = $state<string | null>(null);
+  let compilationError = $state(false);
+  let previewMode = $state<'katex' | 'pdf'>('katex');
+  let pdfBlobUrl = $state<string | null>(null);
+  let lastExportedPath = $state<string | null>(null);
+  let lastCompiledPdf = $state<{
+    path: string;
+    name: string;
+    base64: string | null;
+    engine: string;
+    durationMs: number;
+  } | null>(null);
+
+  // Modales de Compilación y Error
+  let showPdfSuccessModal = $state(false);
+  let showErrorModal = $state(false);
+  let errorModalTitle = $state('');
+  let errorModalMessage = $state('');
+  let errorModalDetails = $state('');
+  let copiedError = $state(false);
+
   onMount(() => {
     recentFiles = fileService.getRecentFiles();
 
@@ -88,12 +120,18 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         handleNewDocument();
+      } else if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') || e.key === 'F5') {
+        e.preventDefault();
+        handleCompile();
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
     };
   });
 
@@ -104,7 +142,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       if (statusMessage === msg) {
         statusMessage = null;
       }
-    }, 4000);
+    }, 4500);
   }
 
   function startResize(e: MouseEvent) {
@@ -205,6 +243,13 @@ Escribe tu documentación técnica aquí...
     savedContent = defaultTemplate;
     currentFilePath = null;
     currentFileName = 'sin_titulo.tex';
+    lastCompiledPdf = null;
+    lastExportedPath = null;
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      pdfBlobUrl = null;
+    }
+    previewMode = 'katex';
     showNotification('Nuevo documento creado', 'info');
   }
 
@@ -232,9 +277,126 @@ Escribe tu documentación técnica aquí...
     recentFiles = [];
     showNotification('Historial de recientes limpiado', 'info');
   }
+
+  // --- Pipeline de Compilación y Exportación PDF (Sprint 2: TICKET-012) ---
+
+  async function handleCompile() {
+    if (isCompiling) return;
+
+    isCompiling = true;
+    compilationError = false;
+    showNotification('Compilando documento con motor LaTeX...', 'info');
+
+    try {
+      const output = await compilerService.compileLatex(documentContent, currentFilePath);
+      isCompiling = false;
+
+      compilationTimeMs = output.duration_ms;
+      compilationEngine = output.engine;
+
+      if (output.success && output.pdf_path) {
+        compilationError = false;
+
+        // Generar Blob URL local si disponemos del base64 para previsualización inmediata
+        if (output.pdf_base64) {
+          if (pdfBlobUrl) {
+            URL.revokeObjectURL(pdfBlobUrl);
+          }
+          pdfBlobUrl = compilerService.createPdfBlobUrl(output.pdf_base64);
+        }
+
+        const suggestedName = currentFileName.replace(/\.tex$/i, '') + '.pdf';
+        lastCompiledPdf = {
+          path: output.pdf_path,
+          name: suggestedName,
+          base64: output.pdf_base64,
+          engine: output.engine,
+          durationMs: output.duration_ms
+        };
+
+        showNotification(`Compilado con éxito con ${output.engine} (${output.duration_ms} ms)`, 'success');
+
+        // Abrir diálogo de exportación nativo para guardar el PDF
+        await handleExportPdf(true);
+      } else {
+        compilationError = true;
+        errorModalTitle = 'Error de Compilación LaTeX';
+        errorModalMessage = output.error_message || 'El compilador LaTeX finalizó con errores de compilación.';
+        errorModalDetails = output.stderr || output.log || output.stdout || '';
+        showErrorModal = true;
+        showNotification(`Compilación fallida (${output.duration_ms} ms)`, 'error');
+      }
+    } catch (err: any) {
+      isCompiling = false;
+      compilationError = true;
+      const errMsg = err?.message || String(err);
+
+      if (errMsg.includes('No se encontró ningún compilador') || errMsg.includes('sudo dnf install')) {
+        errorModalTitle = 'Compilador LaTeX no Encontrado';
+        errorModalMessage = 'Para compilar documentos a PDF nativo, se requiere una distribución de LaTeX o Tectonic instalada en el sistema.';
+        errorModalDetails = errMsg;
+      } else {
+        errorModalTitle = 'Fallo en Motor de Compilación';
+        errorModalMessage = errMsg;
+        errorModalDetails = '';
+      }
+
+      showErrorModal = true;
+      showNotification('Error al iniciar la compilación', 'error');
+    }
+  }
+
+  async function handleExportPdf(afterCompilation = false) {
+    if (!lastCompiledPdf) {
+      showNotification('Primero debes compilar el documento (Ctrl+B).', 'info');
+      return;
+    }
+
+    try {
+      const savedPath = await compilerService.exportPdf(
+        lastCompiledPdf.path,
+        lastCompiledPdf.name,
+        lastCompiledPdf.base64
+      );
+
+      if (savedPath) {
+        lastExportedPath = savedPath;
+        showNotification(`PDF exportado correctamente a: ${fileService.getFileName(savedPath)}`, 'success');
+        showPdfSuccessModal = true;
+      } else if (afterCompilation) {
+        // Si el usuario canceló el diálogo de guardado, mostramos el modal para ofrecer abrir en visor o previsualizar
+        showPdfSuccessModal = true;
+      }
+    } catch (err: any) {
+      showNotification(`Error al exportar PDF: ${err?.message || err}`, 'error');
+    }
+  }
+
+  async function handleOpenInSystemViewer() {
+    const targetPath = lastExportedPath || lastCompiledPdf?.path;
+    if (!targetPath) {
+      showNotification('No hay archivo PDF disponible para abrir.', 'error');
+      return;
+    }
+
+    try {
+      await compilerService.openPath(targetPath);
+      showNotification('Abriendo PDF en el visor predeterminado del sistema...', 'info');
+    } catch (err: any) {
+      showNotification(`No se pudo abrir el visor: ${err?.message || err}`, 'error');
+    }
+  }
+
+  function copyErrorDetails() {
+    if (errorModalDetails) {
+      navigator.clipboard.writeText(errorModalDetails);
+      copiedError = true;
+      setTimeout(() => copiedError = false, 2500);
+    }
+  }
 </script>
 
-<div class="h-screen w-screen flex flex-col bg-[#0d1117] text-[#c9d1d9] select-none overflow-hidden">
+<div class="h-screen w-screen flex flex-col bg-[#0d1117] text-[#c9d1d9] select-none overflow-hidden font-sans">
   
   <!-- Barra Superior / Header de Acciones -->
   <header class="h-11 bg-[#161b22] border-b border-[#21262d] px-4 flex items-center justify-between text-xs">
@@ -296,12 +458,32 @@ Escribe tu documentación técnica aquí...
         <span>Guardar</span>
       </button>
 
+      <!-- Botón de Exportar si ya existe compilación -->
+      {#if lastCompiledPdf}
+        <button
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#21262d] hover:bg-[#30363d] text-[#e6edf3] hover:text-white transition-colors text-xs font-medium border border-[#30363d]"
+          onclick={() => showPdfSuccessModal = true}
+          title="Ver o exportar el último PDF compilado"
+        >
+          <Download size={13} class="text-[#58a6ff]" />
+          <span class="hidden md:inline">Exportar PDF</span>
+        </button>
+      {/if}
+
+      <!-- Botón Principal: Compilar PDF (TICKET-012) -->
       <button 
-        class="flex items-center gap-1.5 px-3 py-1 rounded bg-[#238636] hover:bg-[#2ea043] text-white transition-colors text-xs font-semibold shadow-sm"
-        title="Compilación completa a PDF nativo (Sprint 2)"
+        class="flex items-center gap-1.5 px-3.5 py-1 rounded bg-[#238636] hover:bg-[#2ea043] text-white transition-colors text-xs font-semibold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+        onclick={handleCompile}
+        disabled={isCompiling}
+        title="Compilar a PDF con backend nativo (Ctrl+B / F5)"
       >
-        <Play size={13} />
-        <span>Compilar PDF</span>
+        {#if isCompiling}
+          <Loader2 size={13} class="animate-spin" />
+          <span>Compilando...</span>
+        {:else}
+          <Play size={13} />
+          <span>Compilar PDF</span>
+        {/if}
       </button>
     </div>
   </header>
@@ -426,7 +608,7 @@ Escribe tu documentación técnica aquí...
       <div class="w-60 bg-[#0d1117] border-r border-[#21262d] p-4 text-xs">
         <h3 class="font-bold text-white mb-3">Ajustes</h3>
         <p class="text-[#8b949e] text-[11px] leading-relaxed mb-4">
-          Motor LaTeX: <span class="text-[#58a6ff] font-semibold">Tectonic (Embebido)</span>
+          Motor LaTeX: <span class="text-[#58a6ff] font-semibold">{compilationEngine || 'Detección Automática (Tectonic/pdflatex)'}</span>
         </p>
         <p class="text-[#8b949e] text-[11px] leading-relaxed">
           Cifrado P2P: <span class="text-[#3fb950] font-semibold">ChaCha20-Poly1305 (E2EE)</span>
@@ -445,6 +627,7 @@ Escribe tu documentación técnica aquí...
       </div>
 
       <!-- Divisor Arrastrable (Resizer) -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <div 
         class="w-1.5 hover:w-2 bg-[#21262d] hover:bg-[#58a6ff] transition-all cursor-col-resize select-none relative z-20 flex items-center justify-center group"
         onmousedown={startResize}
@@ -455,11 +638,16 @@ Escribe tu documentación técnica aquí...
         <div class="w-0.5 h-6 bg-[#484f58] group-hover:bg-white rounded-full"></div>
       </div>
 
-      <!-- Panel de Previsualización Reactiva KaTeX -->
+      <!-- Panel de Previsualización Reactiva KaTeX y PDF Real -->
       <div class="h-full overflow-hidden flex-1" style="width: {100 - splitRatio}%">
         <LatexPreview 
           content={documentContent}
+          pdfBlobUrl={pdfBlobUrl}
+          bind:previewMode
           onRenderTime={(ms: number) => renderTimeMs = ms}
+          onExportPdf={() => handleExportPdf(false)}
+          onOpenNative={handleOpenInSystemViewer}
+          onTriggerCompile={handleCompile}
         />
       </div>
     </div>
@@ -470,6 +658,141 @@ Escribe tu documentación técnica aquí...
     lines={stats.lines}
     words={stats.words}
     renderTimeMs={renderTimeMs}
+    isCompiling={isCompiling}
+    compilationTimeMs={compilationTimeMs}
+    compilationEngine={compilationEngine}
+    compilationError={compilationError}
     p2pStatus={currentFilePath ? `Local: ${currentFileName}` : 'Sin Guardar (Memoria)'}
   />
+
+  <!-- Modal de Éxito / Exportación de PDF (TICKET-012) -->
+  {#if showPdfSuccessModal && lastCompiledPdf}
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl max-w-md w-full p-6 text-xs text-[#c9d1d9] space-y-4">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-full bg-[#238636]/20 text-[#3fb950] flex items-center justify-center shrink-0">
+              <FileCheck size={18} />
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white">Compilación Completada</h3>
+              <p class="text-[11px] text-[#8b949e]">Generado con {lastCompiledPdf.engine} en {lastCompiledPdf.durationMs} ms</p>
+            </div>
+          </div>
+          <button 
+            class="text-[#8b949e] hover:text-white transition-colors"
+            onclick={() => showPdfSuccessModal = false}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div class="p-3 rounded-lg bg-[#0d1117] border border-[#21262d] space-y-1.5 font-mono text-[11px]">
+          <div class="flex justify-between">
+            <span class="text-[#8b949e]">Archivo:</span>
+            <span class="text-white font-medium">{lastCompiledPdf.name}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[#8b949e]">Motor:</span>
+            <span class="text-[#58a6ff]">{lastCompiledPdf.engine}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[#8b949e]">Tiempo de compilación:</span>
+            <span class="text-[#3fb950]">{lastCompiledPdf.durationMs} ms</span>
+          </div>
+          {#if lastExportedPath}
+            <div class="pt-1 border-t border-[#21262d] flex flex-col gap-0.5">
+              <span class="text-[#8b949e] text-[10px]">Ubicación exportada:</span>
+              <span class="text-white text-[10px] break-all">{lastExportedPath}</span>
+            </div>
+          {/if}
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <button
+            class="w-full py-2.5 px-4 rounded-lg bg-[#1f6feb] hover:bg-[#388bfd] text-white font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm"
+            onclick={handleOpenInSystemViewer}
+          >
+            <ExternalLink size={14} />
+            <span>Abrir en Visor del Sistema</span>
+          </button>
+
+          <button
+            class="w-full py-2 px-4 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white font-medium flex items-center justify-center gap-2 transition-colors"
+            onclick={() => handleExportPdf(false)}
+          >
+            <Download size={14} />
+            <span>{lastExportedPath ? 'Exportar a otra carpeta...' : 'Guardar / Exportar PDF...'}</span>
+          </button>
+
+          <button
+            class="w-full py-1.5 px-4 rounded-lg hover:bg-[#21262d] text-[#8b949e] hover:text-white font-medium flex items-center justify-center gap-1.5 transition-colors"
+            onclick={() => {
+              previewMode = 'pdf';
+              showPdfSuccessModal = false;
+            }}
+          >
+            <Eye size={13} />
+            <span>Ver PDF en Layratex</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Modal de Errores de Compilación o Falta de Compilador -->
+  {#if showErrorModal}
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-[#161b22] border border-[#da3633]/40 rounded-xl shadow-2xl max-w-lg w-full p-6 text-xs text-[#c9d1d9] space-y-4">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-full bg-[#da3633]/20 text-[#f85149] flex items-center justify-center shrink-0">
+              <AlertCircle size={18} />
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white">{errorModalTitle}</h3>
+              <p class="text-[11px] text-[#8b949e]">{errorModalMessage}</p>
+            </div>
+          </div>
+          <button 
+            class="text-[#8b949e] hover:text-white transition-colors"
+            onclick={() => showErrorModal = false}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {#if errorModalDetails}
+          <div class="relative">
+            <div class="p-3 rounded-lg bg-[#0d1117] border border-[#30363d] font-mono text-[10.5px] max-h-56 overflow-y-auto whitespace-pre-wrap text-[#e6edf3] leading-relaxed">
+              {errorModalDetails}
+            </div>
+            <button
+              class="absolute top-2 right-2 p-1.5 rounded bg-[#21262d] hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-colors flex items-center gap-1 text-[10px]"
+              onclick={copyErrorDetails}
+              title="Copiar contenido"
+            >
+              {#if copiedError}
+                <Check size={11} class="text-[#3fb950]" />
+                <span class="text-[#3fb950]">Copiado</span>
+              {:else}
+                <Copy size={11} />
+                <span>Copiar</span>
+              {/if}
+            </button>
+          </div>
+        {/if}
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button
+            class="px-4 py-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white font-medium transition-colors"
+            onclick={() => showErrorModal = false}
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
 </div>
