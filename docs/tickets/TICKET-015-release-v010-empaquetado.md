@@ -1,7 +1,7 @@
 # TICKET-015: Release Inicial v0.1.0 y Documentación de Instalación
 
 - **Milestone:** Sprint 3 — Empaquetado y Distribución
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Alta (P1)
 - **Tipo:** Release / Documentation
 
@@ -21,5 +21,5 @@ Preparar el lanzamiento público `v0.1.0` de Layratex con metadatos actualizados
 4. Crear la etiqueta git `v0.1.0`.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] El repositorio cuenta con el tag oficial `v0.1.0`.
-* [ ] La documentación en `README.md` explica en menos de 3 pasos cómo instalar y ejecutar la aplicación en cualquier sistema operativo.
+* [x] El repositorio cuenta con el tag oficial `v0.1.0`.
+* [x] La documentación en `README.md` explica en menos de 3 pasos cómo instalar y ejecutar la aplicación en cualquier sistema operativo.
