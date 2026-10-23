@@ -76,6 +76,7 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 | [TICKET-019](./TICKET-019-generador-visual-tablas-interactivas.md) | Generador y Constructor Asistido de Tablas Interactivas | 🟢 Cerrado | Media-Alta (P2) | 5 SP |
 | [TICKET-020](./TICKET-020-auto-guardado-documento-bienvenida.md) | Motor de Auto-Guardado Inteligente y Documento de Bienvenida | 🟢 Cerrado | Alta (P1) | 3 SP |
 | [TICKET-021](./TICKET-021-editor-visual-hoja-a4-conversor-latex.md) | Hoja A4 Física ("PaperCraft") y Conversor Bidireccional HTML $\leftrightarrow$ LaTeX | 🟢 Cerrado | Bloqueante (P1) | 8 SP |
+| [TICKET-026](./TICKET-026-motor-autonomo-exportacion-pdf-zero-dependency.md) | Motor Autónomo de Generación y Exportación PDF (Zero LaTeX Dependency) | 🟢 Cerrado | Bloqueante (P1) | 8 SP |
 
 ---
 

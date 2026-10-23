@@ -284,6 +284,15 @@
     showMathModal = true;
   }
 
+  export function getPrintPages(): HTMLElement[] {
+    const target = document.querySelectorAll<HTMLElement>('#layratex-pdf-render-target [data-paper-page]');
+    if (target.length > 0) {
+      return Array.from(target);
+    }
+    const currentView = document.querySelectorAll<HTMLElement>('[data-paper-page]');
+    return Array.from(currentView);
+  }
+
   function handleInsertFormula(newTex: string) {
     const formulaBlock = `\n$$\n${newTex}\n$$\n`;
     content += formulaBlock;
@@ -403,6 +412,7 @@
     <div class="flex flex-col items-center gap-10 w-full pb-16">
       {#each pages as page, pageIndex}
         <div 
+          data-paper-page={pageIndex}
           class="w-full max-w-[820px] min-h-[1154px] rounded-[3px] {activeTheme.sheetClass} px-16 py-20 flex flex-col relative transition-all duration-200"
         >
           <!-- Marcas de Corte en las 4 Esquinas (Crop Marks de Imprenta Profesional) -->
@@ -588,6 +598,87 @@
 
   {/if}
 
+</div>
+
+<!-- Contenedor Oficial Autónomo para Exportación a PDF (Fondo blanco editorial puro y alta definición) -->
+<div id="layratex-pdf-render-target" class="fixed -left-[9999px] top-0 pointer-events-none opacity-0 select-none" aria-hidden="true">
+  {#each pages as page, pageIndex}
+    <div 
+      data-paper-page={pageIndex}
+      class="w-[820px] min-h-[1154px] bg-white text-slate-900 px-16 py-20 flex flex-col relative"
+      style="font-family: {fontStyle === 'serif' ? 'serif' : 'sans-serif'};"
+    >
+      <!-- Running Header Superior -->
+      <div class="flex items-center justify-between text-[11px] text-slate-400 uppercase tracking-widest font-mono pb-4 mb-8 border-b border-slate-200">
+        <span class="truncate max-w-sm">{title || 'Documento Técnico'}</span>
+        <span>Hoja {page.pageNumber} de {pages.length}</span>
+      </div>
+
+      {#if pageIndex === 0}
+        <div class="mb-10 text-center space-y-2 border-b border-slate-200 pb-8">
+          <h1 class="text-3xl font-bold text-slate-900 tracking-tight">{title || 'Documento Sin Título'}</h1>
+          <div class="text-xs text-slate-500 flex items-center justify-center gap-2 pt-1">
+            <span>{author || 'Autor'}</span>
+            <span>•</span>
+            <span>{new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          </div>
+        </div>
+      {/if}
+
+      <div class="space-y-5 text-slate-800 text-[15px] leading-[1.85] flex-1">
+        {#each page.blocks as b}
+          {#if b.type === 'h1'}
+            <h2 class="text-xl font-bold pt-5 pb-1 tracking-tight border-b border-slate-200 text-slate-900">{b.content}</h2>
+          {:else if b.type === 'h2'}
+            <h3 class="text-lg font-semibold pt-3 pb-0.5 tracking-tight text-slate-900">{b.content}</h3>
+          {:else if b.type === 'h3'}
+            <h4 class="text-base font-medium pt-2 text-slate-900">{b.content}</h4>
+          {:else if b.type === 'callout'}
+            <div class="p-4 rounded-xl bg-slate-50 border-l-4 border-indigo-500 text-slate-700 text-sm my-3 italic">
+              {@html renderInlineMath(b.content)}
+            </div>
+          {:else if b.type === 'math'}
+            <div class="my-5 py-3 text-center text-lg">
+              {@html renderKaTeXBlock(b.content)}
+            </div>
+          {:else if b.type === 'table' && b.tableData}
+            <div class="my-6 overflow-x-auto rounded-xl border border-slate-200">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-slate-50 font-semibold text-slate-900">
+                  <tr>
+                    {#each b.tableData.headers as h}
+                      <th class="p-3 border-b border-slate-200">{@html renderInlineMath(h)}</th>
+                    {/each}
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each b.tableData.rows as row, rIdx}
+                    <tr class="{rIdx % 2 === 1 ? 'bg-slate-50/50' : ''}">
+                      {#each row as cell}
+                        <td class="p-3 border-b border-slate-200 border-dashed text-slate-700">{@html renderInlineMath(cell)}</td>
+                      {/each}
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          {:else if b.type === 'list'}
+            <li class="ml-6 list-disc text-slate-800">{@html renderInlineMath(b.content)}</li>
+          {:else if b.type === 'divider'}
+            <hr class="border-t border-slate-200 my-6" />
+          {:else}
+            <p class="leading-[1.85] text-justify text-slate-800">{@html renderInlineMath(b.content)}</p>
+          {/if}
+        {/each}
+      </div>
+
+      <div class="pt-10 text-center text-xs text-slate-400 border-t border-slate-200 mt-auto flex items-center justify-between">
+        <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
+        <span class="font-bold tracking-wider">— {page.pageNumber} —</span>
+        <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
+      </div>
+    </div>
+  {/each}
 </div>
 
 <!-- Menú Slash Flotante con Posicionamiento Inteligente -->

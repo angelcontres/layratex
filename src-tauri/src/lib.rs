@@ -81,6 +81,57 @@ pub fn export_pdf_internal(source_path: &str, target_path: &str) -> Result<Strin
     Ok(dest.to_string_lossy().to_string())
 }
 
+pub fn save_pdf_bytes_internal(pdf_base64: &str, target_path: &str) -> Result<String, String> {
+    let mut dest = std::path::PathBuf::from(target_path);
+    let is_pdf = dest
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.eq_ignore_ascii_case("pdf"))
+        .unwrap_or(false);
+
+    if !is_pdf {
+        dest.set_extension("pdf");
+    }
+
+    if let Some(parent) = dest.parent() {
+        if !parent.as_os_str().is_empty() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+    }
+
+    let bytes = compiler::decode_base64(pdf_base64)
+        .ok_or_else(|| "Error al decodificar contenido base64 del PDF".to_string())?;
+
+    std::fs::write(&dest, bytes)
+        .map_err(|e| format!("Error al escribir el archivo PDF en disco: {}", e))?;
+
+    Ok(dest.to_string_lossy().to_string())
+}
+
+pub fn create_temp_pdf_internal(pdf_base64: &str, filename: Option<String>) -> Result<String, String> {
+    let bytes = compiler::decode_base64(pdf_base64)
+        .ok_or_else(|| "Error al decodificar contenido base64".to_string())?;
+
+    let name = filename.unwrap_or_else(|| "documento.pdf".to_string());
+    let clean_name = if name.to_lowercase().ends_with(".pdf") {
+        name
+    } else {
+        format!("{}.pdf", name)
+    };
+
+    let temp_dir = std::env::temp_dir();
+    let epoch = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let file_path = temp_dir.join(format!("layratex_{}_{}_{}", std::process::id(), epoch, clean_name));
+
+    std::fs::write(&file_path, bytes)
+        .map_err(|e| format!("Error al escribir archivo temporal: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     open_path_internal(&path)
@@ -89,6 +140,16 @@ fn open_path(path: String) -> Result<(), String> {
 #[tauri::command]
 fn export_pdf(source_path: String, target_path: String) -> Result<String, String> {
     export_pdf_internal(&source_path, &target_path)
+}
+
+#[tauri::command]
+fn save_pdf_bytes(pdf_base64: String, target_path: String) -> Result<String, String> {
+    save_pdf_bytes_internal(&pdf_base64, &target_path)
+}
+
+#[tauri::command]
+fn create_temp_pdf_from_bytes(pdf_base64: String, filename: Option<String>) -> Result<String, String> {
+    create_temp_pdf_internal(&pdf_base64, filename)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -100,7 +161,9 @@ pub fn run() {
             compile_latex,
             get_latex_compilers,
             open_path,
-            export_pdf
+            export_pdf,
+            save_pdf_bytes,
+            create_temp_pdf_from_bytes
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -165,5 +228,34 @@ mod tests {
 
         let _ = fs::remove_file(&src_path);
         let _ = fs::remove_file(&final_dest);
+    }
+
+    #[test]
+    fn test_save_pdf_bytes_and_temp_pdf() {
+        let pdf_data = b"%PDF-1.4 test autonomous layratex";
+        let b64 = compiler::encode_base64(pdf_data);
+
+        // Test 1: Crear archivo temporal
+        let temp_result = create_temp_pdf_internal(&b64, Some("test_auto.pdf".to_string()));
+        assert!(temp_result.is_ok());
+        let temp_path = temp_result.unwrap();
+        assert!(std::path::Path::new(&temp_path).exists());
+        let read_bytes = fs::read(&temp_path).unwrap();
+        assert_eq!(read_bytes, pdf_data);
+
+        // Test 2: Guardar PDF bytes en destino
+        let epoch = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let target_dest = std::env::temp_dir().join(format!("test_save_{}.pdf", epoch));
+        let save_result = save_pdf_bytes_internal(&b64, &target_dest.to_string_lossy());
+        assert!(save_result.is_ok());
+        let saved_path = save_result.unwrap();
+        assert!(std::path::Path::new(&saved_path).exists());
+        assert_eq!(fs::read(&saved_path).unwrap(), pdf_data);
+
+        let _ = fs::remove_file(&temp_path);
+        let _ = fs::remove_file(&saved_path);
     }
 }

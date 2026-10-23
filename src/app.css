@@ -86,3 +86,32 @@ html, body {
 .katex-display {
   margin: 0.8em 0 !important;
 }
+
+/* Reglas de Impresión Editorial de Alta Definición (Guardar como PDF Vectorial del Sistema) */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+  html, body {
+    background: white !important;
+    color: black !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  header, aside, button, nav, .status-bar, [role="dialog"], .no-print {
+    display: none !important;
+  }
+  [data-paper-page] {
+    page-break-after: always;
+    break-after: page;
+    box-shadow: none !important;
+    border: none !important;
+    background: white !important;
+    color: black !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 0 20mm 0 !important;
+  }
+}
