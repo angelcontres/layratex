@@ -5,6 +5,9 @@
   import LatexEditor from './lib/editor/LatexEditor.svelte';
   import LatexPreview from './lib/preview/LatexPreview.svelte';
   import ErrorPanel from './lib/ui/ErrorPanel.svelte';
+  import PaperEditor from './lib/visual/PaperEditor.svelte';
+  import { TEMPLATE_PRESETS, type DocumentTemplate } from './lib/visual/templatePresets';
+  import { visualToLatex, latexToVisual } from './lib/visual/latexConverter';
   import { fileService, type FileItem } from './lib/services/fileService';
   import { compilerService } from './lib/services/compilerService';
   import { parseLatexLog, type LogIssue } from './lib/services/latexLogParser';
@@ -28,8 +31,24 @@
     FileCheck,
     Terminal,
     Copy,
-    Eye
+    Eye,
+    ChevronDown,
+    FileText,
+    Code2,
+    Sparkles
   } from '@lucide/svelte';
+
+  // Modo de visualización: 'visual' (Notion-like PaperCraft) por defecto para usuarios cotidianos
+  let editorViewMode = $state<'visual' | 'code'>('visual');
+  let selectedTemplateId = $state<string>('school_homework');
+  let selectedFormatStyle = $state<string>('APA 7 (Estándar)');
+  let selectedFont = $state<'serif' | 'sans'>('serif');
+  let documentTitle = $state<string>(TEMPLATE_PRESETS[0].defaultTitle);
+  let visualContent = $state<string>(TEMPLATE_PRESETS[0].initialContent);
+  let visualStats = $state({ words: 0, pages: 1 });
+  let showTemplateDropdown = $state(false);
+  let showFormatDropdown = $state(false);
+  let showFontDropdown = $state(false);
 
   let activeTab = $state<'files' | 'p2p' | 'settings'>('files');
   let splitRatio = $state(50); // Porcentaje de ancho del editor
@@ -178,6 +197,44 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
   // --- Operaciones de Archivo (Sprint 1: TICKET-007, 008, 009, 010) ---
 
+  function switchViewMode(newMode: 'visual' | 'code') {
+    if (newMode === editorViewMode) return;
+
+    if (newMode === 'code') {
+      // Sincronizar de visual a LaTeX
+      documentContent = visualToLatex(visualContent, {
+        title: documentTitle,
+        author: 'Usuario',
+        fontStyle: selectedFont
+      });
+    } else {
+      // Sincronizar de LaTeX a visual
+      visualContent = latexToVisual(documentContent);
+      const titleMatch = documentContent.match(/\\title\{([^}]+)\}/);
+      if (titleMatch) {
+        documentTitle = titleMatch[1];
+      }
+    }
+
+    editorViewMode = newMode;
+  }
+
+  function selectTemplate(templateId: string) {
+    const tpl = TEMPLATE_PRESETS.find(t => t.id === templateId);
+    if (!tpl) return;
+
+    selectedTemplateId = templateId;
+    documentTitle = tpl.defaultTitle;
+    visualContent = tpl.initialContent;
+    documentContent = visualToLatex(visualContent, {
+      title: documentTitle,
+      author: 'Usuario',
+      fontStyle: selectedFont
+    });
+    showTemplateDropdown = false;
+    showNotification(`Plantilla aplicada: ${tpl.name}`, 'success');
+  }
+
   async function handleOpen() {
     if (isDirty) {
       const confirmDiscard = window.confirm('Tienes cambios sin guardar en este documento. ¿Deseas descartarlos y abrir otro archivo?');
@@ -190,6 +247,11 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       documentContent = res.content;
       savedContent = res.content;
+      visualContent = latexToVisual(res.content);
+      const titleMatch = res.content.match(/\\title\{([^}]+)\}/);
+      if (titleMatch) {
+        documentTitle = titleMatch[1];
+      }
       currentFilePath = res.path;
       currentFileName = res.name;
       recentFiles = fileService.getRecentFiles();
@@ -200,6 +262,14 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   }
 
   async function handleSave() {
+    if (editorViewMode === 'visual') {
+      documentContent = visualToLatex(visualContent, {
+        title: documentTitle,
+        author: 'Usuario',
+        fontStyle: selectedFont
+      });
+    }
+
     try {
       const res = await fileService.saveTexFile(currentFilePath, documentContent);
       if (!res) return;
@@ -215,6 +285,14 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   }
 
   async function handleSaveAs() {
+    if (editorViewMode === 'visual') {
+      documentContent = visualToLatex(visualContent, {
+        title: documentTitle,
+        author: 'Usuario',
+        fontStyle: selectedFont
+      });
+    }
+
     try {
       const res = await fileService.saveTexFileAs(documentContent, currentFileName);
       if (!res) return;
@@ -235,23 +313,18 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       if (!confirmDiscard) return;
     }
 
-    const defaultTemplate = `\\documentclass{article}
-\\title{Nuevo Documento Layratex}
-\\author{Autor}
-\\date{\\today}
-
-\\begin{document}
-\\maketitle
-
-\\section{Inicio}
-Escribe tu documentación técnica aquí...
-
-\\end{document}`;
-
-    documentContent = defaultTemplate;
-    savedContent = defaultTemplate;
+    const tpl = TEMPLATE_PRESETS[0];
+    selectedTemplateId = tpl.id;
+    documentTitle = tpl.defaultTitle;
+    visualContent = tpl.initialContent;
+    documentContent = visualToLatex(visualContent, {
+      title: documentTitle,
+      author: 'Usuario',
+      fontStyle: selectedFont
+    });
+    savedContent = documentContent;
     currentFilePath = null;
-    currentFileName = 'sin_titulo.tex';
+    currentFileName = 'tarea_escolar.tex';
     lastCompiledPdf = null;
     lastExportedPath = null;
     compilationIssues = [];
@@ -274,6 +347,11 @@ Escribe tu documentación técnica aquí...
       const content = await fileService.readFileFromPath(path);
       documentContent = content;
       savedContent = content;
+      visualContent = latexToVisual(content);
+      const titleMatch = content.match(/\\title\{([^}]+)\}/);
+      if (titleMatch) {
+        documentTitle = titleMatch[1];
+      }
       currentFilePath = path;
       currentFileName = fileService.getFileName(path);
       recentFiles = fileService.getRecentFiles();
@@ -294,9 +372,17 @@ Escribe tu documentación técnica aquí...
   async function handleCompile() {
     if (isCompiling) return;
 
+    if (editorViewMode === 'visual') {
+      documentContent = visualToLatex(visualContent, {
+        title: documentTitle,
+        author: 'Usuario',
+        fontStyle: selectedFont
+      });
+    }
+
     isCompiling = true;
     compilationError = false;
-    showNotification('Compilando documento con motor LaTeX...', 'info');
+    showNotification('Generando PDF de alta calidad con motor LaTeX...', 'info');
 
     try {
       const output = await compilerService.compileLatex(documentContent, currentFilePath);
@@ -432,93 +518,197 @@ Escribe tu documentación técnica aquí...
 
 <div class="h-screen w-screen flex flex-col bg-[#0d1117] text-[#c9d1d9] select-none overflow-hidden font-sans">
   
-  <!-- Barra Superior / Header de Acciones -->
-  <header class="h-11 bg-[#161b22] border-b border-[#21262d] px-4 flex items-center justify-between text-xs">
-    <div class="flex items-center gap-3">
-      <div class="flex items-center gap-2">
-        <span class="font-bold text-white tracking-wide text-sm flex items-center gap-1.5">
-          <span class="text-[#58a6ff]">λ</span> Layratex
-        </span>
-        <span class="text-[10px] bg-[#21262d] text-[#8b949e] px-1.5 py-0.5 rounded font-mono">v0.1.0-alpha</span>
+  <!-- Barra Superior / Header de Acciones (Wireframe PaperCraft) -->
+  <header class="bg-[#12161f] border-b border-[#21262d] px-4 py-2 flex flex-col gap-2 select-none shadow-sm z-30">
+    <!-- Fila 1: Documento, Guardado, Selector de Vista y Exportar PDF -->
+    <div class="flex items-center justify-between text-xs gap-3">
+      <div class="flex items-center gap-3 flex-1 min-w-0">
+        <!-- Botón Mis Documentos -->
+        <button 
+          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] text-white transition-all font-medium shrink-0 cursor-pointer"
+          onclick={() => activeTab = 'files'}
+          title="Abrir explorador de documentos locales"
+        >
+          <FileText size={14} class="text-indigo-400" />
+          <span class="font-semibold">Mis Documentos</span>
+        </button>
+
+        <!-- Título Editable del Documento -->
+        <div class="flex items-center gap-2 flex-1 max-w-md min-w-0">
+          <input 
+            type="text"
+            bind:value={documentTitle}
+            class="bg-transparent hover:bg-white/5 focus:bg-[#0d1117] px-2 py-1 rounded-md text-white font-medium text-xs border border-transparent focus:border-indigo-500 outline-hidden w-full truncate transition-all"
+            title="Editar título del documento"
+            placeholder="Título del documento..."
+          />
+        </div>
+
+        <!-- Indicador de Estado de Guardado -->
+        <div class="flex items-center gap-1.5 text-[11px] shrink-0 font-medium">
+          {#if isDirty}
+            <span class="flex items-center gap-1 text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>Cambios sin guardar</span>
+            </span>
+          {:else}
+            <span class="flex items-center gap-1 text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/30">
+              <Check size={11} />
+              <span>Guardado ✓</span>
+            </span>
+          {/if}
+        </div>
       </div>
-      <span class="text-[#30363d]">/</span>
-      
-      <!-- Nombre de Archivo & Estado Sucio (Dirty indicator) -->
-      <div class="flex items-center gap-1.5 font-mono text-[#e6edf3]" title={currentFilePath || 'Sin guardar en disco'}>
-        {#if isDirty}
-          <span class="w-2 h-2 rounded-full bg-[#f0883e]" title="Cambios sin guardar (Ctrl+S para guardar)"></span>
+
+      <!-- Lado Derecho: Toggle Visual/Código + Botón Exportar PDF -->
+      <div class="flex items-center gap-2 shrink-0">
+        {#if statusMessage}
+          <div class="text-[11px] font-mono px-2 py-0.5 rounded flex items-center gap-1.5 transition-all {statusMessageType === 'success' ? 'bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40' : statusMessageType === 'error' ? 'bg-[#da3633]/20 text-[#f85149] border border-[#da3633]/40' : 'bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40'}">
+            {#if statusMessageType === 'success'}
+              <Check size={12} />
+            {:else if statusMessageType === 'error'}
+              <AlertCircle size={12} />
+            {/if}
+            <span>{statusMessage}</span>
+          </div>
         {/if}
-        <span>{currentFileName}</span>
+
+        <!-- Switch de Modo: Visual (Notion) vs Código (LaTeX) -->
+        <div class="flex items-center p-0.5 bg-[#0d1117] rounded-lg border border-[#21262d]">
+          <button 
+            class="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all {editorViewMode === 'visual' ? 'bg-indigo-600 text-white shadow-xs' : 'text-[#8b949e] hover:text-white'}"
+            onclick={() => switchViewMode('visual')}
+            title="Modo visual amigable tipo Notion (sin código)"
+          >
+            <FileText size={12} />
+            <span>Documento (Visual)</span>
+          </button>
+          <button 
+            class="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all {editorViewMode === 'code' ? 'bg-[#21262d] text-white shadow-xs' : 'text-[#8b949e] hover:text-white'}"
+            onclick={() => switchViewMode('code')}
+            title="Modo avanzado para inspeccionar o editar código LaTeX puro"
+          >
+            <Code2 size={12} />
+            <span>Ver LaTeX</span>
+          </button>
+        </div>
+
+        <button 
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#161b22] hover:bg-[#21262d] border border-[#30363d] text-white transition-colors text-xs font-medium cursor-pointer"
+          onclick={handleSave}
+          title="Guardar archivo .tex (Ctrl+S)"
+        >
+          <Save size={13} />
+          <span>Guardar</span>
+        </button>
+
+        <!-- Botón Principal: Exportar PDF Limpio -->
+        <button 
+          class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold text-xs shadow-md transition-all cursor-pointer disabled:opacity-60"
+          onclick={handleCompile}
+          disabled={isCompiling}
+          title="Compilar y exportar documento PDF con 1 clic"
+        >
+          {#if isCompiling}
+            <Loader2 size={13} class="animate-spin" />
+            <span>Generando PDF...</span>
+          {:else}
+            <Download size={13} />
+            <span>⬇ Exportar PDF</span>
+          {/if}
+        </button>
       </div>
     </div>
 
-    <!-- Acciones Rápidas de Archivo y Compilación -->
-    <div class="flex items-center gap-2">
-      {#if statusMessage}
-        <div class="text-[11px] font-mono px-2 py-0.5 rounded flex items-center gap-1.5 transition-all {statusMessageType === 'success' ? 'bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40' : statusMessageType === 'error' ? 'bg-[#da3633]/20 text-[#f85149] border border-[#da3633]/40' : 'bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40'}">
-          {#if statusMessageType === 'success'}
-            <Check size={12} />
-          {:else if statusMessageType === 'error'}
-            <AlertCircle size={12} />
+    <!-- Fila 2: Selectores Rápidos de Plantilla, Estilo y Fuente -->
+    <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#21262d]/60 text-[#8b949e]">
+      <div class="flex items-center gap-2">
+        <!-- Selector de Plantilla -->
+        <div class="relative">
+          <button 
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0d1117] hover:bg-[#161b22] border border-[#21262d] text-white transition-colors cursor-pointer"
+            onclick={() => showTemplateDropdown = !showTemplateDropdown}
+          >
+            <span class="text-[#8b949e]">Plantilla:</span>
+            <span class="text-indigo-400 font-semibold">{TEMPLATE_PRESETS.find(t => t.id === selectedTemplateId)?.name || 'Tarea Escolar'}</span>
+            <ChevronDown size={11} />
+          </button>
+
+          {#if showTemplateDropdown}
+            <div class="absolute left-0 top-full mt-1 w-64 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl p-1.5 z-50 space-y-0.5">
+              {#each TEMPLATE_PRESETS as t}
+                <button
+                  class="w-full text-left p-2 rounded-lg hover:bg-[#21262d] transition-colors cursor-pointer {selectedTemplateId === t.id ? 'bg-indigo-500/10 text-indigo-400' : 'text-[#c9d1d9]'}"
+                  onclick={() => selectTemplate(t.id)}
+                >
+                  <div class="font-semibold text-xs">{t.name}</div>
+                  <div class="text-[10px] text-[#8b949e]">{t.description}</div>
+                </button>
+              {/each}
+            </div>
           {/if}
-          <span>{statusMessage}</span>
         </div>
-      {/if}
 
-      <button 
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#21262d] hover:bg-[#30363d] text-white transition-colors text-xs font-medium"
-        onclick={handleNewDocument}
-        title="Nuevo documento LaTeX (Ctrl+N)"
-      >
-        <Plus size={13} />
-        <span class="hidden sm:inline">Nuevo</span>
-      </button>
+        <!-- Selector de Formato / Estilo -->
+        <div class="relative">
+          <button 
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0d1117] hover:bg-[#161b22] border border-[#21262d] text-white transition-colors cursor-pointer"
+            onclick={() => showFormatDropdown = !showFormatDropdown}
+          >
+            <span class="text-[#8b949e]">Estilo:</span>
+            <span class="text-white font-medium">{selectedFormatStyle}</span>
+            <ChevronDown size={11} />
+          </button>
 
-      <button 
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#21262d] hover:bg-[#30363d] text-white transition-colors text-xs font-medium"
-        onclick={handleOpen}
-        title="Abrir archivo .tex local (Ctrl+O)"
-      >
-        <FolderOpen size={13} />
-        <span class="hidden sm:inline">Abrir</span>
-      </button>
+          {#if showFormatDropdown}
+            <div class="absolute left-0 top-full mt-1 w-44 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl p-1.5 z-50 space-y-0.5">
+              {#each ['APA 7 (Estándar)', 'IEEE Académico', 'Moderno Minimalista', 'Formal Institucional'] as f}
+                <button
+                  class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#21262d] transition-colors text-xs cursor-pointer {selectedFormatStyle === f ? 'bg-indigo-500/10 text-indigo-400 font-semibold' : 'text-[#c9d1d9]'}"
+                  onclick={() => { selectedFormatStyle = f; showFormatDropdown = false; }}
+                >
+                  {f}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
 
-      <button 
-        class="flex items-center gap-1.5 px-3 py-1 rounded transition-colors text-xs font-medium {isDirty ? 'bg-[#1f6feb] hover:bg-[#388bfd] text-white shadow-sm' : 'bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9]'}"
-        onclick={handleSave}
-        title="Guardar archivo en disco (Ctrl+S)"
-      >
-        <Save size={13} />
-        <span>Guardar</span>
-      </button>
+        <!-- Selector de Fuente Tipográfica -->
+        <div class="relative">
+          <button 
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0d1117] hover:bg-[#161b22] border border-[#21262d] text-white transition-colors cursor-pointer"
+            onclick={() => showFontDropdown = !showFontDropdown}
+          >
+            <span class="text-[#8b949e]">Fuente:</span>
+            <span class="text-white font-medium">{selectedFont === 'serif' ? 'Serif Clásica (LaTeX)' : 'Sans Moderna (Limpia)'}</span>
+            <ChevronDown size={11} />
+          </button>
 
-      <!-- Botón de Exportar si ya existe compilación -->
-      {#if lastCompiledPdf}
-        <button
-          class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#21262d] hover:bg-[#30363d] text-[#e6edf3] hover:text-white transition-colors text-xs font-medium border border-[#30363d]"
-          onclick={() => showPdfSuccessModal = true}
-          title="Ver o exportar el último PDF compilado"
-        >
-          <Download size={13} class="text-[#58a6ff]" />
-          <span class="hidden md:inline">Exportar PDF</span>
-        </button>
-      {/if}
+          {#if showFontDropdown}
+            <div class="absolute left-0 top-full mt-1 w-48 bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl p-1.5 z-50 space-y-0.5">
+              <button
+                class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#21262d] transition-colors text-xs cursor-pointer {selectedFont === 'serif' ? 'bg-indigo-500/10 text-indigo-400 font-semibold' : 'text-[#c9d1d9]'}"
+                onclick={() => { selectedFont = 'serif'; showFontDropdown = false; }}
+              >
+                Serif Clásica (LaTeX Tradicional)
+              </button>
+              <button
+                class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#21262d] transition-colors text-xs cursor-pointer {selectedFont === 'sans' ? 'bg-indigo-500/10 text-indigo-400 font-semibold' : 'text-[#c9d1d9]'}"
+                onclick={() => { selectedFont = 'sans'; showFontDropdown = false; }}
+              >
+                Sans Moderna (Sin Serifas)
+              </button>
+            </div>
+          {/if}
+        </div>
+      </div>
 
-      <!-- Botón Principal: Compilar PDF (TICKET-012) -->
-      <button 
-        class="flex items-center gap-1.5 px-3.5 py-1 rounded bg-[#238636] hover:bg-[#2ea043] text-white transition-colors text-xs font-semibold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-        onclick={handleCompile}
-        disabled={isCompiling}
-        title="Compilar a PDF con backend nativo (Ctrl+B / F5)"
-      >
-        {#if isCompiling}
-          <Loader2 size={13} class="animate-spin" />
-          <span>Compilando...</span>
-        {:else}
-          <Play size={13} />
-          <span>Compilar PDF</span>
-        {/if}
-      </button>
+      <div class="flex items-center gap-4 text-[11px] font-mono">
+        <span>Palabras: <strong class="text-white">{visualStats.words}</strong></span>
+        <span>Páginas estimadas: <strong class="text-white">~{visualStats.pages}</strong></span>
+        <span>Corrector: <strong class="text-white">Español</strong></span>
+      </div>
     </div>
   </header>
 
@@ -650,42 +840,53 @@ Escribe tu documentación técnica aquí...
       </div>
     {/if}
 
-    <!-- Área de Trabajo Dividida (Split View) -->
-    <div class="flex-1 flex overflow-hidden relative">
-      <!-- Panel de Edición de Código -->
-      <div class="h-full overflow-hidden" style="width: {splitRatio}%">
-        <LatexEditor 
-          bind:this={editorRef}
-          bind:content={documentContent}
-          onStatsChange={(newStats: { lines: number; words: number }) => stats = newStats}
+    <!-- Área de Trabajo: Modo Visual PaperCraft (Notion-Like) o Modo Código Split -->
+    {#if editorViewMode === 'visual'}
+      <div class="flex-1 h-full overflow-hidden">
+        <PaperEditor 
+          bind:content={visualContent}
+          bind:title={documentTitle}
+          bind:fontStyle={selectedFont}
+          onStatsChange={(newStats: { words: number; pages: number }) => visualStats = newStats}
         />
       </div>
+    {:else}
+      <div class="flex-1 flex overflow-hidden relative">
+        <!-- Panel de Edición de Código -->
+        <div class="h-full overflow-hidden" style="width: {splitRatio}%">
+          <LatexEditor 
+            bind:this={editorRef}
+            bind:content={documentContent}
+            onStatsChange={(newStats: { lines: number; words: number }) => stats = newStats}
+          />
+        </div>
 
-      <!-- Divisor Arrastrable (Resizer) -->
-      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-      <div 
-        class="w-1.5 hover:w-2 bg-[#21262d] hover:bg-[#58a6ff] transition-all cursor-col-resize select-none relative z-20 flex items-center justify-center group"
-        onmousedown={startResize}
-        role="separator"
-        aria-orientation="vertical"
-        aria-valuenow={splitRatio}
-      >
-        <div class="w-0.5 h-6 bg-[#484f58] group-hover:bg-white rounded-full"></div>
-      </div>
+        <!-- Divisor Arrastrable (Resizer) -->
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <div 
+          class="w-1.5 hover:w-2 bg-[#21262d] hover:bg-[#58a6ff] transition-all cursor-col-resize select-none relative z-20 flex items-center justify-center group"
+          onmousedown={startResize}
+          role="separator"
+          aria-orientation="vertical"
+          aria-valuenow={splitRatio}
+        >
+          <div class="w-0.5 h-6 bg-[#484f58] group-hover:bg-white rounded-full"></div>
+        </div>
 
-      <!-- Panel de Previsualización Reactiva KaTeX y PDF Real -->
-      <div class="h-full overflow-hidden flex-1" style="width: {100 - splitRatio}%">
-        <LatexPreview 
-          content={documentContent}
-          pdfBlobUrl={pdfBlobUrl}
-          bind:previewMode
-          onRenderTime={(ms: number) => renderTimeMs = ms}
-          onExportPdf={() => handleExportPdf(false)}
-          onOpenNative={handleOpenInSystemViewer}
-          onTriggerCompile={handleCompile}
-        />
+        <!-- Panel de Previsualización Reactiva KaTeX y PDF Real -->
+        <div class="h-full overflow-hidden flex-1" style="width: {100 - splitRatio}%">
+          <LatexPreview 
+            content={documentContent}
+            pdfBlobUrl={pdfBlobUrl}
+            bind:previewMode
+            onRenderTime={(ms: number) => renderTimeMs = ms}
+            onExportPdf={() => handleExportPdf(false)}
+            onOpenNative={handleOpenInSystemViewer}
+            onTriggerCompile={handleCompile}
+          />
+        </div>
       </div>
-    </div>
+    {/if}
   </div>
 
   <!-- Panel de Diagnóstico y Errores de Compilación (TICKET-013) -->
@@ -699,7 +900,7 @@ Escribe tu documentación técnica aquí...
   <!-- Barra de Estado Inferior -->
   <StatusBar 
     lines={stats.lines}
-    words={stats.words}
+    words={editorViewMode === 'visual' ? visualStats.words : stats.words}
     renderTimeMs={renderTimeMs}
     isCompiling={isCompiling}
     compilationTimeMs={compilationTimeMs}
