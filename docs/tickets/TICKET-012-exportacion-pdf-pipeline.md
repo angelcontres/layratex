@@ -1,7 +1,7 @@
 # TICKET-012: Pipeline de Compilación, Visor y Exportación de PDF
 
 - **Milestone:** Sprint 2 — Compilación a PDF y Exportación
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Alta (P1)
 - **Tipo:** Core Feature / UI & Pipeline
 
@@ -19,6 +19,6 @@ Conectar el botón "Compilar PDF" (`Play` en header o atajo `Ctrl+B`) con el bac
 4. Medir y mostrar el tiempo de compilación exacto en la barra de estado.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] Hacer clic en "Compilar PDF" genera un archivo PDF idéntico al documento LaTeX editado.
-* [ ] La interfaz permanece fluida y no se bloquea durante la compilación.
-* [ ] El usuario puede elegir la carpeta y nombre donde guardar el PDF final.
+* [x] Hacer clic en "Compilar PDF" genera un archivo PDF idéntico al documento LaTeX editado.
+* [x] La interfaz permanece fluida y no se bloquea durante la compilación.
+* [x] El usuario puede elegir la carpeta y nombre donde guardar el PDF final.

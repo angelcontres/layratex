@@ -1,4 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { save } from '@tauri-apps/plugin-dialog';
 
 export interface CompilerInfo {
   name: string;
@@ -38,5 +39,73 @@ export const compilerService = {
       });
     }
     throw new Error('La compilación nativa de LaTeX requiere la aplicación de escritorio Tauri.');
+  },
+
+  async openPath(path: string): Promise<void> {
+    if (this.isNative()) {
+      await invoke('open_path', { path });
+    } else {
+      window.open(path, '_blank');
+    }
+  },
+
+  async exportPdf(
+    sourcePdfPath: string,
+    suggestedName: string = 'documento.pdf',
+    pdfBase64?: string | null
+  ): Promise<string | null> {
+    const finalSuggestedName = suggestedName.toLowerCase().endsWith('.pdf')
+      ? suggestedName
+      : `${suggestedName}.pdf`;
+
+    if (this.isNative()) {
+      const selected = await save({
+        filters: [
+          { name: 'Documento PDF (*.pdf)', extensions: ['pdf'] },
+          { name: 'Todos los archivos (*.*)', extensions: ['*'] }
+        ],
+        defaultPath: finalSuggestedName
+      });
+
+      if (!selected) return null;
+
+      const savedPath = await invoke<string>('export_pdf', {
+        sourcePath: sourcePdfPath,
+        targetPath: selected
+      });
+
+      return savedPath;
+    } else if (pdfBase64) {
+      this.downloadPdfFromBase64(pdfBase64, finalSuggestedName);
+      return finalSuggestedName;
+    }
+    return null;
+  },
+
+  downloadPdfFromBase64(base64Data: string, filename: string): void {
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  createPdfBlobUrl(base64Data: string): string {
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    return URL.createObjectURL(blob);
   }
 };
