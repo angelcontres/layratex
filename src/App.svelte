@@ -7,7 +7,7 @@
   import ErrorPanel from './lib/ui/ErrorPanel.svelte';
   import PaperEditor from './lib/visual/PaperEditor.svelte';
   import KeyboardHelpModal from './lib/visual/KeyboardHelpModal.svelte';
-  import { TEMPLATE_PRESETS, type DocumentTemplate } from './lib/visual/templatePresets';
+  import { WELCOME_TITLE, WELCOME_CONTENT } from './lib/visual/welcomeDocument';
   import { visualToLatex, latexToVisual } from './lib/visual/latexConverter';
   import { fileService, type FileItem } from './lib/services/fileService';
   import { compilerService } from './lib/services/compilerService';
@@ -43,18 +43,13 @@
 
   // Modo de visualización: 'visual' (Notion-like PaperCraft) por defecto para usuarios cotidianos
   let editorViewMode = $state<'visual' | 'code'>('visual');
-  let selectedTemplateId = $state<string>('school_homework');
-  let selectedFormatStyle = $state<string>('APA 7 (Estándar)');
   let selectedFont = $state<'serif' | 'sans'>('serif');
   let sheetViewMode = $state<'edit' | 'print'>('edit');
   let paperTone = $state<'dark' | 'cream' | 'sepia' | 'white'>('dark');
   let paperEditorRef = $state<{ openMathEditor: (tex?: string) => void } | null>(null);
-  let documentTitle = $state<string>(TEMPLATE_PRESETS[0].defaultTitle);
-  let visualContent = $state<string>(TEMPLATE_PRESETS[0].initialContent);
+  let documentTitle = $state<string>(WELCOME_TITLE);
+  let visualContent = $state<string>(WELCOME_CONTENT);
   let visualStats = $state({ words: 0, pages: 1 });
-  let showTemplateDropdown = $state(false);
-  let showFormatDropdown = $state(false);
-  let showFontDropdown = $state(false);
   let showHelpModal = $state(false);
 
   let activeTab = $state<'files' | 'p2p' | 'settings' | ''>('');
@@ -97,8 +92,13 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
 \\end{document}`;
 
-  let documentContent = $state(initialTemplate);
-  let savedContent = $state(initialTemplate);
+  const initialLatex = visualToLatex(WELCOME_CONTENT, {
+    title: WELCOME_TITLE,
+    author: 'Equipo Layratex',
+    fontStyle: 'serif'
+  });
+  let documentContent = $state(initialLatex);
+  let savedContent = $state(initialLatex);
   let isDirty = $derived(documentContent !== savedContent);
 
   let stats = $state({ lines: 0, words: 0 });
@@ -229,22 +229,6 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     editorViewMode = newMode;
   }
 
-  function selectTemplate(templateId: string) {
-    const tpl = TEMPLATE_PRESETS.find(t => t.id === templateId);
-    if (!tpl) return;
-
-    selectedTemplateId = templateId;
-    documentTitle = tpl.defaultTitle;
-    visualContent = tpl.initialContent;
-    documentContent = visualToLatex(visualContent, {
-      title: documentTitle,
-      author: 'Usuario',
-      fontStyle: selectedFont
-    });
-    showTemplateDropdown = false;
-    showNotification(`Plantilla aplicada: ${tpl.name}`, 'success');
-  }
-
   async function handleOpen() {
     if (isDirty) {
       const confirmDiscard = window.confirm('Tienes cambios sin guardar en este documento. ¿Deseas descartarlos y abrir otro archivo?');
@@ -323,28 +307,27 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       if (!confirmDiscard) return;
     }
 
-    const tpl = TEMPLATE_PRESETS[0];
-    selectedTemplateId = tpl.id;
-    documentTitle = tpl.defaultTitle;
-    visualContent = tpl.initialContent;
-    documentContent = visualToLatex(visualContent, {
+    documentTitle = 'Documento Sin Título';
+    visualContent = '';
+    documentContent = visualToLatex('', {
       title: documentTitle,
       author: 'Usuario',
       fontStyle: selectedFont
     });
     savedContent = documentContent;
     currentFilePath = null;
-    currentFileName = 'tarea_escolar.tex';
+    currentFileName = 'documento.tex';
     lastCompiledPdf = null;
     lastExportedPath = null;
     compilationIssues = [];
     showErrorPanel = false;
+    compilationError = false;
     if (pdfBlobUrl) {
       URL.revokeObjectURL(pdfBlobUrl);
       pdfBlobUrl = null;
     }
     previewMode = 'katex';
-    showNotification('Nuevo documento creado', 'info');
+    showNotification('Nuevo documento listo para redactar', 'info');
   }
 
   async function handleOpenRecent(path: string) {
@@ -543,31 +526,15 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       <span class="text-white/10">|</span>
 
-      <!-- Selector de Plantilla Discreto -->
-      <div class="relative">
-        <button 
-          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors cursor-pointer text-xs"
-          onclick={() => showTemplateDropdown = !showTemplateDropdown}
-        >
-          <span class="text-slate-500">Plantilla:</span>
-          <span class="font-medium text-white">{TEMPLATE_PRESETS.find(t => t.id === selectedTemplateId)?.name || 'Tarea Escolar'}</span>
-          <ChevronDown size={12} class="text-slate-400" />
-        </button>
-
-        {#if showTemplateDropdown}
-          <div class="absolute left-0 top-full mt-2 w-64 bg-[#161821] border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 space-y-0.5">
-            {#each TEMPLATE_PRESETS as t}
-              <button
-                class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer {selectedTemplateId === t.id ? 'bg-indigo-500/10 text-indigo-400 font-semibold' : 'text-slate-300'}"
-                onclick={() => selectTemplate(t.id)}
-              >
-                <div class="text-xs">{t.name}</div>
-                <div class="text-[10px] text-slate-400 truncate">{t.description}</div>
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
+      <!-- Botón + Nuevo Documento (Convención estándar de apps de notas/documentos) -->
+      <button 
+        class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs font-medium"
+        onclick={handleNewDocument}
+        title="Crear un nuevo documento en blanco (Ctrl+N)"
+      >
+        <Plus size={13} />
+        <span>Nuevo</span>
+      </button>
 
       <!-- Indicador Discreto de Guardado -->
       {#if isDirty}

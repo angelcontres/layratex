@@ -99,7 +99,7 @@ ${fontPackage}
 \\begin{document}
 \\maketitle
 
-${body.trim()}
+${body.trim() ? body.trim() : '\\phantom{.}'}
 
 \\end{document}
 `;
