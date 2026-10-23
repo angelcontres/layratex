@@ -5,41 +5,40 @@
     Edit3,
     Eye,
     Plus,
-    Maximize2,
-    Minimize2,
     Type,
     FileText,
     Sparkles,
     Heading1,
     Heading2,
-    Info,
-    Palette
+    Info
   } from '@lucide/svelte';
   import MathBuilderModal from './MathBuilderModal.svelte';
   import SlashMenu from './SlashMenu.svelte';
   import FloatingToolbar from './FloatingToolbar.svelte';
+
+  type PaperTone = 'dark' | 'cream' | 'sepia' | 'white';
 
   let {
     content = $bindable(''),
     title = $bindable('Documento Sin Título'),
     author = $bindable('Autor'),
     fontStyle = $bindable<'serif' | 'sans'>('serif'),
+    viewMode = $bindable<'edit' | 'print'>('edit'),
+    paperTone = $bindable<PaperTone>('dark'),
     onStatsChange = (stats: { words: number; pages: number }) => {}
+  }: {
+    content?: string;
+    title?: string;
+    author?: string;
+    fontStyle?: 'serif' | 'sans';
+    viewMode?: 'edit' | 'print';
+    paperTone?: PaperTone;
+    onStatsChange?: (stats: { words: number; pages: number }) => void;
   } = $props();
 
   let textareaRef = $state<HTMLTextAreaElement | null>(null);
   let showMathModal = $state(false);
   let activeMathTex = $state('');
-  let zenMode = $state(false);
-
-  // Paleta de tonos de papel: 'dark' por defecto para evitar el blanco chillón y cuidar la vista
-  type PaperTone = 'dark' | 'cream' | 'sepia' | 'white';
-  let paperTone = $state<PaperTone>('dark');
-
-  // Modo de interacción con la hoja:
-  // 'edit': Escribir directamente sobre el papel
-  // 'print': Hoja impresa final (renderizado completo KaTeX y maquetación de libro)
-  let viewMode = $state<'edit' | 'print'>('edit');
 
   // Menú Slash Flotante
   let showSlashMenu = $state(false);
@@ -56,7 +55,6 @@
     name: string;
     deskClass: string;
     sheetClass: string;
-    ribbonClass: string;
     textClass: string;
     titleClass: string;
     mutedClass: string;
@@ -64,67 +62,58 @@
     cropClass: string;
     calloutClass: string;
     hoverMathClass: string;
-    activeModeBtnClass: string;
   }> = {
     dark: {
       name: 'Noche / Grafito',
-      deskClass: 'bg-[#0b0d13] text-[#c9d1d9]',
-      sheetClass: 'bg-[#161a23] text-[#e6edf3] border border-white/10 shadow-[0_8px_36px_rgba(0,0,0,0.65)]',
-      ribbonClass: 'bg-[#181c26]/95 border-white/10 text-slate-300 shadow-xl',
+      deskClass: 'bg-[#090b10] text-[#c9d1d9]',
+      sheetClass: 'bg-[#151922] text-[#e6edf3] border border-white/10 shadow-[0_12px_44px_rgba(0,0,0,0.7)]',
       textClass: 'text-[#d0d7de]',
       titleClass: 'text-white placeholder:text-slate-600',
       mutedClass: 'text-slate-400',
       borderClass: 'border-white/10',
       cropClass: 'border-white/20',
       calloutClass: 'bg-white/5 border-indigo-400 text-slate-300',
-      hoverMathClass: 'hover:bg-white/5',
-      activeModeBtnClass: 'bg-white text-slate-900 font-semibold shadow-xs'
+      hoverMathClass: 'hover:bg-white/5'
     },
     cream: {
       name: 'Marfil / Libro Cálido',
-      deskClass: 'bg-[#eae4d8] text-[#2c2825]',
-      sheetClass: 'bg-[#faf6ed] text-[#2c2825] border border-[#ded5c2] shadow-[0_6px_30px_rgba(60,45,30,0.12)]',
-      ribbonClass: 'bg-[#faf6ed]/95 border-[#ded5c2] text-[#4a4237] shadow-xl',
+      deskClass: 'bg-[#e8e2d4] text-[#2c2825]',
+      sheetClass: 'bg-[#faf6ed] text-[#2c2825] border border-[#ded5c2] shadow-[0_8px_32px_rgba(60,45,30,0.12)]',
       textClass: 'text-[#38332e]',
       titleClass: 'text-[#24201c] placeholder:text-[#a89d8f]',
       mutedClass: 'text-[#7d7265]',
       borderClass: 'border-[#e8dfcf]',
       cropClass: 'border-[#c2b69f]',
       calloutClass: 'bg-[#f2ecdf] border-[#9c783e] text-[#4a4237]',
-      hoverMathClass: 'hover:bg-[#f2ecdf]',
-      activeModeBtnClass: 'bg-[#3b3228] text-white font-semibold shadow-xs'
+      hoverMathClass: 'hover:bg-[#f2ecdf]'
     },
     sepia: {
       name: 'Sepia Pergamino',
-      deskClass: 'bg-[#dfd3be] text-[#362b20]',
-      sheetClass: 'bg-[#f5ecda] text-[#362b20] border border-[#d6c4a6] shadow-[0_6px_30px_rgba(60,45,30,0.14)]',
-      ribbonClass: 'bg-[#f5ecda]/95 border-[#d6c4a6] text-[#4d3f31] shadow-xl',
+      deskClass: 'bg-[#ded0b9] text-[#362b20]',
+      sheetClass: 'bg-[#f5ecda] text-[#362b20] border border-[#d6c4a6] shadow-[0_8px_32px_rgba(60,45,30,0.14)]',
       textClass: 'text-[#3f3327]',
       titleClass: 'text-[#261e16] placeholder:text-[#a6957c]',
       mutedClass: 'text-[#84725b]',
       borderClass: 'border-[#decbb0]',
       cropClass: 'border-[#baa688]',
       calloutClass: 'bg-[#ece0c7] border-[#8c6b42] text-[#4d3f31]',
-      hoverMathClass: 'hover:bg-[#ece0c7]',
-      activeModeBtnClass: 'bg-[#4a3b2b] text-white font-semibold shadow-xs'
+      hoverMathClass: 'hover:bg-[#ece0c7]'
     },
     white: {
       name: 'Blanco Suave',
       deskClass: 'bg-[#eef1f5] text-slate-800',
-      sheetClass: 'bg-[#ffffff] text-slate-800 border border-slate-200/80 shadow-[0_6px_30px_rgba(0,0,0,0.08)]',
-      ribbonClass: 'bg-white/95 border-slate-200 text-slate-700 shadow-xl',
+      sheetClass: 'bg-[#ffffff] text-slate-800 border border-slate-200/80 shadow-[0_8px_32px_rgba(0,0,0,0.08)]',
       textClass: 'text-slate-800',
       titleClass: 'text-slate-900 placeholder:text-slate-300',
       mutedClass: 'text-slate-400',
       borderClass: 'border-slate-100',
       cropClass: 'border-slate-300',
       calloutClass: 'bg-slate-50 border-indigo-500 text-slate-700',
-      hoverMathClass: 'hover:bg-slate-50',
-      activeModeBtnClass: 'bg-slate-900 text-white font-semibold shadow-xs'
+      hoverMathClass: 'hover:bg-slate-50'
     }
   };
 
-  let activeTheme = $derived(toneThemes[paperTone]);
+  let activeTheme = $derived(toneThemes[paperTone as PaperTone] || toneThemes.dark);
 
   interface SheetBlock {
     id: string;
@@ -254,7 +243,7 @@
     }
   }
 
-  function openMathEditor(currentTex: string = '') {
+  export function openMathEditor(currentTex: string = '') {
     activeMathTex = currentTex || 'v = \\frac{\\Delta x}{\\Delta t}';
     showMathModal = true;
   }
@@ -319,139 +308,12 @@
   }
 </script>
 
-<!-- Entorno de Trabajo: Mesa de Trabajo Adaptativa con el Tono Elegido -->
+<!-- Entorno de Trabajo: Mesa de Trabajo Limpia Sin Barras Flotantes que Tapen la Hoja -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
-  class="h-full flex flex-col items-center {activeTheme.deskClass} overflow-y-auto select-text transition-colors duration-200 relative {zenMode ? 'fixed inset-0 z-50 p-6 md:p-12' : 'p-6 md:p-10'}"
+  class="h-full w-full flex flex-col items-center {activeTheme.deskClass} overflow-y-auto select-text transition-colors duration-200 py-10 px-4 md:px-12"
   onmouseup={checkSelection}
 >
-  
-  <!-- Barra de Herramientas Minimalista Flotante sobre la Mesa (Paper Ribbon) -->
-  <div class="sticky top-2 z-30 mb-8 flex items-center justify-between gap-3 px-4 py-2 rounded-2xl {activeTheme.ribbonClass} backdrop-blur-md text-xs max-w-[820px] w-full transition-all">
-    
-    <!-- Grupo Izquierda: Modo de la Hoja -->
-    <div class="flex items-center gap-1">
-      <button 
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer {viewMode === 'edit' ? activeTheme.activeModeBtnClass : 'opacity-70 hover:opacity-100'}"
-        onclick={() => viewMode = 'edit'}
-        title="Redacción directa sobre la hoja"
-      >
-        <Edit3 size={13} />
-        <span>Redactar</span>
-      </button>
-      <button 
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer {viewMode === 'print' ? activeTheme.activeModeBtnClass : 'opacity-70 hover:opacity-100'}"
-        onclick={() => viewMode = 'print'}
-        title="Ver hoja maquetada como documento impreso con KaTeX"
-      >
-        <Eye size={13} />
-        <span>Vista Impresa</span>
-      </button>
-    </div>
-
-    <!-- Divisor -->
-    <div class="w-px h-4 bg-current opacity-20 hidden sm:block"></div>
-
-    <!-- Grupo Centro: Inserción Rápida con 1 Clic -->
-    <div class="flex items-center gap-1">
-      <button 
-        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 font-semibold transition-all cursor-pointer"
-        onclick={() => openMathEditor()}
-        title="Insertar ecuación matemática con clics"
-      >
-        <Calculator size={13} />
-        <span>+ Fórmula fx</span>
-      </button>
-
-      <button 
-        class="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl opacity-75 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
-        onclick={() => content += '\n# Nuevo Título\n'}
-        title="Insertar Título"
-      >
-        <Heading1 size={13} />
-        <span>Título</span>
-      </button>
-
-      <button 
-        class="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl opacity-75 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
-        onclick={() => content += '\n> Nota o aviso importante...\n'}
-        title="Insertar Nota"
-      >
-        <Info size={13} />
-        <span>Nota</span>
-      </button>
-
-      <button 
-        class="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-xl opacity-75 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
-        onclick={() => content += '\n---\n'}
-        title="Insertar Salto a Nueva Hoja A4"
-      >
-        <FileText size={13} />
-        <span>+ Hoja</span>
-      </button>
-    </div>
-
-    <!-- Divisor -->
-    <div class="w-px h-4 bg-current opacity-20 hidden sm:block"></div>
-
-    <!-- Grupo Derecha: Selector de Tono de Papel, Tipografía & Zen -->
-    <div class="flex items-center gap-1.5">
-      
-      <!-- Selector de Tono de Papel (Sin blanco chillón por defecto) -->
-      <div class="flex items-center p-0.5 rounded-xl border border-current/15 bg-black/5 dark:bg-white/5 text-xs">
-        <button 
-          class="px-2 py-1 rounded-lg transition-all cursor-pointer {paperTone === 'dark' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-          onclick={() => paperTone = 'dark'}
-          title="Tono Noche / Grafito (Descanso visual, integrado)"
-        >
-          🌙
-        </button>
-        <button 
-          class="px-2 py-1 rounded-lg transition-all cursor-pointer {paperTone === 'cream' ? 'bg-[#9c783e] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-          onclick={() => paperTone = 'cream'}
-          title="Tono Marfil Cálido (Papel de libro natural)"
-        >
-          🌿
-        </button>
-        <button 
-          class="px-2 py-1 rounded-lg transition-all cursor-pointer {paperTone === 'sepia' ? 'bg-[#7c5b35] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-          onclick={() => paperTone = 'sepia'}
-          title="Tono Sepia Pergamino"
-        >
-          📜
-        </button>
-        <button 
-          class="px-2 py-1 rounded-lg transition-all cursor-pointer {paperTone === 'white' ? 'bg-slate-400 text-slate-900 font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-          onclick={() => paperTone = 'white'}
-          title="Tono Blanco Suave"
-        >
-          📄
-        </button>
-      </div>
-
-      <button 
-        class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-current/15 hover:bg-black/5 dark:hover:bg-white/5 opacity-80 hover:opacity-100 transition-colors cursor-pointer"
-        onclick={() => fontStyle = fontStyle === 'serif' ? 'sans' : 'serif'}
-        title="Cambiar tipografía de la hoja"
-      >
-        <Type size={13} />
-        <span class="font-medium hidden sm:inline">{fontStyle === 'serif' ? 'Serif' : 'Sans'}</span>
-      </button>
-
-      <button 
-        class="p-1.5 rounded-xl opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
-        onclick={() => zenMode = !zenMode}
-        title={zenMode ? 'Salir del Modo Concentración' : 'Modo Concentración (Zen)'}
-      >
-        {#if zenMode}
-          <Minimize2 size={14} />
-        {:else}
-          <Maximize2 size={14} />
-        {/if}
-      </button>
-    </div>
-
-  </div>
 
   <!-- VISTA DE LAS HOJAS FÍSICAS (A4 CON DIMENSIONES REALES Y MARCAS DE CORTE) -->
   {#if viewMode === 'print'}
@@ -616,7 +478,7 @@
 
 <!-- Menú Slash Flotante -->
 {#if showSlashMenu}
-  <div class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50">
+  <div class="fixed bottom-12 left-1/2 -translate-x-1/2 z-50">
     <SlashMenu 
       bind:this={slashMenuRef}
       bind:isOpen={showSlashMenu}

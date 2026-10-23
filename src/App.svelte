@@ -35,7 +35,9 @@
     ChevronDown,
     FileText,
     Code2,
-    Sparkles
+    Sparkles,
+    Edit3,
+    Calculator
   } from '@lucide/svelte';
 
   // Modo de visualización: 'visual' (Notion-like PaperCraft) por defecto para usuarios cotidianos
@@ -43,6 +45,9 @@
   let selectedTemplateId = $state<string>('school_homework');
   let selectedFormatStyle = $state<string>('APA 7 (Estándar)');
   let selectedFont = $state<'serif' | 'sans'>('serif');
+  let sheetViewMode = $state<'edit' | 'print'>('edit');
+  let paperTone = $state<'dark' | 'cream' | 'sepia' | 'white'>('dark');
+  let paperEditorRef = $state<{ openMathEditor: (tex?: string) => void } | null>(null);
   let documentTitle = $state<string>(TEMPLATE_PRESETS[0].defaultTitle);
   let visualContent = $state<string>(TEMPLATE_PRESETS[0].initialContent);
   let visualStats = $state({ words: 0, pages: 1 });
@@ -518,65 +523,126 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
 <div class="h-screen w-screen flex flex-col bg-[#0d1117] text-[#c9d1d9] select-none overflow-hidden font-sans">
   
-  <!-- Barra Superior Minimalista (Single Slim Bar) -->
-  <header class="h-12 bg-white/95 dark:bg-[#12141a]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-white/5 px-4 flex items-center justify-between text-xs select-none z-30 transition-colors">
-    <!-- Izquierda: Documentos & Título del Documento -->
+  <!-- Barra Superior Minimalista Unificada (Single Slim Bar) -->
+  <header class="h-12 bg-[#12141a] border-b border-white/10 px-4 flex items-center justify-between text-xs select-none z-30 transition-colors shrink-0">
+    <!-- Izquierda: Documentos & Plantilla -->
     <div class="flex items-center gap-3 min-w-0">
       <button 
-        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer text-xs font-semibold"
+        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-xs font-semibold"
         onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
         title="Ver documentos recientes y archivos"
       >
-        <span class="font-bold text-indigo-600 dark:text-indigo-400">λ</span>
-        <span class="hidden sm:inline">Documentos</span>
+        <span class="font-bold text-indigo-400">λ</span>
+        <span>Documentos</span>
       </button>
 
-      <span class="text-slate-300 dark:text-white/10">|</span>
+      <span class="text-white/10">|</span>
 
-      <input 
-        type="text"
-        bind:value={documentTitle}
-        class="bg-transparent hover:bg-slate-100/60 dark:hover:bg-white/5 focus:bg-white dark:focus:bg-[#1a1d26] px-2 py-1 rounded-md text-slate-900 dark:text-white font-semibold text-xs border border-transparent focus:border-slate-300 dark:focus:border-white/10 outline-hidden max-w-xs truncate transition-all"
-        title="Haz clic para renombrar el documento"
-        placeholder="Título del documento..."
-      />
+      <!-- Selector de Plantilla Discreto -->
+      <div class="relative">
+        <button 
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors cursor-pointer text-xs"
+          onclick={() => showTemplateDropdown = !showTemplateDropdown}
+        >
+          <span class="text-slate-500">Plantilla:</span>
+          <span class="font-medium text-white">{TEMPLATE_PRESETS.find(t => t.id === selectedTemplateId)?.name || 'Tarea Escolar'}</span>
+          <ChevronDown size={12} class="text-slate-400" />
+        </button>
+
+        {#if showTemplateDropdown}
+          <div class="absolute left-0 top-full mt-2 w-64 bg-[#161821] border border-white/10 rounded-xl shadow-2xl p-1.5 z-50 space-y-0.5">
+            {#each TEMPLATE_PRESETS as t}
+              <button
+                class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer {selectedTemplateId === t.id ? 'bg-indigo-500/10 text-indigo-400 font-semibold' : 'text-slate-300'}"
+                onclick={() => selectTemplate(t.id)}
+              >
+                <div class="text-xs">{t.name}</div>
+                <div class="text-[10px] text-slate-400 truncate">{t.description}</div>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
 
       <!-- Indicador Discreto de Guardado -->
       {#if isDirty}
         <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Cambios sin guardar"></span>
       {:else}
-        <span class="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 flex items-center gap-1 font-mono">
+        <span class="text-[11px] text-slate-500 shrink-0 flex items-center gap-1 font-mono">
           <Check size={11} class="text-emerald-500" />
           <span class="hidden md:inline">Guardado</span>
         </span>
       {/if}
     </div>
 
-    <!-- Centro: Selector de Plantilla Discreto -->
-    <div class="relative hidden lg:block">
-      <button 
-        class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100/80 dark:bg-white/5 hover:bg-slate-200/70 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer text-xs"
-        onclick={() => showTemplateDropdown = !showTemplateDropdown}
-      >
-        <span class="text-slate-400">Plantilla:</span>
-        <span class="font-medium text-slate-800 dark:text-white">{TEMPLATE_PRESETS.find(t => t.id === selectedTemplateId)?.name || 'Tarea Escolar'}</span>
-        <ChevronDown size={12} class="text-slate-400" />
-      </button>
-
-      {#if showTemplateDropdown}
-        <div class="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 bg-white dark:bg-[#16181f] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl p-1.5 z-50 space-y-0.5 animate-in fade-in duration-100">
-          {#each TEMPLATE_PRESETS as t}
-            <button
-              class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer {selectedTemplateId === t.id ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}"
-              onclick={() => selectTemplate(t.id)}
-            >
-              <div class="text-xs">{t.name}</div>
-              <div class="text-[10px] text-slate-400 truncate">{t.description}</div>
-            </button>
-          {/each}
+    <!-- Centro: Herramientas de la Hoja (Solo en modo visual) -->
+    {#if editorViewMode === 'visual'}
+      <div class="hidden sm:flex items-center gap-2">
+        <!-- Modo Hoja: Redactar vs Vista Impresa -->
+        <div class="flex items-center p-0.5 bg-white/5 rounded-lg border border-white/10 text-xs">
+          <button 
+            class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {sheetViewMode === 'edit' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+            onclick={() => sheetViewMode = 'edit'}
+            title="Redacción directa sobre la hoja"
+          >
+            <Edit3 size={11} />
+            <span>Redactar</span>
+          </button>
+          <button 
+            class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {sheetViewMode === 'print' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+            onclick={() => sheetViewMode = 'print'}
+            title="Vista de hoja maquetada con KaTeX"
+          >
+            <Eye size={11} />
+            <span>Vista Impresa</span>
+          </button>
         </div>
-      {/if}
-    </div>
+
+        <!-- Botón Insertar Fórmula Rápida -->
+        <button 
+          class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-medium transition-colors cursor-pointer text-xs"
+          onclick={() => paperEditorRef?.openMathEditor()}
+          title="Insertar fórmula matemática con clics"
+        >
+          <Calculator size={12} />
+          <span>+ Fórmula fx</span>
+        </button>
+
+        <!-- Selector de Tono de Papel -->
+        <div class="flex items-center p-0.5 rounded-lg border border-white/10 bg-white/5 text-xs">
+          <button 
+            class="px-2 py-0.5 rounded transition-all cursor-pointer {paperTone === 'dark' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
+            onclick={() => paperTone = 'dark'}
+            title="Tono Noche / Grafito (Descanso visual)"
+          >
+            🌙
+          </button>
+          <button 
+            class="px-2 py-0.5 rounded transition-all cursor-pointer {paperTone === 'cream' ? 'bg-[#9c783e] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
+            onclick={() => paperTone = 'cream'}
+            title="Tono Marfil Cálido (Papel de libro natural)"
+          >
+            🌿
+          </button>
+          <button 
+            class="px-2 py-0.5 rounded transition-all cursor-pointer {paperTone === 'sepia' ? 'bg-[#7c5b35] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
+            onclick={() => paperTone = 'sepia'}
+            title="Tono Sepia Pergamino"
+          >
+            📜
+          </button>
+        </div>
+
+        <!-- Selector de Tipografía -->
+        <button 
+          class="px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 transition-colors cursor-pointer text-xs"
+          onclick={() => selectedFont = selectedFont === 'serif' ? 'sans' : 'serif'}
+          title="Cambiar tipografía de la hoja"
+        >
+          {selectedFont === 'serif' ? 'Serif' : 'Sans'}
+        </button>
+      </div>
+    {/if}
 
     <!-- Derecha: Selector de Modo (Hoja vs LaTeX) y Exportar PDF -->
     <div class="flex items-center gap-2 shrink-0">
@@ -585,9 +651,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       {/if}
 
       <!-- Selector de Modo Discreto -->
-      <div class="flex items-center p-0.5 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200/60 dark:border-white/5 text-xs">
+      <div class="flex items-center p-0.5 bg-white/5 rounded-lg border border-white/10 text-xs">
         <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-white dark:bg-[#202430] text-slate-900 dark:text-white font-semibold shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
           onclick={() => switchViewMode('visual')}
           title="Vista de hoja limpia"
         >
@@ -595,7 +661,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           <span>Hoja</span>
         </button>
         <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-white dark:bg-[#202430] text-slate-900 dark:text-white font-semibold shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
           onclick={() => switchViewMode('code')}
           title="Ver código LaTeX crudo"
         >
@@ -605,7 +671,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       </div>
 
       <button 
-        class="px-2.5 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+        class="px-2.5 py-1 rounded-lg hover:bg-white/5 text-slate-300 text-xs font-medium transition-colors cursor-pointer hidden md:inline"
         onclick={handleSave}
         title="Guardar archivo (Ctrl+S)"
       >
@@ -614,7 +680,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       <!-- Botón Exportar PDF Sobrio y Elegante -->
       <button 
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
         onclick={handleCompile}
         disabled={isCompiling}
         title="Descargar documento en PDF"
@@ -632,8 +698,10 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
   <!-- Cuerpo Principal: Sidebar + Drawer + Split Editor/Preview -->
   <div class="flex-1 flex overflow-hidden">
-    <!-- Icon Bar -->
-    <Sidebar bind:activeTab connectedPeersCount={2} />
+    <!-- Icon Bar solo en modo código para maximizar el ancho de la hoja -->
+    {#if editorViewMode === 'code'}
+      <Sidebar bind:activeTab connectedPeersCount={2} />
+    {/if}
 
     <!-- Panel de Navegación Lateral (Drawer colapsable) -->
     {#if activeTab === 'files'}
@@ -762,9 +830,12 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     {#if editorViewMode === 'visual'}
       <div class="flex-1 h-full overflow-hidden">
         <PaperEditor 
+          bind:this={paperEditorRef}
           bind:content={visualContent}
           bind:title={documentTitle}
           bind:fontStyle={selectedFont}
+          bind:viewMode={sheetViewMode}
+          bind:paperTone={paperTone}
           onStatsChange={(newStats: { words: number; pages: number }) => visualStats = newStats}
         />
       </div>
@@ -816,19 +887,34 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   />
 
   <!-- Barra de Estado Inferior -->
-  <StatusBar 
-    lines={stats.lines}
-    words={editorViewMode === 'visual' ? visualStats.words : stats.words}
-    renderTimeMs={renderTimeMs}
-    isCompiling={isCompiling}
-    compilationTimeMs={compilationTimeMs}
-    compilationEngine={compilationEngine}
-    compilationError={compilationError}
-    errorCount={errorCount}
-    warningCount={warningCount}
-    p2pStatus={currentFilePath ? `Local: ${currentFileName}` : 'Sin Guardar (Memoria)'}
-    onToggleErrorPanel={() => showErrorPanel = !showErrorPanel}
-  />
+  {#if editorViewMode === 'code'}
+    <StatusBar 
+      lines={stats.lines}
+      words={stats.words}
+      renderTimeMs={renderTimeMs}
+      isCompiling={isCompiling}
+      compilationTimeMs={compilationTimeMs}
+      compilationEngine={compilationEngine}
+      compilationError={compilationError}
+      errorCount={errorCount}
+      warningCount={warningCount}
+      p2pStatus={currentFilePath ? `Local: ${currentFileName}` : 'Sin Guardar (Memoria)'}
+      onToggleErrorPanel={() => showErrorPanel = !showErrorPanel}
+    />
+  {:else}
+    <!-- Barra de Estado Discreta para Modo Hoja: Cero Ruido Visual -->
+    <footer class="h-6 bg-[#0f1219] border-t border-white/5 px-4 flex items-center justify-between text-[11px] text-slate-500 font-mono select-none shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        <span>{currentFilePath ? currentFileName : 'Borrador Local'}</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <span>{visualStats.words} palabras</span>
+        <span>•</span>
+        <span>{visualStats.pages} {visualStats.pages === 1 ? 'hoja A4' : 'hojas A4'}</span>
+      </div>
+    </footer>
+  {/if}
 
   <!-- Modal de Éxito / Exportación de PDF (TICKET-012) -->
   {#if showPdfSuccessModal && lastCompiledPdf}
