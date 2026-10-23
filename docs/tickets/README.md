@@ -61,3 +61,41 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 | :---: | :--- | :---: | :---: | :---: |
 | [TICKET-014](./TICKET-014-github-actions-ci-cd-releases.md) | Pipeline de CI/CD con GitHub Actions para compilación multiplataforma automática | 🟢 Cerrado | Alta (P1) | 5 SP |
 | [TICKET-015](./TICKET-015-release-v010-empaquetado.md) | Preparación de release inicial v0.1.0, metadatos y guía de instalación | 🟢 Cerrado | Alta (P1) | 3 SP |
+
+---
+
+## Milestone 5: Sprint 4 — Rediseño Visual WYSIWYG ("PaperCraft") y Asistencia Interactiva (v0.2.0)
+
+> **Meta del Sprint:** Elevar la experiencia de usuario con un editor visual inspirado en hoja A4 física, constructores interactivos de fórmulas y tablas, auto-guardado seguro y conversión bidireccional transparente a LaTeX.
+
+| Ticket | Título | Estado | Prioridad | Estimación |
+| :---: | :--- | :---: | :---: | :---: |
+| [TICKET-016](./TICKET-016-toolbar-formato-rapido-barra-superior.md) | Barra Superior Unificada y Barra Flotante de Formato Rápido | 🟢 Cerrado | Alta (P1) | 3 SP |
+| [TICKET-017](./TICKET-017-paleta-constructor-formulas-matematicas.md) | Paleta Visual y Constructor Interactivo de Ecuaciones Matemáticas KaTeX | 🟢 Cerrado | Alta (P1) | 5 SP |
+| [TICKET-018](./TICKET-018-menu-slash-atajos-teclado.md) | Menú Contextual Rápido Slash (`/`) y Atajos de Teclado | 🟢 Cerrado | Alta (P1) | 5 SP |
+| [TICKET-019](./TICKET-019-generador-visual-tablas-interactivas.md) | Generador y Constructor Asistido de Tablas Interactivas | 🟢 Cerrado | Media-Alta (P2) | 5 SP |
+| [TICKET-020](./TICKET-020-auto-guardado-documento-bienvenida.md) | Motor de Auto-Guardado Inteligente y Documento de Bienvenida | 🟢 Cerrado | Alta (P1) | 3 SP |
+| [TICKET-021](./TICKET-021-editor-visual-hoja-a4-conversor-latex.md) | Hoja A4 Física ("PaperCraft") y Conversor Bidireccional HTML $\leftrightarrow$ LaTeX | 🟢 Cerrado | Bloqueante (P1) | 8 SP |
+| [TICKET-026](./TICKET-026-motor-autonomo-exportacion-pdf-zero-dependency.md) | Motor Autónomo de Generación y Exportación PDF (Zero LaTeX Dependency) | 🟢 Cerrado | Bloqueante (P1) | 8 SP |
+
+---
+
+## Milestone 6: Sprint 5 — Navegación y Productividad Avanzada (v0.3.0)
+
+> **Meta del Sprint:** Maximizar la productividad en proyectos extensos con autocompletado en CodeMirror 6, scroll sincronizado bidireccional y búsqueda integrada.
+
+| Ticket | Título | Estado | Prioridad | Estimación |
+| :---: | :--- | :---: | :---: | :---: |
+| [TICKET-022](./TICKET-022-autocompletado-snippets-codemirror.md) | Autocompletado Inteligente y Snippets para LaTeX en CodeMirror 6 | ⚪ Pendiente | Alta (P1) | 5 SP |
+| [TICKET-023](./TICKET-023-sincronizacion-scroll-sync.md) | Sincronización Proporcional de Scroll Bidireccional (Scroll Sync) | ⚪ Pendiente | Media-Alta (P2) | 5 SP |
+| [TICKET-024](./TICKET-024-busqueda-reemplazo-editor.md) | Panel de Búsqueda y Reemplazo Integrado en el Editor (`Ctrl+F` / `Ctrl+H`) | ⚪ Pendiente | Media (P2) | 3 SP |
+
+---
+
+## Milestone 7: Sprint 6 — Colaboración Local-First & Red P2P (v1.0.0)
+
+> **Meta del Sprint:** Hacer realidad la sincronización y co-edición en tiempo real sin servidores centrales mediante CRDT y WebRTC P2P directo.
+
+| Ticket | Título | Estado | Prioridad | Estimación |
+| :---: | :--- | :---: | :---: | :---: |
+| [TICKET-025](./TICKET-025-colaboracion-crdt-p2p-local-first.md) | Motor CRDT (Yjs) y Colaboración P2P Local-First con Cifrado E2EE | ⚪ Pendiente | Bloqueante (P1) | 8 SP |

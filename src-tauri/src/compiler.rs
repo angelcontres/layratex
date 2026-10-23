@@ -51,6 +51,34 @@ pub fn encode_base64(data: &[u8]) -> String {
     result
 }
 
+pub fn decode_base64(input: &str) -> Option<Vec<u8>> {
+    let mut table = [255u8; 256];
+    for (i, &c) in BASE64_ALPHABET.iter().enumerate() {
+        table[c as usize] = i as u8;
+    }
+    let clean = input.trim().trim_end_matches('=');
+    let mut buffer = 0u32;
+    let mut bits = 0;
+    let mut output = Vec::with_capacity(input.len() * 3 / 4);
+
+    for &b in clean.as_bytes() {
+        if b == b'\r' || b == b'\n' || b == b' ' {
+            continue;
+        }
+        let val = table[b as usize];
+        if val == 255 {
+            return None;
+        }
+        buffer = (buffer << 6) | (val as u32);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            output.push((buffer >> bits) as u8);
+        }
+    }
+    Some(output)
+}
+
 /// Busca ejecutables en PATH y ubicaciones locales comunes.
 pub fn find_binary(name: &str) -> Option<PathBuf> {
     if let Ok(path_var) = std::env::var("PATH") {
@@ -348,6 +376,15 @@ mod tests {
         assert_eq!(encode_base64(b"fo"), "Zm8=");
         assert_eq!(encode_base64(b"foo"), "Zm9v");
         assert_eq!(encode_base64(b"Hello World"), "SGVsbG8gV29ybGQ=");
+    }
+
+    #[test]
+    fn test_decode_base64() {
+        assert_eq!(decode_base64(""), Some(vec![]));
+        assert_eq!(decode_base64("Zg=="), Some(b"f".to_vec()));
+        assert_eq!(decode_base64("Zm8="), Some(b"fo".to_vec()));
+        assert_eq!(decode_base64("Zm9v"), Some(b"foo".to_vec()));
+        assert_eq!(decode_base64("SGVsbG8gV29ybGQ="), Some(b"Hello World".to_vec()));
     }
 
     #[test]

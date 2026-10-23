@@ -82,6 +82,27 @@ export const compilerService = {
     return null;
   },
 
+  async savePdfBytes(pdfBase64: string, targetPath: string): Promise<string> {
+    if (this.isNative()) {
+      return await invoke<string>('save_pdf_bytes', {
+        pdfBase64,
+        targetPath
+      });
+    }
+    this.downloadPdfFromBase64(pdfBase64, targetPath);
+    return targetPath;
+  },
+
+  async createTempPdfFromBytes(pdfBase64: string, filename?: string): Promise<string | null> {
+    if (this.isNative()) {
+      return await invoke<string>('create_temp_pdf_from_bytes', {
+        pdfBase64,
+        filename: filename || null
+      });
+    }
+    return null;
+  },
+
   downloadPdfFromBase64(base64Data: string, filename: string): void {
     const byteCharacters = atob(base64Data);
     const byteNumbers = new Array(byteCharacters.length);
