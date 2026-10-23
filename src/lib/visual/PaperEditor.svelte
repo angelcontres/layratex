@@ -2,17 +2,19 @@
   import katex from 'katex';
   import { 
     Calculator, 
-    Edit3,
-    Eye,
-    Plus,
-    Type,
-    FileText,
-    Sparkles,
-    Heading1,
-    Heading2,
-    Info
+    Edit3, 
+    Eye, 
+    Plus, 
+    Type, 
+    FileText, 
+    Sparkles, 
+    Heading1, 
+    Heading2, 
+    Info, 
+    Table as TableIcon
   } from '@lucide/svelte';
   import MathBuilderModal from './MathBuilderModal.svelte';
+  import TableBuilderModal from './TableBuilderModal.svelte';
   import SlashMenu from './SlashMenu.svelte';
   import FloatingToolbar from './FloatingToolbar.svelte';
 
@@ -38,12 +40,15 @@
 
   let textareaRef = $state<HTMLTextAreaElement | null>(null);
   let showMathModal = $state(false);
+  let showTableModal = $state(false);
   let activeMathTex = $state('');
 
-  // Menú Slash Flotante
+  // Menú Slash Flotante anclado a la posición del cursor
   let showSlashMenu = $state(false);
   let slashFilter = $state('');
   let slashMenuRef = $state<any>(null);
+  let slashMenuX = $state<number | null>(null);
+  let slashMenuY = $state<number | null>(null);
 
   // Floating Toolbar sobre texto seleccionado
   let showToolbar = $state(false);
@@ -117,8 +122,9 @@
 
   interface SheetBlock {
     id: string;
-    type: 'h1' | 'h2' | 'h3' | 'math' | 'callout' | 'list' | 'p' | 'divider';
+    type: 'h1' | 'h2' | 'h3' | 'math' | 'callout' | 'list' | 'p' | 'divider' | 'table';
     content: string;
+    tableData?: { headers: string[]; rows: string[][] };
   }
 
   // Parseo estructurado de bloques del documento
@@ -131,6 +137,7 @@
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
+      // Bloque de Ecuación Matemática $$ ... $$
       if (line.trim().startsWith('$$')) {
         if (!inMath) {
           inMath = true;
@@ -160,6 +167,35 @@
       if (inMath) {
         mathAcc.push(line);
         continue;
+      }
+
+      // Bloque de Tabla Markdown (| Col | Col |)
+      if (line.trim().startsWith('|')) {
+        const tableLines = [line];
+        while (i + 1 < lines.length && lines[i + 1].trim().startsWith('|')) {
+          i++;
+          tableLines.push(lines[i]);
+        }
+        if (tableLines.length >= 2) {
+          const parseRow = (l: string) => l.split('|').slice(1, -1).map(c => c.trim());
+          const headers = parseRow(tableLines[0]);
+          const isDiv = tableLines[1].replace(/[\s|:-]/g, '') === '';
+          const startIdx = isDiv ? 2 : 1;
+          const rows: string[][] = [];
+          for (let j = startIdx; j < tableLines.length; j++) {
+            const r = parseRow(tableLines[j]);
+            if (r.length > 0 && !r.every(c => !c)) {
+              rows.push(r);
+            }
+          }
+          result.push({
+            id: `table-${i}`,
+            type: 'table',
+            content: tableLines.join('\n'),
+            tableData: { headers, rows }
+          });
+          continue;
+        }
       }
 
       if (line.startsWith('# ')) {
@@ -253,11 +289,17 @@
     content += formulaBlock;
   }
 
+  function handleInsertTable(tableMd: string) {
+    content += tableMd;
+  }
+
   function handleSelectSlashAction(action: string) {
     showSlashMenu = false;
     if (action === 'h1') content += '\n# Nuevo Título\n';
     else if (action === 'h2') content += '\n## Nuevo Subtítulo\n';
     else if (action === 'math') openMathEditor();
+    else if (action === 'table') showTableModal = true;
+    else if (action === 'image') content += '\n![Descripción de la imagen](ruta/o/enlace.png)\n';
     else if (action === 'callout') content += '\n> Nota importante...\n';
     else if (action === 'bullet') content += '\n* Elemento de lista\n';
     else if (action === 'numbered') content += '\n1. Primer paso\n2. Segundo paso\n';
@@ -295,6 +337,26 @@
     }
   }
 
+  function handleTextareaKeyDown(e: KeyboardEvent) {
+    if (showSlashMenu && slashMenuRef) {
+      if (slashMenuRef.handleKeyDown(e)) {
+        return;
+      }
+    }
+
+    // Atajos de formato universales
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      e.preventDefault();
+      handleFormat('bold');
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+      e.preventDefault();
+      handleFormat('italic');
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+      e.preventDefault();
+      openMathEditor();
+    }
+  }
+
   function handleTextareaInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
     const textBeforeCursor = target.value.substring(0, target.selectionStart);
@@ -302,6 +364,25 @@
     if (matchSlash) {
       showSlashMenu = true;
       slashFilter = matchSlash[1];
+
+      // Calcular posición aproximada del cursor dentro del textarea
+      const rect = target.getBoundingClientRect();
+      const lines = textBeforeCursor.split('\n');
+      const currentLineIndex = lines.length - 1;
+      const currentLineText = lines[currentLineIndex];
+      const approxLineHeight = 28;
+      const approxCharWidth = 8.5;
+
+      const calculatedY = rect.top + (currentLineIndex * approxLineHeight) + 36;
+      const calculatedX = Math.min(rect.left + (currentLineText.length * approxCharWidth) + 20, window.innerWidth - 340);
+
+      if (calculatedY > 0 && calculatedY < window.innerHeight - 300) {
+        slashMenuX = Math.max(20, calculatedX);
+        slashMenuY = calculatedY;
+      } else {
+        slashMenuX = null;
+        slashMenuY = null;
+      }
     } else {
       showSlashMenu = false;
     }
@@ -373,18 +454,50 @@
                   {@html renderInlineMath(b.content)}
                 </div>
               {:else if b.type === 'math'}
-                <div class="group my-5 py-3 text-center relative {activeTheme.hoverMathClass} rounded-xl transition-colors">
+                <!-- Ecuación KaTeX con soporte de doble clic para editar -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div 
+                  class="group my-5 py-3 text-center relative {activeTheme.hoverMathClass} rounded-xl transition-colors cursor-pointer"
+                  ondblclick={() => openMathEditor(b.content)}
+                  title="Doble clic para editar esta fórmula con botones"
+                >
                   <div class="text-lg md:text-xl overflow-x-auto">
                     {@html renderKaTeXBlock(b.content)}
                   </div>
                   <button 
                     class="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 right-2 text-[11px] text-indigo-400 bg-black/40 border border-indigo-400/30 px-2 py-0.5 rounded-md shadow-xs hover:underline flex items-center gap-1 cursor-pointer"
-                    onclick={() => openMathEditor(b.content)}
+                    onclick={(e) => { e.stopPropagation(); openMathEditor(b.content); }}
                     title="Editar fórmula matemática"
                   >
                     <Edit3 size={11} />
-                    <span>editar fórmula</span>
+                    <span>editar</span>
                   </button>
+                </div>
+              {:else if b.type === 'table' && b.tableData}
+                <!-- Renderizado de Tabla Elegante -->
+                <div class="my-6 overflow-x-auto rounded-xl border {activeTheme.borderClass}">
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-black/5 dark:bg-white/5 font-semibold">
+                      <tr>
+                        {#each b.tableData.headers as h}
+                          <th class="p-3 border-b {activeTheme.borderClass}">
+                            {@html renderInlineMath(h)}
+                          </th>
+                        {/each}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each b.tableData.rows as row, rIdx}
+                        <tr class="{rIdx % 2 === 1 ? 'bg-black/[0.02] dark:bg-white/[0.02]' : ''}">
+                          {#each row as cell}
+                            <td class="p-3 border-b {activeTheme.borderClass} border-dashed">
+                              {@html renderInlineMath(cell)}
+                            </td>
+                          {/each}
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
                 </div>
               {:else if b.type === 'list'}
                 <li class="ml-6 list-disc">
@@ -452,14 +565,15 @@
         </div>
       </div>
 
-      <!-- Textarea de Redacción que Fluye Idéntico al Documento Impreso -->
-      <div class="flex-1 flex flex-col">
+      <!-- Textarea de Redacción con Soporte de Atajos de Teclado -->
+      <div class="flex-1 flex flex-col relative">
         <textarea
           bind:this={textareaRef}
           bind:value={content}
           oninput={handleTextareaInput}
-          class="w-full flex-1 bg-transparent border-none outline-hidden resize-none {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.textClass} text-[15px] leading-[1.85] p-0 focus:ring-0 min-h-[700px]"
-          placeholder="Escribe directamente en esta hoja de papel...&#10;&#10;• Teclea '/' para desplegar el menú de inserción de fórmulas, títulos y citas.&#10;• Selecciona cualquier texto para aplicar formato flotante (Negrita, Cursiva, fx)."
+          onkeydown={handleTextareaKeyDown}
+          class="w-full flex-1 bg-transparent border-none outline-hidden resize-none {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.textClass} text-[15px] leading-[1.85] p-0 focus:ring-0 min-h-[700px] placeholder:opacity-40"
+          placeholder="Escribe directamente en esta hoja de papel...&#10;&#10;💡 Consejos rápidos:&#10;• Teclea '/' para desplegar el menú de inserción de fórmulas, tablas, títulos y notas.&#10;• Selecciona texto para aplicar negrita, cursiva o formato matemático.&#10;• Usa atajos rápidos: Ctrl+B (Negrita), Ctrl+I (Cursiva), Ctrl+E (Fórmula fx)."
         ></textarea>
       </div>
 
@@ -476,17 +590,17 @@
 
 </div>
 
-<!-- Menú Slash Flotante -->
+<!-- Menú Slash Flotante con Posicionamiento Inteligente -->
 {#if showSlashMenu}
-  <div class="fixed bottom-12 left-1/2 -translate-x-1/2 z-50">
-    <SlashMenu 
-      bind:this={slashMenuRef}
-      bind:isOpen={showSlashMenu}
-      filter={slashFilter}
-      onSelect={handleSelectSlashAction}
-      onClose={() => showSlashMenu = false}
-    />
-  </div>
+  <SlashMenu 
+    bind:this={slashMenuRef}
+    bind:isOpen={showSlashMenu}
+    filter={slashFilter}
+    x={slashMenuX}
+    y={slashMenuY}
+    onSelect={handleSelectSlashAction}
+    onClose={() => showSlashMenu = false}
+  />
 {/if}
 
 <!-- Barra Flotante de Selección -->
@@ -502,4 +616,10 @@
   bind:isOpen={showMathModal}
   initialMath={activeMathTex}
   onInsert={handleInsertFormula}
+/>
+
+<!-- Modal Asistente Visual de Tablas -->
+<TableBuilderModal 
+  bind:isOpen={showTableModal}
+  onInsert={handleInsertTable}
 />

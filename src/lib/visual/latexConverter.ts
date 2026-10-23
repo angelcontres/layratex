@@ -45,7 +45,38 @@ export function visualToLatex(visualText: string, metadata: VisualDocMetadata): 
     return `\\begin{itemize}\n${items}\n\\end{itemize}\n`;
   });
 
-  // 5. Convertir formato de texto
+  // 5. Convertir tablas Markdown a \begin{tabular}
+  body = body.replace(/((?:\|[^\n]+\|\r?\n?){2,})/g, (match) => {
+    const rawLines = match.trim().split('\n').filter(l => l.includes('|'));
+    if (rawLines.length < 2) return match;
+
+    const parseRow = (line: string) => line.split('|').slice(1, -1).map(c => c.trim());
+    const headerRow = parseRow(rawLines[0]);
+    const isDivider = rawLines[1].replace(/[\s|:-]/g, '') === '';
+    const dataStartIndex = isDivider ? 2 : 1;
+    const colCount = headerRow.length;
+    const colSpec = '|' + Array(colCount).fill('c').join('|') + '|';
+
+    let texTable = `\\begin{center}\n\\begin{tabular}{${colSpec}}\n\\hline\n`;
+    texTable += headerRow.map(h => `\\textbf{${h}}`).join(' & ') + ' \\\\ \\hline\n';
+
+    for (let i = dataStartIndex; i < rawLines.length; i++) {
+      const row = parseRow(rawLines[i]);
+      if (row.length === 0 || row.every(c => !c)) continue;
+      while (row.length < colCount) row.push('');
+      texTable += row.join(' & ') + ' \\\\ \\hline\n';
+    }
+
+    texTable += `\\end{tabular}\n\\end{center}\n`;
+    return texTable;
+  });
+
+  // 6. Convertir imágenes Markdown ![caption](url) a figure
+  body = body.replace(/!\[(.*?)\]\((.*?)\)/g, (_, caption, url) => {
+    return `\n\\begin{figure}[htbp]\n\\centering\n\\includegraphics[width=0.8\\textwidth]{${url}}\n\\caption{${caption || 'Figura'}}\n\\end{figure}\n`;
+  });
+
+  // 7. Convertir formato de texto
   // Negrita **texto** -> \textbf{texto}
   body = body.replace(/\*\*([^*]+)\*\*/g, '\\textbf{$1}');
   // Cursiva *texto* o _texto_ -> \textit{texto}
@@ -55,6 +86,7 @@ export function visualToLatex(visualText: string, metadata: VisualDocMetadata): 
 \\usepackage[utf8]{inputenc}
 \\usepackage[spanish]{babel}
 \\usepackage{amsmath,amssymb}
+\\usepackage{graphicx}
 \\usepackage{geometry}
 \\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=3cm}
 \\usepackage{hyperref}

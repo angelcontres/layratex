@@ -6,6 +6,7 @@
   import LatexPreview from './lib/preview/LatexPreview.svelte';
   import ErrorPanel from './lib/ui/ErrorPanel.svelte';
   import PaperEditor from './lib/visual/PaperEditor.svelte';
+  import KeyboardHelpModal from './lib/visual/KeyboardHelpModal.svelte';
   import { TEMPLATE_PRESETS, type DocumentTemplate } from './lib/visual/templatePresets';
   import { visualToLatex, latexToVisual } from './lib/visual/latexConverter';
   import { fileService, type FileItem } from './lib/services/fileService';
@@ -54,6 +55,7 @@
   let showTemplateDropdown = $state(false);
   let showFormatDropdown = $state(false);
   let showFontDropdown = $state(false);
+  let showHelpModal = $state(false);
 
   let activeTab = $state<'files' | 'p2p' | 'settings' | ''>('');
   let splitRatio = $state(50); // Porcentaje de ancho del editor
@@ -153,9 +155,12 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         handleNewDocument();
-      } else if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') || e.key === 'F5') {
+      } else if (((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || (editorViewMode === 'code' && e.key.toLowerCase() === 'b'))) || e.key === 'F5') {
         e.preventDefault();
         handleCompile();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '?') {
+        e.preventDefault();
+        showHelpModal = !showHelpModal;
       }
     }
 
@@ -683,7 +688,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
         onclick={handleCompile}
         disabled={isCompiling}
-        title="Descargar documento en PDF"
+        title="Descargar documento en PDF (Ctrl+Enter)"
       >
         {#if isCompiling}
           <Loader2 size={12} class="animate-spin" />
@@ -692,6 +697,15 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           <Download size={12} />
           <span>Exportar PDF</span>
         {/if}
+      </button>
+
+      <!-- Botón de Ayuda y Atajos Rápidos -->
+      <button 
+        class="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+        onclick={() => showHelpModal = true}
+        title="Atajos de teclado y ayuda rápida"
+      >
+        ?
       </button>
     </div>
   </header>
@@ -1045,5 +1059,8 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       </div>
     </div>
   {/if}
+
+  <!-- Modal de Atajos de Teclado y Ayuda Rápida -->
+  <KeyboardHelpModal bind:isOpen={showHelpModal} />
 
 </div>
