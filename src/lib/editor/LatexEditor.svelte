@@ -89,6 +89,32 @@
     calculateStats(content);
   });
 
+  // Sincronizar contenido externo cuando cambie (ej. al abrir archivo o crear nuevo documento)
+  $effect(() => {
+    if (view && content !== view.state.doc.toString()) {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: content }
+      });
+      calculateStats(content);
+    }
+  });
+
+  /**
+   * Salta a una línea específica en CodeMirror, posicionando el cursor y haciendo scroll suave.
+   */
+  export function goToLine(lineNumber: number) {
+    if (!view) return;
+    const doc = view.state.doc;
+    const targetLine = Math.max(1, Math.min(lineNumber, doc.lines));
+    const lineInfo = doc.line(targetLine);
+
+    view.dispatch({
+      selection: { anchor: lineInfo.from },
+      effects: EditorView.scrollIntoView(lineInfo.from, { y: 'center' })
+    });
+    view.focus();
+  }
+
   onDestroy(() => {
     if (view) {
       view.destroy();

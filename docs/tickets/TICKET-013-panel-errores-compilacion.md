@@ -1,7 +1,7 @@
 # TICKET-013: Captura y Parseo de Errores del Compilador LaTeX
 
 - **Milestone:** Sprint 2 — Compilación a PDF y Exportación
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Media-Alta (P2)
 - **Tipo:** Core Feature / Error Handling
 
@@ -17,5 +17,5 @@ Parsear el log estándar de LaTeX cuando ocurre una falla de compilación (**HU-
 4. Al hacer clic en un error de la lista, posicionar el cursor de CodeMirror en la línea especificada y hacer scroll suave.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] Si un documento tiene sintaxis inválida, la compilación no falla silenciosamente; despliega el panel de errores.
-* [ ] Hacer clic sobre el error en el panel desplaza el cursor de CodeMirror exactamente a la línea del error.
+* [x] Si un documento tiene sintaxis inválida, la compilación no falla silenciosamente; despliega el panel de errores.
+* [x] Hacer clic sobre el error en el panel desplaza el cursor de CodeMirror exactamente a la línea del error.
