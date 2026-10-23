@@ -4,8 +4,10 @@
   import StatusBar from './lib/ui/StatusBar.svelte';
   import LatexEditor from './lib/editor/LatexEditor.svelte';
   import LatexPreview from './lib/preview/LatexPreview.svelte';
+  import ErrorPanel from './lib/ui/ErrorPanel.svelte';
   import { fileService, type FileItem } from './lib/services/fileService';
   import { compilerService } from './lib/services/compilerService';
+  import { parseLatexLog, type LogIssue } from './lib/services/latexLogParser';
   import { 
     FileCode, 
     QrCode, 
@@ -94,6 +96,13 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     engine: string;
     durationMs: number;
   } | null>(null);
+
+  // Diagnóstico y Panel de Errores de Compilación (Sprint 2: TICKET-013)
+  let editorRef = $state<{ goToLine: (line: number) => void } | null>(null);
+  let compilationIssues = $state<LogIssue[]>([]);
+  let showErrorPanel = $state(false);
+  let errorCount = $derived(compilationIssues.filter(i => i.type === 'error').length);
+  let warningCount = $derived(compilationIssues.filter(i => i.type === 'warning').length);
 
   // Modales de Compilación y Error
   let showPdfSuccessModal = $state(false);
@@ -245,6 +254,8 @@ Escribe tu documentación técnica aquí...
     currentFileName = 'sin_titulo.tex';
     lastCompiledPdf = null;
     lastExportedPath = null;
+    compilationIssues = [];
+    showErrorPanel = false;
     if (pdfBlobUrl) {
       URL.revokeObjectURL(pdfBlobUrl);
       pdfBlobUrl = null;
@@ -294,8 +305,18 @@ Escribe tu documentación técnica aquí...
       compilationTimeMs = output.duration_ms;
       compilationEngine = output.engine;
 
+      // Parsear logs de compilación (TICKET-013: HU-24, RF-40)
+      const combinedLog = [output.log || '', output.stderr || '', output.stdout || ''].filter(Boolean).join('\n');
+      let parsedIssues = parseLatexLog(combinedLog);
+
       if (output.success && output.pdf_path) {
         compilationError = false;
+        compilationIssues = parsedIssues;
+        if (parsedIssues.some(i => i.type === 'error')) {
+          showErrorPanel = true;
+        } else {
+          showErrorPanel = false;
+        }
 
         // Generar Blob URL local si disponemos del base64 para previsualización inmediata
         if (output.pdf_base64) {
@@ -320,11 +341,19 @@ Escribe tu documentación técnica aquí...
         await handleExportPdf(true);
       } else {
         compilationError = true;
-        errorModalTitle = 'Error de Compilación LaTeX';
-        errorModalMessage = output.error_message || 'El compilador LaTeX finalizó con errores de compilación.';
-        errorModalDetails = output.stderr || output.log || output.stdout || '';
-        showErrorModal = true;
-        showNotification(`Compilación fallida (${output.duration_ms} ms)`, 'error');
+        if (parsedIssues.length === 0) {
+          parsedIssues = [{
+            id: 'issue-fallback',
+            type: 'error',
+            message: output.error_message || 'El compilador LaTeX finalizó con errores de compilación.',
+            line: null,
+            detail: combinedLog.trim() || undefined
+          }];
+        }
+        compilationIssues = parsedIssues;
+        showErrorPanel = true;
+        const errCount = parsedIssues.filter(i => i.type === 'error').length;
+        showNotification(`Compilación fallida: ${errCount} error(es) detectados (${output.duration_ms} ms)`, 'error');
       }
     } catch (err: any) {
       isCompiling = false;
@@ -335,13 +364,18 @@ Escribe tu documentación técnica aquí...
         errorModalTitle = 'Compilador LaTeX no Encontrado';
         errorModalMessage = 'Para compilar documentos a PDF nativo, se requiere una distribución de LaTeX o Tectonic instalada en el sistema.';
         errorModalDetails = errMsg;
+        showErrorModal = true;
       } else {
-        errorModalTitle = 'Fallo en Motor de Compilación';
-        errorModalMessage = errMsg;
-        errorModalDetails = '';
+        const parsed = parseLatexLog(errMsg);
+        compilationIssues = parsed.length > 0 ? parsed : [{
+          id: 'issue-err',
+          type: 'error',
+          message: errMsg,
+          line: null
+        }];
+        showErrorPanel = true;
       }
 
-      showErrorModal = true;
       showNotification('Error al iniciar la compilación', 'error');
     }
   }
@@ -621,6 +655,7 @@ Escribe tu documentación técnica aquí...
       <!-- Panel de Edición de Código -->
       <div class="h-full overflow-hidden" style="width: {splitRatio}%">
         <LatexEditor 
+          bind:this={editorRef}
           bind:content={documentContent}
           onStatsChange={(newStats: { lines: number; words: number }) => stats = newStats}
         />
@@ -653,6 +688,14 @@ Escribe tu documentación técnica aquí...
     </div>
   </div>
 
+  <!-- Panel de Diagnóstico y Errores de Compilación (TICKET-013) -->
+  <ErrorPanel 
+    issues={compilationIssues}
+    bind:isOpen={showErrorPanel}
+    onSelectIssue={(line) => editorRef?.goToLine(line)}
+    onClose={() => showErrorPanel = false}
+  />
+
   <!-- Barra de Estado Inferior -->
   <StatusBar 
     lines={stats.lines}
@@ -662,7 +705,10 @@ Escribe tu documentación técnica aquí...
     compilationTimeMs={compilationTimeMs}
     compilationEngine={compilationEngine}
     compilationError={compilationError}
+    errorCount={errorCount}
+    warningCount={warningCount}
     p2pStatus={currentFilePath ? `Local: ${currentFileName}` : 'Sin Guardar (Memoria)'}
+    onToggleErrorPanel={() => showErrorPanel = !showErrorPanel}
   />
 
   <!-- Modal de Éxito / Exportación de PDF (TICKET-012) -->
