@@ -50,7 +50,7 @@
   let showFormatDropdown = $state(false);
   let showFontDropdown = $state(false);
 
-  let activeTab = $state<'files' | 'p2p' | 'settings'>('files');
+  let activeTab = $state<'files' | 'p2p' | 'settings' | ''>('');
   let splitRatio = $state(50); // Porcentaje de ancho del editor
   let isDragging = $state(false);
 
