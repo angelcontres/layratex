@@ -52,6 +52,12 @@
   let visualStats = $state({ words: 0, pages: 1 });
   let showHelpModal = $state(false);
 
+  // Auto-Guardado (Opción B: con interruptor activable)
+  let autoSaveEnabled = $state<boolean>(true);
+  let isAutoSaving = $state<boolean>(false);
+  let lastSavedTime = $state<Date | null>(null);
+  let autoSaveTimer: any = null;
+
   let activeTab = $state<'files' | 'p2p' | 'settings' | ''>('');
   let splitRatio = $state(50); // Porcentaje de ancho del editor
   let isDragging = $state(false);
@@ -141,6 +147,12 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   onMount(() => {
     recentFiles = fileService.getRecentFiles();
 
+    // Cargar preferencia de auto-guardado
+    const savedAutoPref = localStorage.getItem('layratex_autosave_enabled');
+    if (savedAutoPref !== null) {
+      autoSaveEnabled = savedAutoPref === 'true';
+    }
+
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
@@ -205,7 +217,68 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     window.removeEventListener('mouseup', stopResize);
   }
 
-  // --- Operaciones de Archivo (Sprint 1: TICKET-007, 008, 009, 010) ---
+  // --- Operaciones de Archivo y Auto-Guardado (Opción B) ---
+
+  function toggleAutoSave() {
+    autoSaveEnabled = !autoSaveEnabled;
+    localStorage.setItem('layratex_autosave_enabled', String(autoSaveEnabled));
+    showNotification(
+      autoSaveEnabled ? 'Auto-guardado activado (guarda cada 1.5s)' : 'Auto-guardado desactivado (usa Ctrl+S)', 
+      'info'
+    );
+  }
+
+  async function performAutoSave() {
+    if (!autoSaveEnabled || !isDirty || isAutoSaving) return;
+    isAutoSaving = true;
+
+    try {
+      if (editorViewMode === 'visual') {
+        documentContent = visualToLatex(visualContent, {
+          title: documentTitle,
+          author: 'Usuario',
+          fontStyle: selectedFont
+        });
+      }
+
+      // 1. Guardar copia de seguridad en memoria local
+      try {
+        localStorage.setItem('layratex_draft_title', documentTitle);
+        localStorage.setItem('layratex_draft_content', visualContent);
+      } catch {}
+
+      // 2. Si el archivo ya tiene ruta en disco, escribir silenciosamente
+      if (currentFilePath) {
+        await fileService.saveTexFile(currentFilePath, documentContent);
+      }
+
+      savedContent = documentContent;
+      lastSavedTime = new Date();
+    } catch (err) {
+      console.warn('Auto-save falló silenciosamente:', err);
+    } finally {
+      isAutoSaving = false;
+    }
+  }
+
+  // Reactividad: debounced auto-save tras 1.5s de inactividad
+  $effect(() => {
+    // Declarar dependencias reactivas
+    const _c = visualContent;
+    const _t = documentTitle;
+    const _d = documentContent;
+
+    if (autoSaveEnabled && isDirty && !isAutoSaving) {
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        performAutoSave();
+      }, 1500);
+    }
+
+    return () => {
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    };
+  });
 
   function switchViewMode(newMode: 'visual' | 'code') {
     if (newMode === editorViewMode) return;
@@ -536,11 +609,32 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         <span>Nuevo</span>
       </button>
 
-      <!-- Indicador Discreto de Guardado -->
-      {#if isDirty}
-        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Cambios sin guardar"></span>
+      <span class="text-white/10">|</span>
+
+      <!-- Interruptor de Auto-Guardado (Opción B) -->
+      <button
+        class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors cursor-pointer {autoSaveEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-slate-400 hover:text-white border border-white/10'}"
+        onclick={toggleAutoSave}
+        title="Clic para {autoSaveEnabled ? 'desactivar' : 'activar'} el guardado automático"
+      >
+        <span class="w-1.5 h-1.5 rounded-full {autoSaveEnabled ? 'bg-emerald-400' : 'bg-slate-500'}"></span>
+        <span class="font-medium text-[11px] hidden sm:inline">Auto</span>
+        <span class="text-[10px] font-bold opacity-80">{autoSaveEnabled ? 'ON' : 'OFF'}</span>
+      </button>
+
+      <!-- Indicador Dinámico de Guardado -->
+      {#if isAutoSaving}
+        <span class="text-[11px] text-indigo-400 flex items-center gap-1 font-mono">
+          <Loader2 size={11} class="animate-spin" />
+          <span class="hidden md:inline">Guardando...</span>
+        </span>
+      {:else if isDirty}
+        <span class="text-[11px] text-amber-400 flex items-center gap-1 font-mono" title="Cambios sin guardar">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+          <span class="hidden md:inline">Sin guardar</span>
+        </span>
       {:else}
-        <span class="text-[11px] text-slate-500 shrink-0 flex items-center gap-1 font-mono">
+        <span class="text-[11px] text-slate-500 flex items-center gap-1 font-mono" title="Documento guardado">
           <Check size={11} class="text-emerald-500" />
           <span class="hidden md:inline">Guardado</span>
         </span>
