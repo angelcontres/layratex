@@ -1,10 +1,10 @@
 [package]
 name = "app"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "Layratex — Local-First P2P Hybrid LaTeX Editor"
+authors = ["Angel Contreras"]
+license = "MIT"
+repository = "https://github.com/angelcontres/layratex"
 edition = "2024"
 rust-version = "1.90"
 
