@@ -518,201 +518,115 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
 <div class="h-screen w-screen flex flex-col bg-[#0d1117] text-[#c9d1d9] select-none overflow-hidden font-sans">
   
-  <!-- Barra Superior / Header de Acciones (Wireframe PaperCraft) -->
-  <header class="bg-[#111722]/90 backdrop-blur-md border-b border-white/[0.08] px-5 py-2.5 flex flex-col gap-2.5 select-none shadow-sm z-30">
-    <!-- Fila 1: Documento, Guardado, Selector de Vista y Exportar PDF -->
-    <div class="flex items-center justify-between text-xs gap-3">
-      <div class="flex items-center gap-3 flex-1 min-w-0">
-        <!-- Botón Mis Documentos -->
-        <button 
-          class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all font-semibold shrink-0 cursor-pointer shadow-xs active:scale-95"
-          onclick={() => activeTab = 'files'}
-          title="Abrir explorador de documentos locales"
-        >
-          <div class="w-5 h-5 rounded-md bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-            <FileText size={13} />
-          </div>
-          <span>Mis Documentos</span>
-        </button>
+  <!-- Barra Superior Minimalista (Single Slim Bar) -->
+  <header class="h-12 bg-white/95 dark:bg-[#12141a]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-white/5 px-4 flex items-center justify-between text-xs select-none z-30 transition-colors">
+    <!-- Izquierda: Documentos & Título del Documento -->
+    <div class="flex items-center gap-3 min-w-0">
+      <button 
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer text-xs font-semibold"
+        onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
+        title="Ver documentos recientes y archivos"
+      >
+        <span class="font-bold text-indigo-600 dark:text-indigo-400">λ</span>
+        <span class="hidden sm:inline">Documentos</span>
+      </button>
 
-        <!-- Título Editable del Documento -->
-        <div class="flex items-center gap-2 flex-1 max-w-md min-w-0">
-          <input 
-            type="text"
-            bind:value={documentTitle}
-            class="bg-white/5 hover:bg-white/10 focus:bg-[#090d16] px-3 py-1.5 rounded-xl text-white font-semibold text-xs border border-white/10 focus:border-indigo-500 outline-hidden w-full truncate transition-all shadow-inner"
-            title="Editar título del documento"
-            placeholder="Título del documento..."
-          />
-        </div>
+      <span class="text-slate-300 dark:text-white/10">|</span>
 
-        <!-- Indicador de Estado de Guardado -->
-        <div class="flex items-center gap-1.5 text-[11px] shrink-0 font-medium">
-          {#if isDirty}
-            <span class="flex items-center gap-1.5 text-amber-300 bg-amber-500/15 px-2.5 py-1 rounded-full border border-amber-500/30">
-              <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-              <span>Cambios sin guardar</span>
-            </span>
-          {:else}
-            <span class="flex items-center gap-1.5 text-emerald-300 bg-emerald-500/15 px-2.5 py-1 rounded-full border border-emerald-500/30">
-              <Check size={12} class="text-emerald-400" />
-              <span>Guardado ✓</span>
-            </span>
-          {/if}
-        </div>
-      </div>
+      <input 
+        type="text"
+        bind:value={documentTitle}
+        class="bg-transparent hover:bg-slate-100/60 dark:hover:bg-white/5 focus:bg-white dark:focus:bg-[#1a1d26] px-2 py-1 rounded-md text-slate-900 dark:text-white font-semibold text-xs border border-transparent focus:border-slate-300 dark:focus:border-white/10 outline-hidden max-w-xs truncate transition-all"
+        title="Haz clic para renombrar el documento"
+        placeholder="Título del documento..."
+      />
 
-      <!-- Lado Derecho: Toggle Visual/Código + Botón Exportar PDF -->
-      <div class="flex items-center gap-2.5 shrink-0">
-        {#if statusMessage}
-          <div class="text-[11px] font-mono px-2.5 py-1 rounded-xl flex items-center gap-1.5 transition-all {statusMessageType === 'success' ? 'bg-[#238636]/20 text-[#3fb950] border border-[#238636]/40' : statusMessageType === 'error' ? 'bg-[#da3633]/20 text-[#f85149] border border-[#da3633]/40' : 'bg-[#1f6feb]/20 text-[#58a6ff] border border-[#1f6feb]/40'}">
-            {#if statusMessageType === 'success'}
-              <Check size={12} />
-            {:else if statusMessageType === 'error'}
-              <AlertCircle size={12} />
-            {/if}
-            <span>{statusMessage}</span>
-          </div>
-        {/if}
-
-        <!-- Switch de Modo: Visual (Notion) vs Código (LaTeX) -->
-        <div class="flex items-center p-1 bg-black/40 rounded-xl border border-white/10">
-          <button 
-            class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'}"
-            onclick={() => switchViewMode('visual')}
-            title="Modo visual interactivo tipo Notion (sin código)"
-          >
-            <FileText size={12} />
-            <span>Documento (Visual)</span>
-          </button>
-          <button 
-            class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-white/10 text-white shadow-xs' : 'text-slate-400 hover:text-white'}"
-            onclick={() => switchViewMode('code')}
-            title="Modo avanzado para inspeccionar o editar código LaTeX puro"
-          >
-            <Code2 size={12} />
-            <span>Ver LaTeX</span>
-          </button>
-        </div>
-
-        <button 
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all text-xs font-medium cursor-pointer active:scale-95 shadow-xs"
-          onclick={handleSave}
-          title="Guardar archivo .tex (Ctrl+S)"
-        >
-          <Save size={13} class="text-slate-300" />
-          <span>Guardar</span>
-        </button>
-
-        <!-- Botón Principal: Exportar PDF Limpio con Glow -->
-        <button 
-          class="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all cursor-pointer active:scale-95 disabled:opacity-60"
-          onclick={handleCompile}
-          disabled={isCompiling}
-          title="Compilar y exportar documento PDF con calidad de imprenta"
-        >
-          {#if isCompiling}
-            <Loader2 size={14} class="animate-spin" />
-            <span>Generando PDF...</span>
-          {:else}
-            <Download size={14} />
-            <span>Exportar PDF</span>
-          {/if}
-        </button>
-      </div>
+      <!-- Indicador Discreto de Guardado -->
+      {#if isDirty}
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Cambios sin guardar"></span>
+      {:else}
+        <span class="text-[11px] text-slate-400 dark:text-slate-500 shrink-0 flex items-center gap-1 font-mono">
+          <Check size={11} class="text-emerald-500" />
+          <span class="hidden md:inline">Guardado</span>
+        </span>
+      {/if}
     </div>
 
-    <!-- Fila 2: Selectores Rápidos de Plantilla, Estilo y Fuente -->
-    <div class="flex items-center justify-between text-[11px] pt-2 border-t border-white/[0.06] text-slate-400">
-      <div class="flex items-center gap-2.5">
-        <!-- Selector de Plantilla -->
-        <div class="relative">
-          <button 
-            class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors cursor-pointer"
-            onclick={() => showTemplateDropdown = !showTemplateDropdown}
-          >
-            <span class="text-slate-400">Plantilla:</span>
-            <span class="text-indigo-400 font-semibold">{TEMPLATE_PRESETS.find(t => t.id === selectedTemplateId)?.name || 'Tarea Escolar'}</span>
-            <ChevronDown size={12} class="text-slate-400" />
-          </button>
+    <!-- Centro: Selector de Plantilla Discreto -->
+    <div class="relative hidden lg:block">
+      <button 
+        class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100/80 dark:bg-white/5 hover:bg-slate-200/70 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer text-xs"
+        onclick={() => showTemplateDropdown = !showTemplateDropdown}
+      >
+        <span class="text-slate-400">Plantilla:</span>
+        <span class="font-medium text-slate-800 dark:text-white">{TEMPLATE_PRESETS.find(t => t.id === selectedTemplateId)?.name || 'Tarea Escolar'}</span>
+        <ChevronDown size={12} class="text-slate-400" />
+      </button>
 
-          {#if showTemplateDropdown}
-            <div class="absolute left-0 top-full mt-1.5 w-72 bg-[#161c28] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-100">
-              {#each TEMPLATE_PRESETS as t}
-                <button
-                  class="w-full text-left p-2.5 rounded-xl hover:bg-white/5 transition-all cursor-pointer {selectedTemplateId === t.id ? 'bg-indigo-500/15 text-indigo-400 font-medium' : 'text-[#c9d1d9]'}"
-                  onclick={() => selectTemplate(t.id)}
-                >
-                  <div class="font-semibold text-xs text-white">{t.name}</div>
-                  <div class="text-[10px] text-slate-400 mt-0.5">{t.description}</div>
-                </button>
-              {/each}
-            </div>
-          {/if}
+      {#if showTemplateDropdown}
+        <div class="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 bg-white dark:bg-[#16181f] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl p-1.5 z-50 space-y-0.5 animate-in fade-in duration-100">
+          {#each TEMPLATE_PRESETS as t}
+            <button
+              class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer {selectedTemplateId === t.id ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}"
+              onclick={() => selectTemplate(t.id)}
+            >
+              <div class="text-xs">{t.name}</div>
+              <div class="text-[10px] text-slate-400 truncate">{t.description}</div>
+            </button>
+          {/each}
         </div>
+      {/if}
+    </div>
 
-        <!-- Selector de Formato / Estilo -->
-        <div class="relative">
-          <button 
-            class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors cursor-pointer"
-            onclick={() => showFormatDropdown = !showFormatDropdown}
-          >
-            <span class="text-slate-400">Estilo:</span>
-            <span class="text-white font-medium">{selectedFormatStyle}</span>
-            <ChevronDown size={12} class="text-slate-400" />
-          </button>
+    <!-- Derecha: Selector de Modo (Hoja vs LaTeX) y Exportar PDF -->
+    <div class="flex items-center gap-2 shrink-0">
+      {#if statusMessage}
+        <span class="text-[11px] text-slate-500 font-mono hidden md:inline">{statusMessage}</span>
+      {/if}
 
-          {#if showFormatDropdown}
-            <div class="absolute left-0 top-full mt-1.5 w-48 bg-[#161c28] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-100">
-              {#each ['APA 7 (Estándar)', 'IEEE Académico', 'Moderno Minimalista', 'Formal Institucional'] as f}
-                <button
-                  class="w-full text-left px-3 py-2 rounded-xl hover:bg-white/5 transition-all text-xs cursor-pointer {selectedFormatStyle === f ? 'bg-indigo-500/15 text-indigo-400 font-semibold' : 'text-[#c9d1d9]'}"
-                  onclick={() => { selectedFormatStyle = f; showFormatDropdown = false; }}
-                >
-                  {f}
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-
-        <!-- Selector de Fuente Tipográfica -->
-        <div class="relative">
-          <button 
-            class="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors cursor-pointer"
-            onclick={() => showFontDropdown = !showFontDropdown}
-          >
-            <span class="text-slate-400">Tipografía:</span>
-            <span class="text-white font-medium">{selectedFont === 'serif' ? 'Serif Clásica (LaTeX)' : 'Sans Moderna (Limpia)'}</span>
-            <ChevronDown size={12} class="text-slate-400" />
-          </button>
-
-          {#if showFontDropdown}
-            <div class="absolute left-0 top-full mt-1.5 w-56 bg-[#161c28] border border-white/10 rounded-2xl shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-100">
-              <button
-                class="w-full text-left px-3 py-2 rounded-xl hover:bg-white/5 transition-all text-xs cursor-pointer {selectedFont === 'serif' ? 'bg-indigo-500/15 text-indigo-400 font-semibold' : 'text-[#c9d1d9]'}"
-                onclick={() => { selectedFont = 'serif'; showFontDropdown = false; }}
-              >
-                <div class="font-semibold text-white">Serif Clásica</div>
-                <div class="text-[10px] text-slate-400">Tipografía Knuth / Latin Modern</div>
-              </button>
-              <button
-                class="w-full text-left px-3 py-2 rounded-xl hover:bg-white/5 transition-all text-xs cursor-pointer {selectedFont === 'sans' ? 'bg-indigo-500/15 text-indigo-400 font-semibold' : 'text-[#c9d1d9]'}"
-                onclick={() => { selectedFont = 'sans'; showFontDropdown = false; }}
-              >
-                <div class="font-semibold text-white">Sans Moderna</div>
-                <div class="text-[10px] text-slate-400">Estilo limpio sin serifas</div>
-              </button>
-            </div>
-          {/if}
-        </div>
+      <!-- Selector de Modo Discreto -->
+      <div class="flex items-center p-0.5 bg-slate-100 dark:bg-white/5 rounded-lg border border-slate-200/60 dark:border-white/5 text-xs">
+        <button 
+          class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-white dark:bg-[#202430] text-slate-900 dark:text-white font-semibold shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
+          onclick={() => switchViewMode('visual')}
+          title="Vista de hoja limpia"
+        >
+          <FileText size={12} />
+          <span>Hoja</span>
+        </button>
+        <button 
+          class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-white dark:bg-[#202430] text-slate-900 dark:text-white font-semibold shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
+          onclick={() => switchViewMode('code')}
+          title="Ver código LaTeX crudo"
+        >
+          <Code2 size={12} />
+          <span>LaTeX</span>
+        </button>
       </div>
 
-      <div class="flex items-center gap-4 text-[11px] font-mono text-slate-400">
-        <span>Palabras: <strong class="text-slate-200">{visualStats.words}</strong></span>
-        <span>Páginas: <strong class="text-slate-200">~{visualStats.pages}</strong></span>
-        <span>Corrector: <strong class="text-slate-200">Español</strong></span>
-      </div>
+      <button 
+        class="px-2.5 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+        onclick={handleSave}
+        title="Guardar archivo (Ctrl+S)"
+      >
+        Guardar
+      </button>
+
+      <!-- Botón Exportar PDF Sobrio y Elegante -->
+      <button 
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
+        onclick={handleCompile}
+        disabled={isCompiling}
+        title="Descargar documento en PDF"
+      >
+        {#if isCompiling}
+          <Loader2 size={12} class="animate-spin" />
+          <span>Compilando...</span>
+        {:else}
+          <Download size={12} />
+          <span>Exportar PDF</span>
+        {/if}
+      </button>
     </div>
   </header>
 
