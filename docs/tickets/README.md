@@ -59,5 +59,5 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 
 | Ticket | Título | Estado | Prioridad | Estimación |
 | :---: | :--- | :---: | :---: | :---: |
-| [TICKET-014](./TICKET-014-github-actions-ci-cd-releases.md) | Pipeline de CI/CD con GitHub Actions para compilación multiplataforma automática | ⚪ Pendiente | Alta (P1) | 5 SP |
+| [TICKET-014](./TICKET-014-github-actions-ci-cd-releases.md) | Pipeline de CI/CD con GitHub Actions para compilación multiplataforma automática | 🟢 Cerrado | Alta (P1) | 5 SP |
 | [TICKET-015](./TICKET-015-release-v010-empaquetado.md) | Preparación de release inicial v0.1.0, metadatos y guía de instalación | ⚪ Pendiente | Alta (P1) | 3 SP |

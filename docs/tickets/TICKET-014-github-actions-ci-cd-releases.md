@@ -1,7 +1,7 @@
 # TICKET-014: Pipeline de CI/CD con GitHub Actions para Builds Multiplataforma
 
 - **Milestone:** Sprint 3 — Empaquetado y Distribución
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Cerrado
 - **Prioridad:** Alta (P1)
 - **Tipo:** DevOps / Automation
 
@@ -21,5 +21,5 @@ Automatizar la compilación y empaquetado de ejecutables de Layratex para las tr
 5. Publicar los binarios firmados como assets en la Release correspondiente de GitHub.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] Al crear un tag de versión y hacer push a GitHub, la acción compila exitosamente los binarios de los tres sistemas operativos.
-* [ ] Los instaladores quedan listos para descarga pública en GitHub Releases.
+* [x] Al crear un tag de versión y hacer push a GitHub, la acción compila exitosamente los binarios de los tres sistemas operativos.
+* [x] Los instaladores quedan listos para descarga pública en GitHub Releases.
