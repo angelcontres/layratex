@@ -61,3 +61,39 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 | :---: | :--- | :---: | :---: | :---: |
 | [TICKET-014](./TICKET-014-github-actions-ci-cd-releases.md) | Pipeline de CI/CD con GitHub Actions para compilación multiplataforma automática | 🟢 Cerrado | Alta (P1) | 5 SP |
 | [TICKET-015](./TICKET-015-release-v010-empaquetado.md) | Preparación de release inicial v0.1.0, metadatos y guía de instalación | 🟢 Cerrado | Alta (P1) | 3 SP |
+
+---
+
+## Milestone 5: Sprint 4 — Edición Asistida y Experiencia de Usuario (v0.2.0)
+
+> **Meta del Sprint:** Transformar la edición de código plano en una experiencia visual híbrida con barra de formato, paleta de símbolos matemáticos, autocompletado y asistente de tablas.
+
+| Ticket | Título | Estado | Prioridad | Estimación |
+| :---: | :--- | :---: | :---: | :---: |
+| [TICKET-016](./TICKET-016-toolbar-formato-rapido.md) | Barra de herramientas de formato rápido e inserción de estructuras LaTeX | ⚪ Pendiente | Alta (P1) | 3 SP |
+| [TICKET-017](./TICKET-017-paleta-simbolos-matematicos.md) | Paleta visual categorizada de símbolos matemáticos y operadores | ⚪ Pendiente | Alta (P1) | 5 SP |
+| [TICKET-018](./TICKET-018-autocompletado-snippets-codemirror.md) | Autocompletado inteligente de comandos LaTeX y snippets en CodeMirror 6 | ⚪ Pendiente | Alta (P1) | 5 SP |
+| [TICKET-019](./TICKET-019-generador-visual-tablas-matrices.md) | Generador visual asistido de tablas y matrices matemáticas | ⚪ Pendiente | Media-Alta (P2) | 5 SP |
+
+---
+
+## Milestone 6: Sprint 5 — Plantillas, Navegación y Productividad (v0.3.0)
+
+> **Meta del Sprint:** Maximizar la productividad del autor con plantillas predefinidas listas para usar, scroll sincronizado bidireccional y búsqueda integrada.
+
+| Ticket | Título | Estado | Prioridad | Estimación |
+| :---: | :--- | :---: | :---: | :---: |
+| [TICKET-020](./TICKET-020-galeria-plantillas-documentos.md) | Galería visual de plantillas predefinidas al crear nuevo documento (`Ctrl+N`) | ⚪ Pendiente | Media-Alta (P2) | 3 SP |
+| [TICKET-021](./TICKET-021-sincronizacion-scroll-sync.md) | Sincronización proporcional de scroll bidireccional entre editor y preview | ⚪ Pendiente | Media-Alta (P2) | 5 SP |
+| [TICKET-022](./TICKET-022-busqueda-reemplazo-editor.md) | Panel de búsqueda y reemplazo integrado en el editor (`Ctrl+F` / `Ctrl+H`) | ⚪ Pendiente | Media (P2) | 3 SP |
+
+---
+
+## Milestone 7: Sprint 6 — Colaboración Local-First & Red P2P (v1.0.0)
+
+> **Meta del Sprint:** Hacer realidad la sincronización y co-edición en tiempo real sin servidores centrales mediante CRDT y WebRTC P2P directo.
+
+| Ticket | Título | Estado | Prioridad | Estimación |
+| :---: | :--- | :---: | :---: | :---: |
+| [TICKET-023](./TICKET-023-colaboracion-crdt-p2p-local-first.md) | Motor CRDT (Yjs) y sincronización P2P directa en red local por WebRTC y QR | ⚪ Pendiente | Bloqueante (P1) | 8 SP |
+
