@@ -159,6 +159,75 @@ html, body {
   outline: 1px solid #f59e0b;
 }
 
+/* Soporte Integral de Tema Claro / Light Theme */
+html.theme-light, [data-theme="light"] {
+  background-color: #f6f8fa;
+  color: #24292f;
+}
+
+html.theme-light body {
+  background-color: #f6f8fa;
+  color: #24292f;
+}
+
+html.theme-light ::-webkit-scrollbar-thumb {
+  background: #d0d7de;
+}
+
+html.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: #afb8c1;
+}
+
+/* CodeMirror en Modo Claro */
+html.theme-light .cm-editor {
+  background-color: #ffffff;
+  color: #24292f;
+}
+
+html.theme-light .cm-gutters {
+  background-color: #f6f8fa;
+  color: #8c959f;
+  border-right: 1px solid #d0d7de;
+}
+
+html.theme-light .cm-activeLine,
+html.theme-light .cm-activeLineGutter {
+  background-color: #f1f3f5;
+}
+
+html.theme-light .cm-panel.cm-search {
+  background-color: #ffffff;
+  border: 1px solid #d0d7de;
+  color: #24292f;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+}
+
+html.theme-light .cm-panel.cm-search input[type="text"] {
+  background-color: #f6f8fa;
+  color: #24292f;
+  border: 1px solid #d0d7de;
+}
+
+html.theme-light .cm-panel.cm-search input[type="text"]:focus {
+  border-color: #0969da;
+  box-shadow: 0 0 0 1px #0969da33;
+}
+
+html.theme-light .cm-panel.cm-search button {
+  background-color: #f6f8fa;
+  color: #24292f;
+  border: 1px solid #d0d7de;
+}
+
+html.theme-light .cm-panel.cm-search button:hover {
+  background-color: #eaeef2;
+}
+
+html.theme-light .cm-panel.cm-search .cm-button[name="close"]:hover {
+  background-color: #eaeef2;
+  color: #1f2328;
+}
+
 /* KaTeX custom sizing in visual paper */
 .katex-display {
   margin: 0.8em 0 !important;

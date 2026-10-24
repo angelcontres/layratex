@@ -14,7 +14,9 @@
     Table as TableIcon,
     ChevronLeft,
     ChevronRight,
-    X
+    X,
+    Columns,
+    BookOpen
   } from '@lucide/svelte';
   import MathBuilderModal from './MathBuilderModal.svelte';
   import TableBuilderModal from './TableBuilderModal.svelte';
@@ -28,16 +30,18 @@
     title = $bindable('Documento Sin Título'),
     author = $bindable('Autor'),
     fontStyle = $bindable<'serif' | 'sans'>('serif'),
-    viewMode = $bindable<'edit' | 'print'>('edit'),
+    viewMode = $bindable<'edit' | 'split' | 'print'>('edit'),
     paperTone = $bindable<PaperTone>('dark'),
+    showCropMarks = $bindable(true),
     onStatsChange = (stats: { words: number; pages: number }) => {}
   }: {
     content?: string;
     title?: string;
     author?: string;
     fontStyle?: 'serif' | 'sans';
-    viewMode?: 'edit' | 'print';
+    viewMode?: 'edit' | 'split' | 'print';
     paperTone?: PaperTone;
+    showCropMarks?: boolean;
     onStatsChange?: (stats: { words: number; pages: number }) => void;
   } = $props();
 
@@ -322,6 +326,7 @@
     id: string;
     type: 'h1' | 'h2' | 'h3' | 'math' | 'callout' | 'list' | 'numbered' | 'p' | 'divider' | 'table';
     content: string;
+    isOrdered?: boolean;
     tableData?: { headers: string[]; rows: string[][] };
   }
 
@@ -611,25 +616,136 @@
 <!-- Entorno de Trabajo: Mesa de Trabajo Limpia Sin Barras Flotantes que Tapen la Hoja -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
-  class="h-full w-full flex flex-col items-center {activeTheme.deskClass} overflow-y-auto select-text transition-colors duration-200 py-10 px-4 md:px-12"
+  class="h-full w-full flex flex-col items-center {activeTheme.deskClass} overflow-y-auto select-text transition-colors duration-200 py-6 px-4 md:px-12 relative"
   onmouseup={checkSelection}
 >
 
-  <!-- VISTA DE LAS HOJAS FÍSICAS (A4 CON DIMENSIONES REALES Y MARCAS DE CORTE) -->
+  <!-- Selector Rápido Flotante de Modo de Hoja -->
+  <div class="sticky top-2 z-30 mb-6 flex items-center p-1 rounded-xl bg-[#161b22]/90 backdrop-blur-md border border-white/10 shadow-lg text-xs gap-1">
+    <button 
+      type="button"
+      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer {viewMode === 'edit' ? 'bg-indigo-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-white'}"
+      onclick={() => viewMode = 'edit'}
+      title="Modo Redactar (Hoja sin distracciones)"
+    >
+      <Edit3 size={13} />
+      <span>Redactar</span>
+    </button>
+    <button 
+      type="button"
+      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer {viewMode === 'split' ? 'bg-amber-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-white'}"
+      onclick={() => viewMode = 'split'}
+      title="Modo En Vivo (Redacción a la izquierda + Maquetado A4 simultáneo)"
+    >
+      <Columns size={13} />
+      <span>En Vivo</span>
+    </button>
+    <button 
+      type="button"
+      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer {viewMode === 'print' ? 'bg-emerald-600 text-white font-medium shadow-xs' : 'text-slate-400 hover:text-white'}"
+      onclick={() => viewMode = 'print'}
+      title="Modo Vista Impresa (Hojas A4 terminadas)"
+    >
+      <BookOpen size={13} />
+      <span>Vista Impresa</span>
+    </button>
+  </div>
+
+  {#snippet renderBlocks(blocks: SheetBlock[])}
+    <div class="space-y-5 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.textClass} text-[15px] leading-[1.85] flex-1">
+      {#each blocks as b}
+        {#if b.type === 'h1'}
+          <h2 class="text-xl font-bold pt-5 pb-1 tracking-tight border-b {activeTheme.borderClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
+            {b.content}
+          </h2>
+        {:else if b.type === 'h2'}
+          <h3 class="text-lg font-semibold pt-3 pb-0.5 tracking-tight {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
+            {b.content}
+          </h3>
+        {:else if b.type === 'h3'}
+          <h4 class="text-base font-medium pt-2 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
+            {b.content}
+          </h4>
+        {:else if b.type === 'callout'}
+          <div class="p-4 rounded-xl {activeTheme.calloutClass} border-l-4 text-sm my-3 italic">
+            {@html renderInlineMath(b.content)}
+          </div>
+        {:else if b.type === 'math'}
+          <!-- Ecuación KaTeX con soporte de doble clic para editar -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div 
+            class="group my-5 py-3 text-center relative {activeTheme.hoverMathClass} rounded-xl transition-colors cursor-pointer"
+            ondblclick={() => openMathEditor(b.content)}
+            title="Doble clic para editar esta fórmula con botones"
+          >
+            <div class="text-lg md:text-xl overflow-x-auto">
+              {@html renderKaTeXBlock(b.content)}
+            </div>
+            <button 
+              type="button"
+              class="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 right-2 text-[11px] text-indigo-400 bg-black/40 border border-indigo-400/30 px-2 py-0.5 rounded-md shadow-xs hover:underline flex items-center gap-1 cursor-pointer"
+              onclick={(e) => { e.stopPropagation(); openMathEditor(b.content); }}
+              title="Editar fórmula matemática"
+            >
+              <Edit3 size={11} />
+              <span>editar</span>
+            </button>
+          </div>
+        {:else if b.type === 'table' && b.tableData}
+          <!-- Renderizado de Tabla Elegante -->
+          <div class="my-6 overflow-x-auto rounded-xl border {activeTheme.borderClass}">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="bg-black/5 dark:bg-white/5 font-semibold">
+                <tr>
+                  {#each b.tableData.headers as h}
+                    <th class="p-3 border-b {activeTheme.borderClass}">
+                      {@html renderInlineMath(h)}
+                    </th>
+                  {/each}
+                </tr>
+              </thead>
+              <tbody>
+                {#each b.tableData.rows as row, rIdx}
+                  <tr class="{rIdx % 2 === 1 ? 'bg-black/[0.02] dark:bg-white/[0.02]' : ''}">
+                    {#each row as cell}
+                      <td class="p-3 border-b {activeTheme.borderClass} border-dashed">
+                        {@html renderInlineMath(cell)}
+                      </td>
+                    {/each}
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else if b.type === 'list'}
+          <li class="ml-6 {b.isOrdered ? 'list-decimal' : 'list-disc'}">
+            {@html renderInlineMath(b.content)}
+          </li>
+        {:else if b.type === 'divider'}
+          <hr class="border-t {activeTheme.borderClass} my-6" />
+        {:else}
+          <p class="leading-[1.85] text-justify">
+            {@html renderInlineMath(b.content)}
+          </p>
+        {/if}
+      {/each}
+    </div>
+  {/snippet}
+
+  <!-- VISTA DE LAS HOJAS FÍSICAS (A4 CON DIMENSIONES REALES) -->
   {#if viewMode === 'print'}
-    
-    <!-- Mapeo de Cada Hoja A4 Separada Físicamente -->
     <div class="flex flex-col items-center gap-10 w-full pb-16">
       {#each pages as page, pageIndex}
         <div 
           data-paper-page={pageIndex}
           class="w-full max-w-[820px] min-h-[1154px] rounded-[3px] {activeTheme.sheetClass} px-16 py-20 flex flex-col relative transition-all duration-200"
         >
-          <!-- Marcas de Corte en las 4 Esquinas (Crop Marks de Imprenta Profesional) -->
-          <div class="absolute top-6 left-6 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
-          <div class="absolute top-6 right-6 w-3 h-3 border-t border-r {activeTheme.cropClass} pointer-events-none"></div>
-          <div class="absolute bottom-6 left-6 w-3 h-3 border-b border-l {activeTheme.cropClass} pointer-events-none"></div>
-          <div class="absolute bottom-6 right-6 w-3 h-3 border-b border-r {activeTheme.cropClass} pointer-events-none"></div>
+          {#if showCropMarks}
+            <div class="absolute top-6 left-6 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
+            <div class="absolute top-6 right-6 w-3 h-3 border-t border-r {activeTheme.cropClass} pointer-events-none"></div>
+            <div class="absolute bottom-6 left-6 w-3 h-3 border-b border-l {activeTheme.cropClass} pointer-events-none"></div>
+            <div class="absolute bottom-6 right-6 w-3 h-3 border-b border-r {activeTheme.cropClass} pointer-events-none"></div>
+          {/if}
 
           <!-- Running Header Superior de la Hoja -->
           <div class="flex items-center justify-between text-[11px] {activeTheme.mutedClass} uppercase tracking-widest font-mono pb-4 mb-8 border-b {activeTheme.borderClass}">
@@ -637,7 +753,6 @@
             <span>Hoja {page.pageNumber} de {pages.length}</span>
           </div>
 
-          <!-- En la primera hoja se muestra el título institucional -->
           {#if pageIndex === 0}
             <div class="mb-10 text-center space-y-2 border-b {activeTheme.borderClass} pb-8">
               <input 
@@ -654,95 +769,17 @@
             </div>
           {/if}
 
-          <!-- Contenido Maquetado de la Hoja -->
-          <div class="space-y-5 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.textClass} text-[15px] leading-[1.85] flex-1">
-            {#each page.blocks as b}
-              {#if b.type === 'h1'}
-                <h2 class="text-xl font-bold pt-5 pb-1 tracking-tight border-b {activeTheme.borderClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
-                  {b.content}
-                </h2>
-              {:else if b.type === 'h2'}
-                <h3 class="text-lg font-semibold pt-3 pb-0.5 tracking-tight {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
-                  {b.content}
-                </h3>
-              {:else if b.type === 'h3'}
-                <h4 class="text-base font-medium pt-2 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
-                  {b.content}
-                </h4>
-              {:else if b.type === 'callout'}
-                <div class="p-4 rounded-xl {activeTheme.calloutClass} border-l-4 text-sm my-3 italic">
-                  {@html renderInlineMath(b.content)}
-                </div>
-              {:else if b.type === 'math'}
-                <!-- Ecuación KaTeX con soporte de doble clic para editar -->
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div 
-                  class="group my-5 py-3 text-center relative {activeTheme.hoverMathClass} rounded-xl transition-colors cursor-pointer"
-                  ondblclick={() => openMathEditor(b.content)}
-                  title="Doble clic para editar esta fórmula con botones"
-                >
-                  <div class="text-lg md:text-xl overflow-x-auto">
-                    {@html renderKaTeXBlock(b.content)}
-                  </div>
-                  <button 
-                    class="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 right-2 text-[11px] text-indigo-400 bg-black/40 border border-indigo-400/30 px-2 py-0.5 rounded-md shadow-xs hover:underline flex items-center gap-1 cursor-pointer"
-                    onclick={(e) => { e.stopPropagation(); openMathEditor(b.content); }}
-                    title="Editar fórmula matemática"
-                  >
-                    <Edit3 size={11} />
-                    <span>editar</span>
-                  </button>
-                </div>
-              {:else if b.type === 'table' && b.tableData}
-                <!-- Renderizado de Tabla Elegante -->
-                <div class="my-6 overflow-x-auto rounded-xl border {activeTheme.borderClass}">
-                  <table class="w-full text-left text-xs border-collapse">
-                    <thead class="bg-black/5 dark:bg-white/5 font-semibold">
-                      <tr>
-                        {#each b.tableData.headers as h}
-                          <th class="p-3 border-b {activeTheme.borderClass}">
-                            {@html renderInlineMath(h)}
-                          </th>
-                        {/each}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {#each b.tableData.rows as row, rIdx}
-                        <tr class="{rIdx % 2 === 1 ? 'bg-black/[0.02] dark:bg-white/[0.02]' : ''}">
-                          {#each row as cell}
-                            <td class="p-3 border-b {activeTheme.borderClass} border-dashed">
-                              {@html renderInlineMath(cell)}
-                            </td>
-                          {/each}
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                </div>
-              {:else if b.type === 'list'}
-                <li class="ml-6 list-disc">
-                  {@html renderInlineMath(b.content)}
-                </li>
-              {:else if b.type === 'divider'}
-                <hr class="border-t {activeTheme.borderClass} my-6" />
-              {:else}
-                <p class="leading-[1.85] text-justify">
-                  {@html renderInlineMath(b.content)}
-                </p>
-              {/if}
-            {/each}
-          </div>
+          <!-- Contenido Maquetado -->
+          {@render renderBlocks(page.blocks)}
 
-          <!-- Running Footer Inferior Clásico de la Hoja -->
+          <!-- Running Footer Inferior -->
           <div class="pt-10 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
             <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
             <span class="font-bold tracking-wider">— {page.pageNumber} —</span>
             <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
           </div>
-
         </div>
 
-        <!-- Indicador de Salto de Hoja en la Mesa de Trabajo -->
         {#if pageIndex < pages.length - 1}
           <div class="flex items-center gap-3 {activeTheme.mutedClass} text-[10px] font-mono uppercase tracking-widest opacity-60">
             <span class="w-12 h-px bg-current opacity-20"></span>
@@ -753,21 +790,137 @@
       {/each}
     </div>
 
-  {:else}
+  {:else if viewMode === 'split'}
+    <!-- MODO EN VIVO (SPLIT): Redacción a la izquierda y Hoja A4 Maquetada a la derecha -->
+    <div class="flex flex-col xl:flex-row items-start justify-center gap-8 w-full max-w-[1720px] pb-16">
+      
+      <!-- Panel de Redacción Directa (Izquierda) -->
+      <div class="w-full xl:w-1/2 flex flex-col items-center">
+        <div class="w-full max-w-[820px] min-h-[1154px] rounded-[3px] {activeTheme.sheetClass} px-10 md:px-14 py-16 flex flex-col relative transition-all duration-200">
+          {#if showCropMarks}
+            <div class="absolute top-6 left-6 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
+            <div class="absolute top-6 right-6 w-3 h-3 border-t border-r {activeTheme.cropClass} pointer-events-none"></div>
+            <div class="absolute bottom-6 left-6 w-3 h-3 border-b border-l {activeTheme.cropClass} pointer-events-none"></div>
+            <div class="absolute bottom-6 right-6 w-3 h-3 border-b border-r {activeTheme.cropClass} pointer-events-none"></div>
+          {/if}
 
+          <div class="flex items-center justify-between text-[11px] {activeTheme.mutedClass} uppercase tracking-widest font-mono pb-4 mb-6 border-b {activeTheme.borderClass}">
+            <span class="truncate max-w-xs">{title || 'Documento Técnico'}</span>
+            <span class="flex items-center gap-1.5 text-amber-400 font-medium"><span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Redactando en Vivo</span>
+          </div>
+
+          <div class="mb-8 text-center space-y-2 border-b {activeTheme.borderClass} pb-6">
+            <input 
+              type="text" 
+              bind:value={title}
+              class="w-full text-2xl font-bold {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.titleClass} bg-transparent border-none outline-hidden focus:ring-0 text-center tracking-tight"
+              placeholder="Título del Documento"
+            />
+            <div class="text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} flex items-center justify-center gap-2 pt-1">
+              <span>{author || 'Autor'}</span>
+              <span>•</span>
+              <span>{new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </div>
+          </div>
+
+          <div class="flex-1 flex flex-col relative min-h-[600px]">
+            {#if showFindBar && findQuery && matches.length > 0}
+              <div
+                bind:this={highlightBackdropRef}
+                aria-hidden="true"
+                class="absolute inset-0 pointer-events-none overflow-hidden select-none whitespace-pre-wrap break-words {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} text-[14px] leading-[1.8] p-0 text-transparent"
+              >
+                {@html highlightedBackdropHtml}
+              </div>
+            {/if}
+            <textarea
+              bind:this={textareaRef}
+              bind:value={content}
+              onscroll={handleTextareaScroll}
+              oninput={handleTextareaInput}
+              onkeydown={handleTextareaKeyDown}
+              class="w-full flex-1 bg-transparent border-none outline-hidden resize-none {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.textClass} text-[14px] leading-[1.8] p-0 focus:ring-0 min-h-[600px] placeholder:opacity-40 relative z-10"
+              placeholder="Escribe directamente en esta hoja de papel...&#10;&#10;Usa '/' para menú rápido o atajos: Ctrl+B (Negrita), Ctrl+E (Fórmula fx)."
+            ></textarea>
+          </div>
+
+          <div class="pt-8 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
+            <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
+            <span class="font-bold tracking-wider">— Editor —</span>
+            <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel de Maquetado A4 en Tiempo Real (Derecha) -->
+      <div class="w-full xl:w-1/2 flex flex-col items-center">
+        <div class="flex flex-col items-center gap-8 w-full">
+          {#each pages as page, pageIndex}
+            <div 
+              data-paper-page={pageIndex}
+              class="w-full max-w-[820px] min-h-[1154px] rounded-[3px] {activeTheme.sheetClass} px-10 md:px-14 py-16 flex flex-col relative transition-all duration-200"
+            >
+              {#if showCropMarks}
+                <div class="absolute top-6 left-6 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
+                <div class="absolute top-6 right-6 w-3 h-3 border-t border-r {activeTheme.cropClass} pointer-events-none"></div>
+                <div class="absolute bottom-6 left-6 w-3 h-3 border-b border-l {activeTheme.cropClass} pointer-events-none"></div>
+                <div class="absolute bottom-6 right-6 w-3 h-3 border-b border-r {activeTheme.cropClass} pointer-events-none"></div>
+              {/if}
+
+              <div class="flex items-center justify-between text-[11px] {activeTheme.mutedClass} uppercase tracking-widest font-mono pb-4 mb-6 border-b {activeTheme.borderClass}">
+                <span class="truncate max-w-xs">{title || 'Documento Técnico'}</span>
+                <span>Hoja {page.pageNumber} de {pages.length}</span>
+              </div>
+
+              {#if pageIndex === 0}
+                <div class="mb-8 text-center space-y-2 border-b {activeTheme.borderClass} pb-6">
+                  <h1 class="text-2xl font-bold {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.titleClass} tracking-tight">
+                    {title || 'Documento Sin Título'}
+                  </h1>
+                  <div class="text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} flex items-center justify-center gap-2 pt-1">
+                    <span>{author || 'Autor'}</span>
+                    <span>•</span>
+                    <span>{new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  </div>
+                </div>
+              {/if}
+
+              {@render renderBlocks(page.blocks)}
+
+              <div class="pt-8 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
+                <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
+                <span class="font-bold tracking-wider">— {page.pageNumber} —</span>
+                <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
+              </div>
+            </div>
+
+            {#if pageIndex < pages.length - 1}
+              <div class="flex items-center gap-3 {activeTheme.mutedClass} text-[10px] font-mono uppercase tracking-widest opacity-60">
+                <span class="w-12 h-px bg-current opacity-20"></span>
+                <span>Fin de Hoja {page.pageNumber} • Inicio de Hoja {page.pageNumber + 1}</span>
+                <span class="w-12 h-px bg-current opacity-20"></span>
+              </div>
+            {/if}
+          {/each}
+        </div>
+      </div>
+
+    </div>
+
+  {:else}
     <!-- MODO REDACCIÓN DIRECTA EN LA HOJA DE PAPEL FÍSICA -->
     <div class="w-full max-w-[820px] min-h-[1154px] rounded-[3px] {activeTheme.sheetClass} px-16 py-20 flex flex-col relative transition-all duration-200 mb-16">
-      
-      <!-- Marcas de Corte en las 4 Esquinas -->
-      <div class="absolute top-6 left-6 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
-      <div class="absolute top-6 right-6 w-3 h-3 border-t border-r {activeTheme.cropClass} pointer-events-none"></div>
-      <div class="absolute bottom-6 left-6 w-3 h-3 border-b border-l {activeTheme.cropClass} pointer-events-none"></div>
-      <div class="absolute bottom-6 right-6 w-3 h-3 border-b border-r {activeTheme.cropClass} pointer-events-none"></div>
+      {#if showCropMarks}
+        <div class="absolute top-6 left-6 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
+        <div class="absolute top-6 right-6 w-3 h-3 border-t border-r {activeTheme.cropClass} pointer-events-none"></div>
+        <div class="absolute bottom-6 left-6 w-3 h-3 border-b border-l {activeTheme.cropClass} pointer-events-none"></div>
+        <div class="absolute bottom-6 right-6 w-3 h-3 border-b border-r {activeTheme.cropClass} pointer-events-none"></div>
+      {/if}
 
       <!-- Running Header Superior -->
       <div class="flex items-center justify-between text-[11px] {activeTheme.mutedClass} uppercase tracking-widest font-mono pb-4 mb-8 border-b {activeTheme.borderClass}">
         <span class="truncate max-w-sm">{title || 'Documento Técnico'}</span>
-        <span>Redacción en Vivo • {activeTheme.name}</span>
+        <span>Redacción • {activeTheme.name}</span>
       </div>
 
       <!-- Título de la Hoja -->
@@ -785,7 +938,7 @@
         </div>
       </div>
 
-      <!-- Textarea de Redacción con Soporte de Atajos de Teclado y Sombreado de Coincidencias -->
+      <!-- Textarea de Redacción -->
       <div class="flex-1 flex flex-col relative min-h-[700px]">
         {#if showFindBar && findQuery && matches.length > 0}
           <div
@@ -806,74 +959,74 @@
           placeholder="Escribe directamente en esta hoja de papel...&#10;&#10;Consejos rápidos:&#10;• Teclea '/' para desplegar el menú de inserción de fórmulas, tablas, títulos y notas.&#10;• Selecciona texto para aplicar negrita, cursiva o formato matemático.&#10;• Usa atajos rápidos: Ctrl+B (Negrita), Ctrl+I (Cursiva), Ctrl+E (Fórmula fx)."
         ></textarea>
       </div>
+
       <!-- Running Footer Inferior -->
       <div class="pt-10 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
         <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
         <span class="font-bold tracking-wider">— 1 —</span>
         <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
       </div>
-
-      <!-- Barra de Búsqueda y Reemplazo Global (reutilizable, siempre accesible) -->
-      {#if showFindBar}
-        <div class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] w-[min(680px,95vw)]">
-          <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#161b22] shadow-2xl p-2 backdrop-blur-sm">
-            <div class="flex items-center gap-2">
-              <input
-                class="paper-find-input flex-1 px-2 py-1 rounded-lg bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
-                placeholder="Buscar..."
-                bind:value={findQuery}
-                oninput={() => findMatches()}
-                onkeydown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (e.shiftKey) prevMatch(); else nextMatch();
-                  }
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    closeFindBar();
-                  }
-                }}
-              />
-              <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center" onclick={prevMatch} title="Anterior (Shift+Enter)"><ChevronLeft size={13} /></button>
-              <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center" onclick={nextMatch} title="Siguiente (Enter)"><ChevronRight size={13} /></button>
-              <span class="text-[10px] text-slate-400 font-mono min-w-[75px] text-center">{matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length} (L.${currentMatchLine})` : (findQuery ? '0 / 0' : '—')}</span>
-              <label class="flex items-center gap-1 text-[10px] text-slate-400">
-                <input type="checkbox" bind:checked={matchCase} onchange={() => findMatches()} />
-                Aa
-              </label>
-              <button class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px]" onclick={() => showReplace = !showReplace}>{showReplace ? 'Ocultar' : 'Reemplazar'}</button>
-              <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center" onclick={closeFindBar} title="Cerrar (Esc)"><X size={13} /></button>
-            </div>
-            {#if showReplace}
-              <div class="flex items-center gap-2">
-                <input
-                  class="flex-1 px-2 py-1 rounded-lg bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
-                  placeholder="Reemplazar con..."
-                  bind:value={replaceQuery}
-                  onkeydown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      replaceCurrent();
-                    }
-                    if (e.key === 'Escape') {
-                      e.preventDefault();
-                      closeFindBar();
-                    }
-                  }}
-                />
-                <button class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px]" onclick={replaceCurrent}>Reemplazar</button>
-                <button class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px]" onclick={replaceAll}>Reemplazar todo</button>
-              </div>
-            {/if}
-          </div>
-        </div>
-      {/if}
-
     </div>
+  {/if}
 
+  <!-- Barra de Búsqueda y Reemplazo Global (siempre accesible) -->
+  {#if showFindBar}
+    <div class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] w-[min(680px,95vw)]">
+      <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#161b22] shadow-2xl p-2 backdrop-blur-sm">
+        <div class="flex items-center gap-2">
+          <input
+            class="paper-find-input flex-1 px-2 py-1 rounded-lg bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
+            placeholder="Buscar..."
+            bind:value={findQuery}
+            oninput={() => findMatches()}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (e.shiftKey) prevMatch(); else nextMatch();
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                closeFindBar();
+              }
+            }}
+          />
+          <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center cursor-pointer" onclick={prevMatch} title="Anterior (Shift+Enter)"><ChevronLeft size={13} /></button>
+          <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center cursor-pointer" onclick={nextMatch} title="Siguiente (Enter)"><ChevronRight size={13} /></button>
+          <span class="text-[10px] text-slate-400 font-mono min-w-[75px] text-center">{matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length} (L.${currentMatchLine})` : (findQuery ? '0 / 0' : '—')}</span>
+          <label class="flex items-center gap-1 text-[10px] text-slate-400 cursor-pointer">
+            <input type="checkbox" bind:checked={matchCase} onchange={() => findMatches()} />
+            Aa
+          </label>
+          <button type="button" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] cursor-pointer" onclick={() => showReplace = !showReplace}>{showReplace ? 'Ocultar' : 'Reemplazar'}</button>
+          <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center cursor-pointer" onclick={closeFindBar} title="Cerrar (Esc)"><X size={13} /></button>
+        </div>
+        {#if showReplace}
+          <div class="flex items-center gap-2">
+            <input
+              class="flex-1 px-2 py-1 rounded-lg bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
+              placeholder="Reemplazar con..."
+              bind:value={replaceQuery}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  replaceCurrent();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  closeFindBar();
+                }
+              }}
+            />
+            <button type="button" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] cursor-pointer" onclick={replaceCurrent}>Reemplazar</button>
+            <button type="button" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] cursor-pointer" onclick={replaceAll}>Reemplazar todo</button>
+          </div>
+        {/if}
+      </div>
+    </div>
   {/if}
 
 </div>
+
 
 <!-- Contenedor Oficial Autónomo para Exportación a PDF (Fondo blanco editorial puro y alta definición) -->
 <div id="layratex-pdf-render-target" class="fixed -left-[9999px] top-0 pointer-events-none opacity-0 select-none" aria-hidden="true">

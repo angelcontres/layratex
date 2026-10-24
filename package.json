@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-    "test": "npx tsx src/lib/services/latexLogParser.test.ts && npx tsx src/lib/editor/latexAutocomplete.test.ts && npx tsx src/lib/services/scrollSyncService.test.ts && npx tsx src/lib/visual/latexConverter.test.ts",
+    "test": "npx tsx src/lib/services/latexLogParser.test.ts && npx tsx src/lib/editor/latexAutocomplete.test.ts && npx tsx src/lib/services/scrollSyncService.test.ts && npx tsx src/lib/visual/latexConverter.test.ts && npx tsx src/lib/services/preferencesService.test.ts",
     "tauri": "tauri"
   },
   "devDependencies": {

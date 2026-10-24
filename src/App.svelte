@@ -7,6 +7,8 @@
   import ErrorPanel from './lib/ui/ErrorPanel.svelte';
   import PaperEditor from './lib/visual/PaperEditor.svelte';
   import KeyboardHelpModal from './lib/visual/KeyboardHelpModal.svelte';
+  import PreferencesModal from './lib/ui/PreferencesModal.svelte';
+  import { preferencesService, type UserPreferences } from './lib/services/preferencesService';
   import { WELCOME_TITLE, WELCOME_CONTENT } from './lib/visual/welcomeDocument';
   import { visualToLatex, latexToVisual } from './lib/visual/latexConverter';
   import { fileService, type FileItem } from './lib/services/fileService';
@@ -50,7 +52,10 @@
   // Modo de visualización: 'visual' (Notion-like PaperCraft) por defecto para usuarios cotidianos
   let editorViewMode = $state<'visual' | 'code'>('visual');
   let selectedFont = $state<'serif' | 'sans'>('serif');
-  let sheetViewMode = $state<'edit' | 'print'>('edit');
+  let sheetViewMode = $state<'edit' | 'split' | 'print'>('edit');
+  let showPreferencesModal = $state(false);
+  let userPreferences = $state<UserPreferences>(preferencesService.getPreferences());
+  let isLightTheme = $derived(preferencesService.resolveTheme(userPreferences.theme) === 'light');
   let paperTone = $state<'dark' | 'cream' | 'sepia' | 'white'>('dark');
   let paperEditorRef = $state<{ openMathEditor: (tex?: string) => void; getPrintPages?: () => HTMLElement[]; openFind?: () => void; openReplacePanel?: () => void } | null>(null);
   let documentTitle = $state<string>(WELCOME_TITLE);
