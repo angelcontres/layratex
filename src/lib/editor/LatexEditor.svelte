@@ -5,6 +5,7 @@
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { StreamLanguage, syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
   import { stex } from '@codemirror/legacy-modes/mode/stex';
+  import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
   import { Link2, Unlink } from '@lucide/svelte';
   import { createLatexAutocompleteExtension } from './latexAutocomplete';
 
@@ -135,11 +136,13 @@
         highlightActiveLine(),
         history(),
         bracketMatching(),
+        highlightSelectionMatches(),
         StreamLanguage.define(stex),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         darkTheme,
         ...createLatexAutocompleteExtension(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        search({ top: true }),
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             const newDoc = update.state.doc.toString();
