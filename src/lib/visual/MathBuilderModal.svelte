@@ -149,7 +149,7 @@
               onclick={() => formula = ''}
               title="Borrar fórmula"
             >
-              ✕
+              <X size={13} />
             </button>
           {/if}
         </div>

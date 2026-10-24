@@ -6,6 +6,8 @@
   } = $props();
 
   const shortcuts = [
+    { key: 'Ctrl + F', label: 'Buscar', desc: 'Abrir panel de búsqueda en el editor' },
+    { key: 'Ctrl + H', label: 'Buscar y Reemplazar', desc: 'Abrir panel de búsqueda con campos de reemplazo' },
     { key: 'Ctrl + B', label: 'Negrita', desc: 'Aplica formato en negrita al texto seleccionado' },
     { key: 'Ctrl + I', label: 'Cursiva', desc: 'Aplica formato en cursiva' },
     { key: 'Ctrl + S', label: 'Guardar', desc: 'Guarda el documento en disco (.tex)' },

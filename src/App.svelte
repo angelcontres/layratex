@@ -41,7 +41,10 @@
     Sparkles,
     Edit3,
     Calculator,
-    Printer
+    Printer,
+    Moon,
+    Sun,
+    Scroll
   } from '@lucide/svelte';
 
   // Modo de visualización: 'visual' (Notion-like PaperCraft) por defecto para usuarios cotidianos
@@ -49,8 +52,9 @@
   let selectedFont = $state<'serif' | 'sans'>('serif');
   let sheetViewMode = $state<'edit' | 'print'>('edit');
   let paperTone = $state<'dark' | 'cream' | 'sepia' | 'white'>('dark');
-  let paperEditorRef = $state<{ openMathEditor: (tex?: string) => void; getPrintPages?: () => HTMLElement[] } | null>(null);
+  let paperEditorRef = $state<{ openMathEditor: (tex?: string) => void; getPrintPages?: () => HTMLElement[]; openFind?: () => void; openReplacePanel?: () => void } | null>(null);
   let documentTitle = $state<string>(WELCOME_TITLE);
+  let documentAuthor = $state<string>('Usuario');
   let visualContent = $state<string>(WELCOME_CONTENT);
   let visualStats = $state({ words: 0, pages: 1 });
   let showHelpModal = $state(false);
@@ -133,12 +137,13 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   } | null>(null);
 
   // Diagnóstico y Panel de Errores de Compilación (Sprint 2: TICKET-013)
-  let editorRef = $state<{ 
+  let editorRef = $state<{
     goToLine: (line: number) => void;
     getScrollElement?: () => HTMLElement | null;
     setScrollTop?: (top: number) => void;
+    openSearch?: () => void;
+    openReplace?: () => void;
   } | null>(null);
-
   // Sincronización Proporcional de Scroll Bidireccional (TICKET-023)
   let previewRef = $state<{
     getScrollElement?: () => HTMLElement | null;
@@ -191,23 +196,40 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     }
 
     function handleKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      const isMod = e.ctrlKey || e.metaKey;
+      if (isMod && e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (e.shiftKey) {
           handleSaveAs();
         } else {
           handleSave();
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+      } else if (isMod && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         handleOpen();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+      } else if (isMod && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         handleNewDocument();
-      } else if (((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || (editorViewMode === 'code' && e.key.toLowerCase() === 'b'))) || e.key === 'F5') {
+      } else if ((isMod && e.key.toLowerCase() === 'f')) {
+        e.preventDefault();
+        if (editorViewMode === 'code') {
+          editorRef?.openSearch?.();
+        } else {
+          paperEditorRef?.openFind?.();
+        }
+        return;
+      } else if ((isMod && e.key.toLowerCase() === 'h')) {
+        e.preventDefault();
+        if (editorViewMode === 'code') {
+          editorRef?.openReplace?.();
+        } else {
+          paperEditorRef?.openReplacePanel?.();
+        }
+        return;
+      } else if (((isMod && (e.key === 'Enter' || (editorViewMode === 'code' && e.key.toLowerCase() === 'b'))) || e.key === 'F5')) {
         e.preventDefault();
         handleCompile();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '?') {
+      } else if ((isMod && e.key === '?')) {
         e.preventDefault();
         showHelpModal = !showHelpModal;
       }
@@ -273,7 +295,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       if (editorViewMode === 'visual') {
         documentContent = visualToLatex(visualContent, {
           title: documentTitle,
-          author: 'Usuario',
+          author: documentAuthor,
           fontStyle: selectedFont
         });
       }
@@ -321,18 +343,22 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (newMode === editorViewMode) return;
 
     if (newMode === 'code') {
-      // Sincronizar de visual a LaTeX
+      // Sincronizar de visual a LaTeX preservando preámbulos y configuraciones
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
-        author: 'Usuario',
+        author: documentAuthor,
         fontStyle: selectedFont
-      });
+      }, documentContent);
     } else {
       // Sincronizar de LaTeX a visual
       visualContent = latexToVisual(documentContent);
       const titleMatch = documentContent.match(/\\title\{([^}]+)\}/);
       if (titleMatch) {
         documentTitle = titleMatch[1];
+      }
+      const authorMatch = documentContent.match(/\\author\{([^}]+)\}/);
+      if (authorMatch) {
+        documentAuthor = authorMatch[1];
       }
     }
 
@@ -369,7 +395,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (editorViewMode === 'visual') {
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
-        author: 'Usuario',
+        author: documentAuthor,
         fontStyle: selectedFont
       });
     }
@@ -392,7 +418,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (editorViewMode === 'visual') {
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
-        author: 'Usuario',
+        author: documentAuthor,
         fontStyle: selectedFont
       });
     }
@@ -421,7 +447,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     visualContent = '';
     documentContent = visualToLatex('', {
       title: documentTitle,
-      author: 'Usuario',
+      author: documentAuthor,
       fontStyle: selectedFont
     });
     savedContent = documentContent;
@@ -515,12 +541,12 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       if (result.savedPath) {
         lastExportedPath = result.savedPath;
-        showNotification(`✓ PDF exportado con éxito (${result.durationMs} ms)`, 'success');
+        showNotification(`PDF exportado con éxito (${result.durationMs} ms)`, 'success');
         showPdfSuccessModal = true;
       } else {
         // Guardado completado o visualización lista
         showPdfSuccessModal = true;
-        showNotification(`✓ PDF generado con éxito con Motor Autónomo (${result.durationMs} ms)`, 'success');
+        showNotification(`PDF generado con éxito con Motor Autónomo (${result.durationMs} ms)`, 'success');
       }
       showErrorPanel = false;
       showErrorModal = false;
@@ -537,7 +563,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (editorViewMode === 'visual') {
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
-        author: 'Usuario',
+        author: documentAuthor,
         fontStyle: selectedFont
       });
       // En modo visual PaperCraft, exportar directamente con el motor autónomo sin dependencias externas
@@ -774,28 +800,31 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           <span>+ Fórmula fx</span>
         </button>
 
-        <!-- Selector de Tono de Papel -->
+        <!-- Selector de Tono de Papel (Iconos Profesionales Lucide) -->
         <div class="flex items-center p-0.5 rounded-lg border border-white/10 bg-white/5 text-xs">
           <button 
-            class="px-2 py-0.5 rounded transition-all cursor-pointer {paperTone === 'dark' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
+            type="button"
+            class="px-2 py-1 rounded transition-all cursor-pointer flex items-center justify-center {paperTone === 'dark' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
             onclick={() => paperTone = 'dark'}
             title="Tono Noche / Grafito (Descanso visual)"
           >
-            🌙
+            <Moon size={13} />
           </button>
           <button 
-            class="px-2 py-0.5 rounded transition-all cursor-pointer {paperTone === 'cream' ? 'bg-[#9c783e] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
+            type="button"
+            class="px-2 py-1 rounded transition-all cursor-pointer flex items-center justify-center {paperTone === 'cream' ? 'bg-[#9c783e] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
             onclick={() => paperTone = 'cream'}
             title="Tono Marfil Cálido (Papel de libro natural)"
           >
-            🌿
+            <Sun size={13} />
           </button>
           <button 
-            class="px-2 py-0.5 rounded transition-all cursor-pointer {paperTone === 'sepia' ? 'bg-[#7c5b35] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
+            type="button"
+            class="px-2 py-1 rounded transition-all cursor-pointer flex items-center justify-center {paperTone === 'sepia' ? 'bg-[#7c5b35] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
             onclick={() => paperTone = 'sepia'}
             title="Tono Sepia Pergamino"
           >
-            📜
+            <Scroll size={13} />
           </button>
         </div>
 
@@ -980,7 +1009,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
                   <Laptop size={14} class="text-[#3fb950]" />
                   <div>
                     <div class="text-white text-[11px] font-medium">Laptop Portátil</div>
-                    <div class="text-[10px] text-[#3fb950]">● En línea (P2P Directo)</div>
+                    <div class="text-[10px] text-[#3fb950] flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse"></span><span>En línea (P2P Directo)</span></div>
                   </div>
                 </div>
                 <span class="text-[10px] text-[#8b949e] font-mono">12 ms</span>
@@ -1008,6 +1037,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           bind:this={paperEditorRef}
           bind:content={visualContent}
           bind:title={documentTitle}
+          bind:author={documentAuthor}
           bind:fontStyle={selectedFont}
           bind:viewMode={sheetViewMode}
           bind:paperTone={paperTone}

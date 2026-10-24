@@ -11,7 +11,10 @@
     Heading1, 
     Heading2, 
     Info, 
-    Table as TableIcon
+    Table as TableIcon,
+    ChevronLeft,
+    ChevronRight,
+    X
   } from '@lucide/svelte';
   import MathBuilderModal from './MathBuilderModal.svelte';
   import TableBuilderModal from './TableBuilderModal.svelte';
@@ -43,6 +46,28 @@
   let showTableModal = $state(false);
   let activeMathTex = $state('');
 
+  export function openFind() {
+    showFindBar = true;
+    showReplace = false;
+    findMatches();
+    setTimeout(() => {
+      const input = document.querySelector('.paper-find-input') as HTMLInputElement | null;
+      input?.focus();
+      input?.select();
+    }, 10);
+  }
+
+  export function openReplacePanel() {
+    showFindBar = true;
+    showReplace = true;
+    findMatches();
+    setTimeout(() => {
+      const input = document.querySelector('.paper-find-input') as HTMLInputElement | null;
+      input?.focus();
+      input?.select();
+    }, 10);
+  }
+
   // Menú Slash Flotante anclado a la posición del cursor
   let showSlashMenu = $state(false);
   let slashFilter = $state('');
@@ -55,7 +80,180 @@
   let toolbarX = $state(0);
   let toolbarY = $state(0);
 
-  // Definición de Estilos y Colores según el Tono de Papel
+  // Buscador global reutilizable (Ctrl+F / Ctrl+H)
+  let showFindBar = $state(false);
+  let findQuery = $state('');
+  let replaceQuery = $state('');
+  let showReplace = $state(false);
+  let matchCase = $state(false);
+  let matches: number[] = $state([]);
+  let currentMatchIndex = $state(0);
+  let highlightBackdropRef = $state<HTMLDivElement | null>(null);
+
+  function escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Genera el sombreado visual de coincidencias sin alterar la selección ni robar el foco
+  let highlightedBackdropHtml = $derived.by(() => {
+    if (!showFindBar || !findQuery || matches.length === 0) return '';
+    const text = content || '';
+    const len = findQuery.length;
+    let html = '';
+    let lastIdx = 0;
+
+    for (let i = 0; i < matches.length; i++) {
+      const matchStart = matches[i];
+      if (matchStart > lastIdx) {
+        html += escapeHtml(text.substring(lastIdx, matchStart));
+      }
+      const matchText = text.substring(matchStart, matchStart + len);
+      const isCurrent = i === currentMatchIndex;
+      const highlightClass = isCurrent
+        ? 'bg-amber-400/50 ring-2 ring-amber-400/80 rounded-[2px]'
+        : 'bg-amber-400/20 rounded-[2px]';
+      html += `<mark class="${highlightClass} text-transparent select-none">${escapeHtml(matchText)}</mark>`;
+      lastIdx = matchStart + len;
+    }
+
+    if (lastIdx < text.length) {
+      html += escapeHtml(text.substring(lastIdx));
+    }
+    if (text.endsWith('\n')) {
+      html += ' ';
+    }
+    return html;
+  });
+
+  let currentMatchLine = $derived.by(() => {
+    if (matches.length === 0 || !content) return 0;
+    const startPos = matches[currentMatchIndex] ?? 0;
+    return content.substring(0, startPos).split('\n').length;
+  });
+
+  function closeFindBar() {
+    const lastPos = matches.length > 0 ? matches[currentMatchIndex] : null;
+    showFindBar = false;
+    showReplace = false;
+    matches = [];
+    currentMatchIndex = 0;
+    if (textareaRef) {
+      textareaRef.focus();
+      if (lastPos !== null) {
+        // Coloca el cursor al inicio de la coincidencia sin seleccionarla para no sobreescribir
+        textareaRef.setSelectionRange(lastPos, lastPos);
+      }
+    }
+  }
+
+  function findMatches() {
+    const text = textareaRef?.value ?? content ?? '';
+    if (!text || !findQuery) {
+      matches = [];
+      currentMatchIndex = 0;
+      return;
+    }
+    const query = findQuery;
+    const results: number[] = [];
+    if (matchCase) {
+      let idx = text.indexOf(query);
+      while (idx !== -1) {
+        results.push(idx);
+        idx = text.indexOf(query, idx + 1);
+      }
+    } else {
+      const lowerText = text.toLowerCase();
+      const lowerQuery = query.toLowerCase();
+      let idx = lowerText.indexOf(lowerQuery);
+      while (idx !== -1) {
+        results.push(idx);
+        idx = lowerText.indexOf(lowerQuery, idx + 1);
+      }
+    }
+    matches = results;
+    if (results.length > 0) {
+      if (currentMatchIndex >= results.length) {
+        currentMatchIndex = 0;
+      }
+      scrollToCurrentMatch();
+    } else {
+      currentMatchIndex = 0;
+    }
+  }
+
+  function scrollToCurrentMatch() {
+    if (!textareaRef || matches.length === 0) return;
+    const text = textareaRef.value || content || '';
+    const startPos = matches[currentMatchIndex];
+    const before = text.substring(0, startPos);
+    const lineIndex = before.split('\n').length - 1;
+    const approxLineHeight = 28;
+    const targetScroll = Math.max(0, (lineIndex - 4) * approxLineHeight);
+    textareaRef.scrollTop = targetScroll;
+    if (highlightBackdropRef) {
+      highlightBackdropRef.scrollTop = targetScroll;
+    }
+  }
+
+  function nextMatch() {
+    if (matches.length === 0) {
+      findMatches();
+      return;
+    }
+    currentMatchIndex = (currentMatchIndex + 1) % matches.length;
+    scrollToCurrentMatch();
+    const input = document.querySelector('.paper-find-input') as HTMLInputElement | null;
+    input?.focus();
+  }
+
+  function prevMatch() {
+    if (matches.length === 0) {
+      findMatches();
+      return;
+    }
+    currentMatchIndex = (currentMatchIndex - 1 + matches.length) % matches.length;
+    scrollToCurrentMatch();
+    const input = document.querySelector('.paper-find-input') as HTMLInputElement | null;
+    input?.focus();
+  }
+
+  function replaceCurrent() {
+    if (!textareaRef || matches.length === 0 || !findQuery) return;
+    const startPos = matches[currentMatchIndex];
+    const len = findQuery.length;
+    const text = textareaRef.value || content || '';
+    const newText = text.substring(0, startPos) + replaceQuery + text.substring(startPos + len);
+    content = newText;
+    if (textareaRef) textareaRef.value = newText;
+    findMatches();
+  }
+
+  function replaceAll() {
+    if (!textareaRef || !findQuery) return;
+    let text = textareaRef.value || content || '';
+    if (!matchCase) {
+      const regex = new RegExp(findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      text = text.replace(regex, replaceQuery);
+    } else {
+      const regex = new RegExp(findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      text = text.replace(regex, replaceQuery);
+    }
+    content = text;
+    if (textareaRef) textareaRef.value = text;
+    findMatches();
+  }
+
+  function handleTextareaScroll() {
+    if (highlightBackdropRef && textareaRef) {
+      highlightBackdropRef.scrollTop = textareaRef.scrollTop;
+      highlightBackdropRef.scrollLeft = textareaRef.scrollLeft;
+    }
+  }
   const toneThemes: Record<PaperTone, {
     name: string;
     deskClass: string;
@@ -122,7 +320,7 @@
 
   interface SheetBlock {
     id: string;
-    type: 'h1' | 'h2' | 'h3' | 'math' | 'callout' | 'list' | 'p' | 'divider' | 'table';
+    type: 'h1' | 'h2' | 'h3' | 'math' | 'callout' | 'list' | 'numbered' | 'p' | 'divider' | 'table';
     content: string;
     tableData?: { headers: string[]; rows: string[][] };
   }
@@ -347,20 +545,32 @@
   }
 
   function handleTextareaKeyDown(e: KeyboardEvent) {
+    const isMod = e.ctrlKey || e.metaKey;
     if (showSlashMenu && slashMenuRef) {
       if (slashMenuRef.handleKeyDown(e)) {
         return;
       }
     }
 
+    if (isMod && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      openFind();
+      return;
+    }
+    if (isMod && e.key.toLowerCase() === 'h') {
+      e.preventDefault();
+      openReplacePanel();
+      return;
+    }
+
     // Atajos de formato universales
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+    if (isMod && e.key.toLowerCase() === 'b') {
       e.preventDefault();
       handleFormat('bold');
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+    } else if (isMod && e.key.toLowerCase() === 'i') {
       e.preventDefault();
       handleFormat('italic');
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+    } else if (isMod && e.key.toLowerCase() === 'e') {
       e.preventDefault();
       openMathEditor();
     }
@@ -575,24 +785,89 @@
         </div>
       </div>
 
-      <!-- Textarea de Redacción con Soporte de Atajos de Teclado -->
-      <div class="flex-1 flex flex-col relative">
+      <!-- Textarea de Redacción con Soporte de Atajos de Teclado y Sombreado de Coincidencias -->
+      <div class="flex-1 flex flex-col relative min-h-[700px]">
+        {#if showFindBar && findQuery && matches.length > 0}
+          <div
+            bind:this={highlightBackdropRef}
+            aria-hidden="true"
+            class="absolute inset-0 pointer-events-none overflow-hidden select-none whitespace-pre-wrap break-words {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} text-[15px] leading-[1.85] p-0 text-transparent"
+          >
+            {@html highlightedBackdropHtml}
+          </div>
+        {/if}
         <textarea
           bind:this={textareaRef}
           bind:value={content}
+          onscroll={handleTextareaScroll}
           oninput={handleTextareaInput}
           onkeydown={handleTextareaKeyDown}
-          class="w-full flex-1 bg-transparent border-none outline-hidden resize-none {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.textClass} text-[15px] leading-[1.85] p-0 focus:ring-0 min-h-[700px] placeholder:opacity-40"
-          placeholder="Escribe directamente en esta hoja de papel...&#10;&#10;💡 Consejos rápidos:&#10;• Teclea '/' para desplegar el menú de inserción de fórmulas, tablas, títulos y notas.&#10;• Selecciona texto para aplicar negrita, cursiva o formato matemático.&#10;• Usa atajos rápidos: Ctrl+B (Negrita), Ctrl+I (Cursiva), Ctrl+E (Fórmula fx)."
+          class="w-full flex-1 bg-transparent border-none outline-hidden resize-none {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.textClass} text-[15px] leading-[1.85] p-0 focus:ring-0 min-h-[700px] placeholder:opacity-40 relative z-10"
+          placeholder="Escribe directamente en esta hoja de papel...&#10;&#10;Consejos rápidos:&#10;• Teclea '/' para desplegar el menú de inserción de fórmulas, tablas, títulos y notas.&#10;• Selecciona texto para aplicar negrita, cursiva o formato matemático.&#10;• Usa atajos rápidos: Ctrl+B (Negrita), Ctrl+I (Cursiva), Ctrl+E (Fórmula fx)."
         ></textarea>
       </div>
-
       <!-- Running Footer Inferior -->
       <div class="pt-10 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
         <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
         <span class="font-bold tracking-wider">— 1 —</span>
         <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
       </div>
+
+      <!-- Barra de Búsqueda y Reemplazo Global (reutilizable, siempre accesible) -->
+      {#if showFindBar}
+        <div class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] w-[min(680px,95vw)]">
+          <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#161b22] shadow-2xl p-2 backdrop-blur-sm">
+            <div class="flex items-center gap-2">
+              <input
+                class="paper-find-input flex-1 px-2 py-1 rounded-lg bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
+                placeholder="Buscar..."
+                bind:value={findQuery}
+                oninput={() => findMatches()}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (e.shiftKey) prevMatch(); else nextMatch();
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeFindBar();
+                  }
+                }}
+              />
+              <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center" onclick={prevMatch} title="Anterior (Shift+Enter)"><ChevronLeft size={13} /></button>
+              <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center" onclick={nextMatch} title="Siguiente (Enter)"><ChevronRight size={13} /></button>
+              <span class="text-[10px] text-slate-400 font-mono min-w-[75px] text-center">{matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length} (L.${currentMatchLine})` : (findQuery ? '0 / 0' : '—')}</span>
+              <label class="flex items-center gap-1 text-[10px] text-slate-400">
+                <input type="checkbox" bind:checked={matchCase} onchange={() => findMatches()} />
+                Aa
+              </label>
+              <button class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px]" onclick={() => showReplace = !showReplace}>{showReplace ? 'Ocultar' : 'Reemplazar'}</button>
+              <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center" onclick={closeFindBar} title="Cerrar (Esc)"><X size={13} /></button>
+            </div>
+            {#if showReplace}
+              <div class="flex items-center gap-2">
+                <input
+                  class="flex-1 px-2 py-1 rounded-lg bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
+                  placeholder="Reemplazar con..."
+                  bind:value={replaceQuery}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      replaceCurrent();
+                    }
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      closeFindBar();
+                    }
+                  }}
+                />
+                <button class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px]" onclick={replaceCurrent}>Reemplazar</button>
+                <button class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px]" onclick={replaceAll}>Reemplazar todo</button>
+              </div>
+            {/if}
+          </div>
+        </div>
+      {/if}
 
     </div>
 
