@@ -154,7 +154,7 @@ html, body {
   outline: 1px solid #f59e0b66;
 }
 
-.cm-searchMatch.selected {
+.cm-searchMatch-selected {
   background-color: #f59e0b66;
   outline: 1px solid #f59e0b;
 }
