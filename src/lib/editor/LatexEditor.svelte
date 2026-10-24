@@ -5,6 +5,7 @@
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { StreamLanguage, syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
   import { stex } from '@codemirror/legacy-modes/mode/stex';
+  import { createLatexAutocompleteExtension } from './latexAutocomplete';
 
   let {
     content = $bindable('\\documentclass{article}\n\\title{Documento Layratex}\n\\begin{document}\n\\maketitle\n\n\\section{Introducción}\n¡Bienvenido a Layratex! Este es un editor híbrido local-first.\n\n\\subsection{Fórmulas Matemáticas}\nPodemos escribir ecuaciones en línea como $E = mc^2$ o en bloque destacado:\n\n\\[\n\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}\n\\]\n\n\\end{document}'),
@@ -15,7 +16,7 @@
   let editorContainer: HTMLDivElement;
   let view: EditorView | null = null;
 
-  // Dark theme minimalista y de alto contraste para CodeMirror 6
+  // Dark theme minimalista y de alto contraste para CodeMirror 6 con autocompletado LaTeX
   const darkTheme = EditorView.theme({
     "&": {
       color: "#e6edf3",
@@ -48,6 +49,71 @@
     ".cm-activeLineGutter": {
       backgroundColor: "#161b22",
       color: "#8b949e"
+    },
+    // Estilos personalizados para el panel de autocompletado y snippets LaTeX
+    ".cm-tooltip.cm-tooltip-autocomplete": {
+      backgroundColor: "#161b22",
+      border: "1px solid #30363d",
+      borderRadius: "8px",
+      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)",
+      overflow: "hidden",
+      minWidth: "260px",
+      maxWidth: "460px",
+      zIndex: "100"
+    },
+    ".cm-tooltip.cm-tooltip-autocomplete > ul": {
+      fontFamily: "'JetBrains Mono', 'Fira Code', ui-monospace, monospace",
+      fontSize: "13px",
+      maxHeight: "260px",
+      padding: "4px"
+    },
+    ".cm-tooltip.cm-tooltip-autocomplete > ul > li": {
+      padding: "5px 10px",
+      borderRadius: "6px",
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      color: "#c9d1d9",
+      cursor: "pointer"
+    },
+    ".cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]": {
+      backgroundColor: "#1f6feb26",
+      color: "#58a6ff"
+    },
+    ".cm-completionLabel": {
+      fontWeight: "600",
+      color: "#e6edf3"
+    },
+    ".cm-completionMatchedText": {
+      color: "#58a6ff !important",
+      fontWeight: "bold",
+      textDecoration: "underline 1px"
+    },
+    ".cm-completionDetail": {
+      fontStyle: "normal",
+      fontSize: "11px",
+      color: "#8b949e",
+      marginLeft: "auto",
+      paddingLeft: "8px"
+    },
+    ".cm-tooltip.cm-completionInfo": {
+      backgroundColor: "#161b22",
+      border: "1px solid #30363d",
+      borderRadius: "6px",
+      padding: "8px 12px",
+      color: "#c9d1d9",
+      fontSize: "12px",
+      maxWidth: "320px",
+      boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+      lineHeight: "1.5"
+    },
+    ".cm-completionIcon": {
+      opacity: "0.85"
+    },
+    ".cm-snippetField": {
+      backgroundColor: "#1f6feb33",
+      outline: "1px solid #58a6ff",
+      borderRadius: "2px"
     }
   }, { dark: true });
 
@@ -69,6 +135,7 @@
         StreamLanguage.define(stex),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         darkTheme,
+        ...createLatexAutocompleteExtension(),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {

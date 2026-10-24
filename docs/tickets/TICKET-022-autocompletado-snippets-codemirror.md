@@ -1,7 +1,7 @@
 # TICKET-022: Autocompletado Inteligente y Snippets para LaTeX en CodeMirror 6
 
 - **Milestone:** Sprint 5 — Navegación y Productividad Avanzada (v0.3.0)
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Completado
 - **Prioridad:** Alta (P1)
 - **Tipo:** Core Feature / Editor DX
 
@@ -22,6 +22,6 @@ Integrar la extensión oficial `@codemirror/autocomplete` configurada para sinta
 4. Implementar snippets para inserción rápida de figuras y tablas.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] Al teclear `\` en el editor de código, se despliega una lista contextual con comandos LaTeX sugeridos y filtrado difuso (*fuzzy search*).
-* [ ] Al seleccionar un entorno con `\begin{...}`, se genera el correspondiente `\end{...}` de forma automática.
-* [ ] La tecla <kbd>Tab</kbd> o <kbd>Enter</kbd> completa la sugerencia seleccionada sin interrumpir el flujo de escritura.
+* [x] Al teclear `\` en el editor de código, se despliega una lista contextual con comandos LaTeX sugeridos y filtrado difuso (*fuzzy search*).
+* [x] Al seleccionar un entorno con `\begin{...}`, se genera el correspondiente `\end{...}` de forma automática.
+* [x] La tecla <kbd>Tab</kbd> o <kbd>Enter</kbd> completa la sugerencia seleccionada sin interrumpir el flujo de escritura.

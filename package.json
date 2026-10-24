@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-    "test": "npx tsx src/lib/services/latexLogParser.test.ts",
+    "test": "npx tsx src/lib/services/latexLogParser.test.ts && npx tsx src/lib/editor/latexAutocomplete.test.ts",
     "tauri": "tauri"
   },
   "devDependencies": {
@@ -29,6 +29,7 @@
     "vite": "^8.3.4"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.4",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/language": "^6.13.1",
     "@codemirror/legacy-modes": "^6.5.5",
