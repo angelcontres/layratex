@@ -46,7 +46,8 @@
     Printer,
     Moon,
     Sun,
-    Scroll
+    Scroll,
+    Settings as SettingsIcon
   } from '@lucide/svelte';
 
   // Modo de visualización: 'visual' (Notion-like PaperCraft) por defecto para usuarios cotidianos
@@ -775,26 +776,6 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     <!-- Centro: Herramientas de la Hoja (Solo en modo visual) -->
     {#if editorViewMode === 'visual'}
       <div class="hidden sm:flex items-center gap-2">
-        <!-- Modo Hoja: Redactar vs Vista Impresa -->
-        <div class="flex items-center p-0.5 bg-white/5 rounded-lg border border-white/10 text-xs">
-          <button 
-            class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {sheetViewMode === 'edit' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
-            onclick={() => sheetViewMode = 'edit'}
-            title="Redacción directa sobre la hoja"
-          >
-            <Edit3 size={11} />
-            <span>Redactar</span>
-          </button>
-          <button 
-            class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {sheetViewMode === 'print' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
-            onclick={() => sheetViewMode = 'print'}
-            title="Vista de hoja maquetada con KaTeX"
-          >
-            <Eye size={11} />
-            <span>Vista Impresa</span>
-          </button>
-        </div>
-
         <!-- Botón Insertar Fórmula Rápida -->
         <button 
           class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-medium transition-colors cursor-pointer text-xs"
@@ -1044,8 +1025,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           bind:title={documentTitle}
           bind:author={documentAuthor}
           bind:fontStyle={selectedFont}
-          bind:viewMode={sheetViewMode}
-          bind:paperTone={paperTone}
+                    bind:paperTone={paperTone}
           onStatsChange={(newStats: { words: number; pages: number }) => visualStats = newStats}
         />
       </div>

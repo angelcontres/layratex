@@ -11,11 +11,6 @@
     Moon, 
     Laptop, 
     Type, 
-    BookOpen, 
-    Columns, 
-    Cpu, 
-    Save, 
-    Eye,
     Scroll
   } from '@lucide/svelte';
   import { 
@@ -323,57 +318,14 @@
         {:else if activeCategory === 'sheet'}
           <!-- Modo Hoja (PaperCraft) Options -->
           <div class="space-y-4">
-            <div>
-              <h3 class="font-semibold text-sm {isLight ? 'text-slate-900' : 'text-white'}">
-                Modo de Trabajo Inicial en la Hoja
+            <div class="p-4 rounded-xl border {isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0d1117] border-[#30363d]'}">
+              <h3 class="font-semibold text-xs {isLight ? 'text-slate-800' : 'text-white'} flex items-center gap-1.5 mb-1">
+                <FileText size={14} class="text-indigo-400" />
+                <span>Hoja de Redacción Unificada (Estilo Word)</span>
               </h3>
-              <p class="text-[11px] {isLight ? 'text-slate-500' : 'text-[#8b949e]'}">
-                Elige cómo prefieres interactuar con el documento al abrir el modo PaperCraft
+              <p class="text-[11px] {isLight ? 'text-slate-500' : 'text-[#8b949e]'} leading-relaxed">
+                El modo hoja funciona como un procesador de texto unificado y directo. No requiere alternar vistas de previsualización: redactas, das formato y exportas a PDF directamente sobre el papel A4.
               </p>
-            </div>
-
-            <div class="grid grid-cols-3 gap-3">
-              <button
-                type="button"
-                class="p-3 rounded-xl border text-left cursor-pointer transition-all {prefs.defaultSheetMode === 'edit' ? 'border-indigo-500 bg-indigo-500/10' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
-                onclick={() => updateField('defaultSheetMode', 'edit')}
-              >
-                <div class="font-semibold text-xs flex items-center gap-1.5 {isLight ? 'text-slate-800' : 'text-white'} mb-1">
-                  <Type size={14} class="text-indigo-400" />
-                  <span>Redactar</span>
-                </div>
-                <div class="text-[10px] {isLight ? 'text-slate-500' : 'text-[#8b949e]'} leading-tight">
-                  Escritura ágil en la hoja sin sobrecargas
-                </div>
-              </button>
-
-              <button
-                type="button"
-                class="p-3 rounded-xl border text-left cursor-pointer transition-all {prefs.defaultSheetMode === 'split' ? 'border-indigo-500 bg-indigo-500/10' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
-                onclick={() => updateField('defaultSheetMode', 'split')}
-              >
-                <div class="font-semibold text-xs flex items-center gap-1.5 {isLight ? 'text-slate-800' : 'text-white'} mb-1">
-                  <Columns size={14} class="text-amber-400" />
-                  <span>En Vivo (Split)</span>
-                </div>
-                <div class="text-[10px] {isLight ? 'text-slate-500' : 'text-[#8b949e]'} leading-tight">
-                  Escribe a la izquierda y ve el maquetado A4 a la derecha
-                </div>
-              </button>
-
-              <button
-                type="button"
-                class="p-3 rounded-xl border text-left cursor-pointer transition-all {prefs.defaultSheetMode === 'print' ? 'border-indigo-500 bg-indigo-500/10' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
-                onclick={() => updateField('defaultSheetMode', 'print')}
-              >
-                <div class="font-semibold text-xs flex items-center gap-1.5 {isLight ? 'text-slate-800' : 'text-white'} mb-1">
-                  <BookOpen size={14} class="text-emerald-400" />
-                  <span>Vista Impresa</span>
-                </div>
-                <div class="text-[10px] {isLight ? 'text-slate-500' : 'text-[#8b949e]'} leading-tight">
-                  Hojas A4 terminadas con KaTeX y paginación
-                </div>
-              </button>
             </div>
 
             <!-- Mostrar Marcas de Corte -->
