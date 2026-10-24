@@ -87,7 +87,7 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 | Ticket | Título | Estado | Prioridad | Estimación |
 | :---: | :--- | :---: | :---: | :---: |
 | [TICKET-022](./TICKET-022-autocompletado-snippets-codemirror.md) | Autocompletado Inteligente y Snippets para LaTeX en CodeMirror 6 | 🟢 Completado | Alta (P1) | 5 SP |
-| [TICKET-023](./TICKET-023-sincronizacion-scroll-sync.md) | Sincronización Proporcional de Scroll Bidireccional (Scroll Sync) | ⚪ Pendiente | Media-Alta (P2) | 5 SP |
+| [TICKET-023](./TICKET-023-sincronizacion-scroll-sync.md) | Sincronización Proporcional de Scroll Bidireccional (Scroll Sync) | 🟢 Completado | Media-Alta (P2) | 5 SP |
 | [TICKET-024](./TICKET-024-busqueda-reemplazo-editor.md) | Panel de Búsqueda y Reemplazo Integrado en el Editor (`Ctrl+F` / `Ctrl+H`) | ⚪ Pendiente | Media (P2) | 3 SP |
 
 ---

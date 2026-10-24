@@ -1,28 +1,54 @@
 <script lang="ts">
   import katex from 'katex';
-  import { FileText, Download, ExternalLink, Play } from '@lucide/svelte';
+  import { FileText, Download, ExternalLink, Play, Link2, Unlink } from '@lucide/svelte';
 
   interface Props {
     content?: string;
     pdfBlobUrl?: string | null;
     previewMode?: 'katex' | 'pdf';
+    scrollSyncEnabled?: boolean;
     onRenderTime?: (ms: number) => void;
     onExportPdf?: () => void;
     onOpenNative?: () => void;
     onTriggerCompile?: () => void;
+    onScroll?: (el: HTMLElement) => void;
   }
 
   let {
     content = '',
     pdfBlobUrl = null,
     previewMode = $bindable<'katex' | 'pdf'>('katex'),
+    scrollSyncEnabled = $bindable(true),
     onRenderTime = () => {},
     onExportPdf = () => {},
     onOpenNative = () => {},
-    onTriggerCompile = () => {}
+    onTriggerCompile = () => {},
+    onScroll = () => {}
   }: Props = $props();
 
   let renderedHtml = $state('');
+  let previewScrollContainer = $state<HTMLDivElement | null>(null);
+
+  function handlePreviewScroll() {
+    if (previewScrollContainer) {
+      onScroll(previewScrollContainer);
+    }
+  }
+
+  /**
+   * Retorna el elemento DOM contenedor de scroll de la vista previa KaTeX
+   */
+  export function getScrollElement(): HTMLElement | null {
+    return previewScrollContainer;
+  }
+
+  /**
+   * Posiciona el scroll de la vista previa según scrollTop absoluto en píxeles.
+   */
+  export function setScrollTop(top: number) {
+    if (!previewScrollContainer) return;
+    previewScrollContainer.scrollTop = top;
+  }
 
   function renderLatexIncremental(source: string) {
     const t0 = performance.now();
@@ -147,15 +173,35 @@
         </button>
       </div>
     {:else}
-      <div class="text-[11px] text-[#8b949e] hidden sm:block">
-        KaTeX Reactivo (&lt; 10 ms)
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono transition-colors cursor-pointer border {scrollSyncEnabled ? 'bg-[#1f6feb26] border-[#1f6feb55] text-[#58a6ff] hover:bg-[#1f6feb3a]' : 'bg-[#21262d] border-[#30363d] text-[#8b949e] hover:text-[#c9d1d9]'}"
+          onclick={() => scrollSyncEnabled = !scrollSyncEnabled}
+          title={scrollSyncEnabled ? 'Sincronización de scroll activa. Clic para desactivar.' : 'Sincronización de scroll desactivada. Clic para activar.'}
+        >
+          {#if scrollSyncEnabled}
+            <Link2 size={12} />
+            <span>Sync: ON</span>
+          {:else}
+            <Unlink size={12} />
+            <span>Sync: OFF</span>
+          {/if}
+        </button>
+        <div class="text-[11px] text-[#8b949e] hidden sm:block">
+          KaTeX Reactivo (&lt; 10 ms)
+        </div>
       </div>
     {/if}
   </div>
 
   <!-- Contenido de Vista Previa -->
   {#if previewMode === 'katex'}
-    <div class="flex-1 overflow-auto p-8 lg:p-12 bg-[#0d1117]">
+    <div 
+      class="flex-1 overflow-auto p-8 lg:p-12 bg-[#0d1117]"
+      bind:this={previewScrollContainer}
+      onscroll={handlePreviewScroll}
+    >
       <div class="max-w-2xl mx-auto bg-[#161b22] border border-[#30363d] rounded-lg shadow-2xl p-8 sm:p-12 text-[#c9d1d9] min-h-[600px]">
         {@html renderedHtml}
       </div>

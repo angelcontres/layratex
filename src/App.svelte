@@ -13,6 +13,7 @@
   import { compilerService } from './lib/services/compilerService';
   import { pdfExportService } from './lib/services/pdfExportService';
   import { parseLatexLog, type LogIssue } from './lib/services/latexLogParser';
+  import { ScrollSyncCoordinator } from './lib/services/scrollSyncService';
   import { 
     FileCode, 
     QrCode, 
@@ -132,7 +133,41 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   } | null>(null);
 
   // Diagnóstico y Panel de Errores de Compilación (Sprint 2: TICKET-013)
-  let editorRef = $state<{ goToLine: (line: number) => void } | null>(null);
+  let editorRef = $state<{ 
+    goToLine: (line: number) => void;
+    getScrollElement?: () => HTMLElement | null;
+    setScrollTop?: (top: number) => void;
+  } | null>(null);
+
+  // Sincronización Proporcional de Scroll Bidireccional (TICKET-023)
+  let previewRef = $state<{
+    getScrollElement?: () => HTMLElement | null;
+    setScrollTop?: (top: number) => void;
+  } | null>(null);
+  let scrollSyncEnabled = $state<boolean>(true);
+  const scrollCoordinator = new ScrollSyncCoordinator({ debounceMs: 100, enabled: true });
+
+  $effect(() => {
+    scrollCoordinator.setEnabled(scrollSyncEnabled);
+  });
+
+  function handleEditorScroll(editorEl: HTMLElement) {
+    if (!scrollSyncEnabled) return;
+    const previewEl = previewRef?.getScrollElement?.();
+    if (!previewEl) return;
+    scrollCoordinator.sync(editorEl, previewEl, (targetTop) => {
+      previewRef?.setScrollTop?.(targetTop);
+    });
+  }
+
+  function handlePreviewScroll(previewEl: HTMLElement) {
+    if (!scrollSyncEnabled) return;
+    const editorEl = editorRef?.getScrollElement?.();
+    if (!editorEl) return;
+    scrollCoordinator.sync(previewEl, editorEl, (targetTop) => {
+      editorRef?.setScrollTop?.(targetTop);
+    });
+  }
   let compilationIssues = $state<LogIssue[]>([]);
   let showErrorPanel = $state(false);
   let errorCount = $derived(compilationIssues.filter(i => i.type === 'error').length);
@@ -986,6 +1021,8 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           <LatexEditor 
             bind:this={editorRef}
             bind:content={documentContent}
+            bind:scrollSyncEnabled
+            onScroll={handleEditorScroll}
             onStatsChange={(newStats: { lines: number; words: number }) => stats = newStats}
           />
         </div>
@@ -1005,9 +1042,12 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         <!-- Panel de Previsualización Reactiva KaTeX y PDF Real -->
         <div class="h-full overflow-hidden flex-1" style="width: {100 - splitRatio}%">
           <LatexPreview 
+            bind:this={previewRef}
             content={documentContent}
             pdfBlobUrl={pdfBlobUrl}
             bind:previewMode
+            bind:scrollSyncEnabled
+            onScroll={handlePreviewScroll}
             onRenderTime={(ms: number) => renderTimeMs = ms}
             onExportPdf={() => handleExportPdf(false)}
             onOpenNative={handleOpenInSystemViewer}

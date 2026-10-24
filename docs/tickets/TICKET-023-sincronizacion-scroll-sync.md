@@ -1,7 +1,7 @@
 # TICKET-023: Sincronización Proporcional de Scroll Bidireccional (Scroll Sync)
 
 - **Milestone:** Sprint 5 — Navegación y Productividad Avanzada (v0.3.0)
-- **Estado:** ⚪ Pendiente
+- **Estado:** 🟢 Completado
 - **Prioridad:** Media-Alta (P2)
 - **Tipo:** Core Feature / UX
 
@@ -17,6 +17,6 @@ Implementar sincronización proporcional de desplazamiento (*scroll sync*) bidir
 4. Botón en la barra de herramientas para activar o desactivar la sincronización de scroll a preferencia del usuario.
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] Al desplazarse en el editor de código, el panel de preview acompaña proporcionalmente la sección correspondiente.
-* [ ] No existen tirones (*jittering*) ni bucles recursivos entre ambos paneles.
-* [ ] Se puede deshabilitar la sincronización mediante un conmutador rápido.
+* [x] Al desplazarse en el editor de código, el panel de preview acompaña proporcionalmente la sección correspondiente.
+* [x] No existen tirones (*jittering*) ni bucles recursivos entre ambos paneles.
+* [x] Se puede deshabilitar la sincronización mediante un conmutador rápido.
