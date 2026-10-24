@@ -5,12 +5,15 @@
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { StreamLanguage, syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
   import { stex } from '@codemirror/legacy-modes/mode/stex';
+  import { Link2, Unlink } from '@lucide/svelte';
   import { createLatexAutocompleteExtension } from './latexAutocomplete';
 
   let {
     content = $bindable('\\documentclass{article}\n\\title{Documento Layratex}\n\\begin{document}\n\\maketitle\n\n\\section{Introducción}\n¡Bienvenido a Layratex! Este es un editor híbrido local-first.\n\n\\subsection{Fórmulas Matemáticas}\nPodemos escribir ecuaciones en línea como $E = mc^2$ o en bloque destacado:\n\n\\[\n\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}\n\\]\n\n\\end{document}'),
     onChange = (val: string) => {},
-    onStatsChange = (stats: { lines: number; words: number }) => {}
+    onStatsChange = (stats: { lines: number; words: number }) => {},
+    onScroll = (el: HTMLElement) => {},
+    scrollSyncEnabled = $bindable(true)
   } = $props();
 
   let editorContainer: HTMLDivElement;
@@ -153,8 +156,15 @@
       parent: editorContainer
     });
 
+    view.scrollDOM.addEventListener('scroll', handleEditorScroll, { passive: true });
+
     calculateStats(content);
   });
+
+  function handleEditorScroll() {
+    if (!view) return;
+    onScroll(view.scrollDOM);
+  }
 
   // Sincronizar contenido externo cuando cambie (ej. al abrir archivo o crear nuevo documento)
   $effect(() => {
@@ -182,8 +192,24 @@
     view.focus();
   }
 
+  /**
+   * Retorna el elemento DOM con scroll activo de CodeMirror 6 (.cm-scroller)
+   */
+  export function getScrollElement(): HTMLElement | null {
+    return view ? view.scrollDOM : null;
+  }
+
+  /**
+   * Posiciona el scroll de CodeMirror según una posición absoluta scrollTop en píxeles.
+   */
+  export function setScrollTop(top: number) {
+    if (!view) return;
+    view.scrollDOM.scrollTop = top;
+  }
+
   onDestroy(() => {
     if (view) {
+      view.scrollDOM.removeEventListener('scroll', handleEditorScroll);
       view.destroy();
     }
   });
@@ -196,8 +222,25 @@
       <span>main.tex</span>
       <span class="text-[#58a6ff] bg-[#1f6feb1f] px-1.5 py-0.5 rounded text-[10px]">LaTeX 2e</span>
     </div>
-    <div class="text-[11px] text-[#8b949e]">
-      Modo: Código (CodeMirror 6)
+    <div class="flex items-center gap-3">
+      <!-- Botón de Sincronización de Scroll Bidireccional (TICKET-023) -->
+      <button
+        type="button"
+        class="flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono transition-colors cursor-pointer border {scrollSyncEnabled ? 'bg-[#1f6feb26] border-[#1f6feb55] text-[#58a6ff] hover:bg-[#1f6feb3a]' : 'bg-[#21262d] border-[#30363d] text-[#8b949e] hover:text-[#c9d1d9]'}"
+        onclick={() => scrollSyncEnabled = !scrollSyncEnabled}
+        title={scrollSyncEnabled ? 'Sincronización de scroll activa. Clic para desactivar.' : 'Sincronización de scroll desactivada. Clic para activar.'}
+      >
+        {#if scrollSyncEnabled}
+          <Link2 size={12} />
+          <span>Sync: ON</span>
+        {:else}
+          <Unlink size={12} />
+          <span>Sync: OFF</span>
+        {/if}
+      </button>
+      <div class="text-[11px] text-[#8b949e]">
+        Modo: Código (CodeMirror 6)
+      </div>
     </div>
   </div>
   <div class="flex-1 overflow-hidden" bind:this={editorContainer}></div>
