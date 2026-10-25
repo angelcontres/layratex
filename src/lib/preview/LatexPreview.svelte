@@ -50,6 +50,38 @@
     previewScrollContainer.scrollTop = top;
   }
 
+  function parseTabularToPreviewHtml(tabularBlock: string): string {
+    const match = tabularBlock.match(/\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/);
+    if (!match) return tabularBlock;
+    const inner = match[1];
+    const rawRows = inner.split(/\\\\/);
+    const parsedRows: string[][] = [];
+    for (const rawRow of rawRows) {
+      const cleanRow = rawRow.replace(/\\(hline|toprule|midrule|bottomrule)/g, '').trim();
+      if (!cleanRow) continue;
+      const cells = cleanRow.split('&').map(cell => cell.trim().replace(/\\textbf\{([^}]+)\}/g, '$1'));
+      if (cells.length > 0 && !cells.every(c => !c)) parsedRows.push(cells);
+    }
+    if (parsedRows.length === 0) return '';
+    const header = parsedRows[0];
+    const dataRows = parsedRows.slice(1);
+    let html = '<div class="my-6 overflow-x-auto rounded-xs border border-white/10"><table class="w-full text-left text-xs border-collapse">';
+    html += '<thead class="bg-white/5 font-semibold"><tr>';
+    for (const h of header) {
+      html += `<th class="p-2.5 border-b border-white/10 text-white font-serif">${h}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+    for (let i = 0; i < dataRows.length; i++) {
+      html += `<tr class="${i % 2 === 1 ? 'bg-white/[0.02]' : ''}">`;
+      for (const c of dataRows[i]) {
+        html += `<td class="p-2.5 border-b border-white/10 border-dashed text-[#c9d1d9] font-serif">${c}</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    return html;
+  }
+
   function renderLatexIncremental(source: string) {
     const t0 = performance.now();
     try {
@@ -93,12 +125,20 @@
         }
       });
 
+      // 4.5. Renderizar Tablas y Citas
+      processed = processed.replace(/(?:\\begin\{center\}\s*)?\\begin\{tabular\}\{[^}]*\}[\s\S]*?\\end\{tabular\}(?:\s*\\end\{center\})?/g, (match) => {
+        return parseTabularToPreviewHtml(match);
+      });
+      processed = processed.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, (_, q) => {
+        return `<blockquote class="p-4 my-4 rounded-xs bg-white/5 border-l-4 border-[#30363d] text-slate-300 italic font-serif">${q.trim().replace(/\n/g, '<br/>')}</blockquote>`;
+      });
+
       // 5. Renderizar Secciones y Estructura
       processed = processed
         .replace(/\\maketitle/g, '')
-        .replace(/\\section\*?\{([^}]+)\}/g, '<h2 class="text-2xl font-bold mt-6 mb-3 text-[#58a6ff] border-b border-[#21262d] pb-1 font-serif">$1</h2>')
-        .replace(/\\subsection\*?\{([^}]+)\}/g, '<h3 class="text-xl font-semibold mt-4 mb-2 text-[#79c0ff] font-serif">$1</h3>')
-        .replace(/\\subsubsection\*?\{([^}]+)\}/g, '<h4 class="text-lg font-medium mt-3 mb-1 text-[#d2a8ff] font-serif">$1</h4>')
+        .replace(/\\section\*?\{([^}]+)\}/g, '<h2 class="text-2xl font-bold mt-6 mb-3 text-white border-b border-white/10 pb-1 font-serif tracking-tight">$1</h2>')
+        .replace(/\\subsection\*?\{([^}]+)\}/g, '<h3 class="text-xl font-semibold mt-4 mb-2 text-[#f0f6fc] font-serif tracking-tight">$1</h3>')
+        .replace(/\\subsubsection\*?\{([^}]+)\}/g, '<h4 class="text-lg font-medium mt-3 mb-1 text-[#d0d7de] font-serif">$1</h4>')
         .replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>')
         .replace(/\\textit\{([^}]+)\}/g, '<em>$1</em>')
         .replace(/\\emph\{([^}]+)\}/g, '<em>$1</em>')
@@ -202,7 +242,7 @@
       bind:this={previewScrollContainer}
       onscroll={handlePreviewScroll}
     >
-      <div class="max-w-2xl mx-auto bg-[#161b22] border border-[#30363d] rounded-lg shadow-2xl p-8 sm:p-12 text-[#c9d1d9] min-h-[600px]">
+      <div class="max-w-2xl mx-auto bg-[#161b22] border border-[#30363d] rounded-[2px] shadow-2xl p-8 sm:p-12 text-[#c9d1d9] min-h-[600px]">
         {@html renderedHtml}
       </div>
     </div>

@@ -7,6 +7,8 @@
   import ErrorPanel from './lib/ui/ErrorPanel.svelte';
   import PaperEditor from './lib/visual/PaperEditor.svelte';
   import KeyboardHelpModal from './lib/visual/KeyboardHelpModal.svelte';
+  import PreferencesModal from './lib/ui/PreferencesModal.svelte';
+  import { preferencesService, type UserPreferences } from './lib/services/preferencesService';
   import { WELCOME_TITLE, WELCOME_CONTENT } from './lib/visual/welcomeDocument';
   import { visualToLatex, latexToVisual } from './lib/visual/latexConverter';
   import { fileService, type FileItem } from './lib/services/fileService';
@@ -41,16 +43,24 @@
     Sparkles,
     Edit3,
     Calculator,
-    Printer
+    Printer,
+    Moon,
+    Sun,
+    Scroll,
+    Settings as SettingsIcon
   } from '@lucide/svelte';
 
   // Modo de visualización: 'visual' (Notion-like PaperCraft) por defecto para usuarios cotidianos
   let editorViewMode = $state<'visual' | 'code'>('visual');
   let selectedFont = $state<'serif' | 'sans'>('serif');
-  let sheetViewMode = $state<'edit' | 'print'>('edit');
+  let sheetViewMode = $state<'edit' | 'split' | 'print'>('edit');
+  let showPreferencesModal = $state(false);
+  let userPreferences = $state<UserPreferences>(preferencesService.getPreferences());
+  let isLightTheme = $derived(preferencesService.resolveTheme(userPreferences.theme) === 'light');
   let paperTone = $state<'dark' | 'cream' | 'sepia' | 'white'>('dark');
-  let paperEditorRef = $state<{ openMathEditor: (tex?: string) => void; getPrintPages?: () => HTMLElement[] } | null>(null);
+  let paperEditorRef = $state<{ openMathEditor: (tex?: string) => void; getPrintPages?: () => HTMLElement[]; openFind?: () => void; openReplacePanel?: () => void } | null>(null);
   let documentTitle = $state<string>(WELCOME_TITLE);
+  let documentAuthor = $state<string>('Usuario');
   let visualContent = $state<string>(WELCOME_CONTENT);
   let visualStats = $state({ words: 0, pages: 1 });
   let showHelpModal = $state(false);
@@ -133,12 +143,13 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   } | null>(null);
 
   // Diagnóstico y Panel de Errores de Compilación (Sprint 2: TICKET-013)
-  let editorRef = $state<{ 
+  let editorRef = $state<{
     goToLine: (line: number) => void;
     getScrollElement?: () => HTMLElement | null;
     setScrollTop?: (top: number) => void;
+    openSearch?: () => void;
+    openReplace?: () => void;
   } | null>(null);
-
   // Sincronización Proporcional de Scroll Bidireccional (TICKET-023)
   let previewRef = $state<{
     getScrollElement?: () => HTMLElement | null;
@@ -191,23 +202,40 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     }
 
     function handleKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      const isMod = e.ctrlKey || e.metaKey;
+      if (isMod && e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (e.shiftKey) {
           handleSaveAs();
         } else {
           handleSave();
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+      } else if (isMod && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         handleOpen();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+      } else if (isMod && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         handleNewDocument();
-      } else if (((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || (editorViewMode === 'code' && e.key.toLowerCase() === 'b'))) || e.key === 'F5') {
+      } else if ((isMod && e.key.toLowerCase() === 'f')) {
+        e.preventDefault();
+        if (editorViewMode === 'code') {
+          editorRef?.openSearch?.();
+        } else {
+          paperEditorRef?.openFind?.();
+        }
+        return;
+      } else if ((isMod && e.key.toLowerCase() === 'h')) {
+        e.preventDefault();
+        if (editorViewMode === 'code') {
+          editorRef?.openReplace?.();
+        } else {
+          paperEditorRef?.openReplacePanel?.();
+        }
+        return;
+      } else if (((isMod && (e.key === 'Enter' || (editorViewMode === 'code' && e.key.toLowerCase() === 'b'))) || e.key === 'F5')) {
         e.preventDefault();
         handleCompile();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '?') {
+      } else if ((isMod && e.key === '?')) {
         e.preventDefault();
         showHelpModal = !showHelpModal;
       }
@@ -273,7 +301,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       if (editorViewMode === 'visual') {
         documentContent = visualToLatex(visualContent, {
           title: documentTitle,
-          author: 'Usuario',
+          author: documentAuthor,
           fontStyle: selectedFont
         });
       }
@@ -321,18 +349,22 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (newMode === editorViewMode) return;
 
     if (newMode === 'code') {
-      // Sincronizar de visual a LaTeX
+      // Sincronizar de visual a LaTeX preservando preámbulos y configuraciones
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
-        author: 'Usuario',
+        author: documentAuthor,
         fontStyle: selectedFont
-      });
+      }, documentContent);
     } else {
       // Sincronizar de LaTeX a visual
       visualContent = latexToVisual(documentContent);
       const titleMatch = documentContent.match(/\\title\{([^}]+)\}/);
       if (titleMatch) {
         documentTitle = titleMatch[1];
+      }
+      const authorMatch = documentContent.match(/\\author\{([^}]+)\}/);
+      if (authorMatch) {
+        documentAuthor = authorMatch[1];
       }
     }
 
@@ -369,7 +401,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (editorViewMode === 'visual') {
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
-        author: 'Usuario',
+        author: documentAuthor,
         fontStyle: selectedFont
       });
     }
@@ -392,7 +424,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (editorViewMode === 'visual') {
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
-        author: 'Usuario',
+        author: documentAuthor,
         fontStyle: selectedFont
       });
     }
@@ -421,7 +453,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     visualContent = '';
     documentContent = visualToLatex('', {
       title: documentTitle,
-      author: 'Usuario',
+      author: documentAuthor,
       fontStyle: selectedFont
     });
     savedContent = documentContent;
@@ -479,7 +511,14 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     showNotification('Generando PDF con el Motor Autónomo de Layratex...', 'info');
 
     try {
-      // 1. Obtener los elementos de página renderizados en el DOM
+      // 1. Si estamos en modo código, sincronizar con el modelo visual para que la hoja maquetada esté al día
+      if (editorViewMode === 'code') {
+        visualContent = latexToVisual(documentContent);
+        // Breve espera para que el DOM reactivo calcule las páginas maquetadas
+        await new Promise(resolve => setTimeout(resolve, 80));
+      }
+
+      // 2. Obtener los elementos de página renderizados en el DOM
       let pages = paperEditorRef?.getPrintPages?.() || [];
       if (!pages || pages.length === 0) {
         pages = Array.from(document.querySelectorAll<HTMLElement>('#layratex-pdf-render-target [data-paper-page]'));
@@ -515,12 +554,12 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       if (result.savedPath) {
         lastExportedPath = result.savedPath;
-        showNotification(`✓ PDF exportado con éxito (${result.durationMs} ms)`, 'success');
+        showNotification(`PDF exportado con éxito (${result.durationMs} ms)`, 'success');
         showPdfSuccessModal = true;
       } else {
         // Guardado completado o visualización lista
         showPdfSuccessModal = true;
-        showNotification(`✓ PDF generado con éxito con Motor Autónomo (${result.durationMs} ms)`, 'success');
+        showNotification(`PDF generado con éxito con Motor Autónomo (${result.durationMs} ms)`, 'success');
       }
       showErrorPanel = false;
       showErrorModal = false;
@@ -537,7 +576,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (editorViewMode === 'visual') {
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
-        author: 'Usuario',
+        author: documentAuthor,
         fontStyle: selectedFont
       });
       // En modo visual PaperCraft, exportar directamente con el motor autónomo sin dependencias externas
@@ -596,39 +635,15 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         // Abrir diálogo de exportación nativo para guardar el PDF
         await handleExportPdf(true);
       } else {
-        compilationError = true;
-        if (parsedIssues.length === 0) {
-          parsedIssues = [{
-            id: 'issue-fallback',
-            type: 'error',
-            message: output.error_message || 'El compilador LaTeX finalizó con advertencias de sintaxis.',
-            line: null,
-            detail: combinedLog.trim() || undefined
-          }];
-        }
-        compilationIssues = parsedIssues;
-        showErrorPanel = true;
-        showNotification(`Aviso en compilación: se puede usar el Motor Autónomo`, 'error');
+        // Si el compilador externo no pudo completar el PDF (por sintaxis, paquetes ausentes o falta de red),
+        // Layratex activa inmediatamente su Motor Autónomo para que el usuario SIEMPRE obtenga su PDF.
+        console.warn('Compilador nativo finalizó con advertencias, activando Motor Autónomo de Layratex...');
+        await handleAutonomousPdfExport();
       }
     } catch (err: any) {
       isCompiling = false;
-      const errMsg = err?.message || String(err);
-
-      if (errMsg.includes('No se encontró ningún compilador') || errMsg.includes('sudo dnf install')) {
-        // Fallback transparente al motor autónomo de Layratex: ¡CERO ERRORES de falta de compilador!
-        await handleAutonomousPdfExport();
-      } else {
-        compilationError = true;
-        const parsed = parseLatexLog(errMsg);
-        compilationIssues = parsed.length > 0 ? parsed : [{
-          id: 'issue-err',
-          type: 'error',
-          message: errMsg,
-          line: null
-        }];
-        showErrorPanel = true;
-        showNotification('Error al iniciar la compilación', 'error');
-      }
+      // Ante cualquier excepción o ausencia de motor nativo, exportar de inmediato con el motor autónomo
+      await handleAutonomousPdfExport();
     }
   }
 
@@ -689,7 +704,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     <!-- Izquierda: Documentos & Plantilla -->
     <div class="flex items-center gap-3 min-w-0">
       <button 
-        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-xs font-semibold"
+        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xs text-slate-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-xs font-semibold"
         onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
         title="Ver documentos recientes y archivos"
       >
@@ -701,7 +716,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       <!-- Botón + Nuevo Documento (Convención estándar de apps de notas/documentos) -->
       <button 
-        class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs font-medium"
+        class="flex items-center gap-1 px-2.5 py-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs font-medium"
         onclick={handleNewDocument}
         title="Crear un nuevo documento en blanco (Ctrl+N)"
       >
@@ -713,7 +728,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       <!-- Interruptor de Auto-Guardado (Opción B) -->
       <button
-        class="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors cursor-pointer {autoSaveEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-slate-400 hover:text-white border border-white/10'}"
+        class="flex items-center gap-1.5 px-2 py-1 rounded-xs text-xs transition-colors cursor-pointer {autoSaveEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-slate-400 hover:text-white border border-white/10'}"
         onclick={toggleAutoSave}
         title="Clic para {autoSaveEnabled ? 'desactivar' : 'activar'} el guardado automático"
       >
@@ -744,29 +759,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     <!-- Centro: Herramientas de la Hoja (Solo en modo visual) -->
     {#if editorViewMode === 'visual'}
       <div class="hidden sm:flex items-center gap-2">
-        <!-- Modo Hoja: Redactar vs Vista Impresa -->
-        <div class="flex items-center p-0.5 bg-white/5 rounded-lg border border-white/10 text-xs">
-          <button 
-            class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {sheetViewMode === 'edit' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
-            onclick={() => sheetViewMode = 'edit'}
-            title="Redacción directa sobre la hoja"
-          >
-            <Edit3 size={11} />
-            <span>Redactar</span>
-          </button>
-          <button 
-            class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {sheetViewMode === 'print' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
-            onclick={() => sheetViewMode = 'print'}
-            title="Vista de hoja maquetada con KaTeX"
-          >
-            <Eye size={11} />
-            <span>Vista Impresa</span>
-          </button>
-        </div>
-
         <!-- Botón Insertar Fórmula Rápida -->
         <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-medium transition-colors cursor-pointer text-xs"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-xs bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-medium transition-colors cursor-pointer text-xs"
           onclick={() => paperEditorRef?.openMathEditor()}
           title="Insertar fórmula matemática con clics"
         >
@@ -774,34 +769,37 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           <span>+ Fórmula fx</span>
         </button>
 
-        <!-- Selector de Tono de Papel -->
-        <div class="flex items-center p-0.5 rounded-lg border border-white/10 bg-white/5 text-xs">
+        <!-- Selector de Tono de Papel (Iconos Profesionales Lucide) -->
+        <div class="flex items-center p-0.5 rounded-xs border border-white/10 bg-white/5 text-xs">
           <button 
-            class="px-2 py-0.5 rounded transition-all cursor-pointer {paperTone === 'dark' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
+            type="button"
+            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center justify-center {paperTone === 'dark' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
             onclick={() => paperTone = 'dark'}
             title="Tono Noche / Grafito (Descanso visual)"
           >
-            🌙
+            <Moon size={13} />
           </button>
           <button 
-            class="px-2 py-0.5 rounded transition-all cursor-pointer {paperTone === 'cream' ? 'bg-[#9c783e] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
+            type="button"
+            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center justify-center {paperTone === 'cream' ? 'bg-[#9c783e] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
             onclick={() => paperTone = 'cream'}
             title="Tono Marfil Cálido (Papel de libro natural)"
           >
-            🌿
+            <Sun size={13} />
           </button>
           <button 
-            class="px-2 py-0.5 rounded transition-all cursor-pointer {paperTone === 'sepia' ? 'bg-[#7c5b35] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
+            type="button"
+            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center justify-center {paperTone === 'sepia' ? 'bg-[#7c5b35] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
             onclick={() => paperTone = 'sepia'}
             title="Tono Sepia Pergamino"
           >
-            📜
+            <Scroll size={13} />
           </button>
         </div>
 
         <!-- Selector de Tipografía -->
         <button 
-          class="px-2 py-1 rounded-lg border border-white/10 hover:bg-white/5 text-slate-300 transition-colors cursor-pointer text-xs"
+          class="px-2 py-1 rounded-xs border border-white/10 hover:bg-white/5 text-slate-300 transition-colors cursor-pointer text-xs"
           onclick={() => selectedFont = selectedFont === 'serif' ? 'sans' : 'serif'}
           title="Cambiar tipografía de la hoja"
         >
@@ -817,9 +815,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       {/if}
 
       <!-- Selector de Modo Discreto -->
-      <div class="flex items-center p-0.5 bg-white/5 rounded-lg border border-white/10 text-xs">
+      <div class="flex items-center p-0.5 bg-white/5 rounded-xs border border-white/10 text-xs">
         <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-xs transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
           onclick={() => switchViewMode('visual')}
           title="Vista de hoja limpia"
         >
@@ -827,7 +825,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           <span>Hoja</span>
         </button>
         <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-xs transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
           onclick={() => switchViewMode('code')}
           title="Ver código LaTeX crudo"
         >
@@ -837,7 +835,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       </div>
 
       <button 
-        class="px-2.5 py-1 rounded-lg hover:bg-white/5 text-slate-300 text-xs font-medium transition-colors cursor-pointer hidden md:inline"
+        class="px-2.5 py-1 rounded-xs hover:bg-white/5 text-slate-300 text-xs font-medium transition-colors cursor-pointer hidden md:inline"
         onclick={handleSave}
         title="Guardar archivo (Ctrl+S)"
       >
@@ -846,7 +844,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       <!-- Botón Exportar PDF Sobrio y Elegante -->
       <button 
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
         onclick={handleCompile}
         disabled={isCompiling}
         title="Descargar documento en PDF (Ctrl+Enter)"
@@ -862,7 +860,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       <!-- Botón de Ayuda y Atajos Rápidos -->
       <button 
-        class="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+        class="w-7 h-7 rounded-xs border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
         onclick={() => showHelpModal = true}
         title="Atajos de teclado y ayuda rápida"
       >
@@ -980,7 +978,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
                   <Laptop size={14} class="text-[#3fb950]" />
                   <div>
                     <div class="text-white text-[11px] font-medium">Laptop Portátil</div>
-                    <div class="text-[10px] text-[#3fb950]">● En línea (P2P Directo)</div>
+                    <div class="text-[10px] text-[#3fb950] flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse"></span><span>En línea (P2P Directo)</span></div>
                   </div>
                 </div>
                 <span class="text-[10px] text-[#8b949e] font-mono">12 ms</span>
@@ -1001,20 +999,24 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       </div>
     {/if}
 
-    <!-- Área de Trabajo: Modo Visual PaperCraft (Notion-Like) o Modo Código Split -->
-    {#if editorViewMode === 'visual'}
-      <div class="flex-1 h-full overflow-hidden">
-        <PaperEditor 
-          bind:this={paperEditorRef}
-          bind:content={visualContent}
-          bind:title={documentTitle}
-          bind:fontStyle={selectedFont}
-          bind:viewMode={sheetViewMode}
-          bind:paperTone={paperTone}
-          onStatsChange={(newStats: { words: number; pages: number }) => visualStats = newStats}
-        />
-      </div>
-    {:else}
+    <!-- Área de Trabajo: Modo Visual PaperCraft (Siempre montado para renderizado autónomo de PDF) -->
+    <div 
+      class="flex-1 h-full overflow-hidden"
+      style={editorViewMode === 'visual' ? '' : 'position: fixed; left: -9999px; top: 0; width: 820px; pointer-events: none; opacity: 0;'}
+      aria-hidden={editorViewMode !== 'visual'}
+    >
+      <PaperEditor 
+        bind:this={paperEditorRef}
+        bind:content={visualContent}
+        bind:title={documentTitle}
+        bind:author={documentAuthor}
+        bind:fontStyle={selectedFont}
+        bind:paperTone={paperTone}
+        onStatsChange={(newStats: { words: number; pages: number }) => visualStats = newStats}
+      />
+    </div>
+
+    {#if editorViewMode === 'code'}
       <div class="flex-1 flex overflow-hidden relative">
         <!-- Panel de Edición de Código -->
         <div class="h-full overflow-hidden" style="width: {splitRatio}%">
@@ -1084,14 +1086,18 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   {:else}
     <!-- Barra de Estado Discreta para Modo Hoja: Cero Ruido Visual -->
     <footer class="h-6 bg-[#0f1219] border-t border-white/5 px-4 flex items-center justify-between text-[11px] text-slate-500 font-mono select-none shrink-0">
-      <div class="flex items-center gap-2">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-        <span>{currentFilePath ? currentFileName : 'Borrador Local'}</span>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span>{currentFilePath ? currentFileName : 'Borrador Local'}</span>
+        </div>
+        <span class="opacity-30">•</span>
+        <span class="text-slate-400">A4 (210 × 297 mm)</span>
       </div>
       <div class="flex items-center gap-4">
         <span>{visualStats.words} palabras</span>
         <span>•</span>
-        <span>{visualStats.pages} {visualStats.pages === 1 ? 'hoja A4' : 'hojas A4'}</span>
+        <span>{visualStats.pages} {visualStats.pages === 1 ? 'página' : 'páginas'}</span>
       </div>
     </footer>
   {/if}
@@ -1099,7 +1105,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   <!-- Modal de Éxito / Exportación de PDF (TICKET-012) -->
   {#if showPdfSuccessModal && lastCompiledPdf}
     <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div class="bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl max-w-md w-full p-6 text-xs text-[#c9d1d9] space-y-4">
+      <div class="bg-[#161b22] border border-[#30363d] rounded-md shadow-2xl max-w-md w-full p-6 text-xs text-[#c9d1d9] space-y-4">
         <div class="flex items-start justify-between">
           <div class="flex items-center gap-2.5">
             <div class="w-9 h-9 rounded-full bg-[#238636]/20 text-[#3fb950] flex items-center justify-center shrink-0">
@@ -1111,14 +1117,14 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
             </div>
           </div>
           <button 
-            class="text-[#8b949e] hover:text-white transition-colors"
+            class="text-[#8b949e] hover:text-white transition-colors cursor-pointer"
             onclick={() => showPdfSuccessModal = false}
           >
             <X size={16} />
           </button>
         </div>
 
-        <div class="p-3 rounded-lg bg-[#0d1117] border border-[#21262d] space-y-1.5 font-mono text-[11px]">
+        <div class="p-3 rounded-xs bg-[#0d1117] border border-[#21262d] space-y-1.5 font-mono text-[11px]">
           <div class="flex justify-between">
             <span class="text-[#8b949e]">Archivo:</span>
             <span class="text-white font-medium">{lastCompiledPdf.name}</span>
@@ -1141,7 +1147,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
         <div class="space-y-2 pt-1">
           <button
-            class="w-full py-2.5 px-4 rounded-lg bg-[#1f6feb] hover:bg-[#388bfd] text-white font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm"
+            class="w-full py-2.5 px-4 rounded-xs bg-[#1f6feb] hover:bg-[#388bfd] text-white font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
             onclick={handleOpenInSystemViewer}
           >
             <ExternalLink size={14} />
@@ -1149,7 +1155,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           </button>
 
           <button
-            class="w-full py-2 px-4 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white font-medium flex items-center justify-center gap-2 transition-colors"
+            class="w-full py-2 px-4 rounded-xs bg-[#21262d] hover:bg-[#30363d] text-white font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
             onclick={() => handleExportPdf(false)}
           >
             <Download size={14} />
@@ -1157,7 +1163,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           </button>
 
           <button
-            class="w-full py-2 px-4 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-slate-300 hover:text-white font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer text-xs"
+            class="w-full py-2 px-4 rounded-xs bg-[#21262d] hover:bg-[#30363d] text-slate-300 hover:text-white font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer text-xs"
             onclick={() => pdfExportService.printSystemDialog()}
             title="Imprimir o guardar como PDF vectorial usando el diálogo nativo del sistema"
           >
@@ -1166,7 +1172,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           </button>
 
           <button
-            class="w-full py-1.5 px-4 rounded-lg hover:bg-[#21262d] text-[#8b949e] hover:text-white font-medium flex items-center justify-center gap-1.5 transition-colors"
+            class="w-full py-1.5 px-4 rounded-xs hover:bg-[#21262d] text-[#8b949e] hover:text-white font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             onclick={() => {
               previewMode = 'pdf';
               showPdfSuccessModal = false;
@@ -1183,7 +1189,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   <!-- Modal de Errores de Compilación o Falta de Compilador -->
   {#if showErrorModal}
     <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div class="bg-[#161b22] border border-[#da3633]/40 rounded-xl shadow-2xl max-w-lg w-full p-6 text-xs text-[#c9d1d9] space-y-4">
+      <div class="bg-[#161b22] border border-[#da3633]/40 rounded-md shadow-2xl max-w-lg w-full p-6 text-xs text-[#c9d1d9] space-y-4">
         <div class="flex items-start justify-between">
           <div class="flex items-center gap-2.5">
             <div class="w-9 h-9 rounded-full bg-[#da3633]/20 text-[#f85149] flex items-center justify-center shrink-0">
@@ -1195,7 +1201,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
             </div>
           </div>
           <button 
-            class="text-[#8b949e] hover:text-white transition-colors"
+            class="text-[#8b949e] hover:text-white transition-colors cursor-pointer"
             onclick={() => showErrorModal = false}
           >
             <X size={16} />
@@ -1204,11 +1210,11 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
         {#if errorModalDetails}
           <div class="relative">
-            <div class="p-3 rounded-lg bg-[#0d1117] border border-[#30363d] font-mono text-[10.5px] max-h-56 overflow-y-auto whitespace-pre-wrap text-[#e6edf3] leading-relaxed">
+            <div class="p-3 rounded-xs bg-[#0d1117] border border-[#30363d] font-mono text-[10.5px] max-h-56 overflow-y-auto whitespace-pre-wrap text-[#e6edf3] leading-relaxed">
               {errorModalDetails}
             </div>
             <button
-              class="absolute top-2 right-2 p-1.5 rounded bg-[#21262d] hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-colors flex items-center gap-1 text-[10px]"
+              class="absolute top-2 right-2 p-1.5 rounded-xs bg-[#21262d] hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-colors flex items-center gap-1 text-[10px] cursor-pointer"
               onclick={copyErrorDetails}
               title="Copiar contenido"
             >
@@ -1225,7 +1231,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
         <div class="flex items-center justify-end gap-2 pt-2">
           <button
-            class="px-4 py-2 rounded-lg bg-[#21262d] hover:bg-[#30363d] text-white font-medium transition-colors"
+            class="px-4 py-2 rounded-xs bg-[#21262d] hover:bg-[#30363d] text-white font-medium transition-colors cursor-pointer"
             onclick={() => showErrorModal = false}
           >
             Cerrar

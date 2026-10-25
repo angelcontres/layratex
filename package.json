@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-    "test": "npx tsx src/lib/services/latexLogParser.test.ts && npx tsx src/lib/editor/latexAutocomplete.test.ts && npx tsx src/lib/services/scrollSyncService.test.ts",
+    "test": "npx tsx src/lib/services/latexLogParser.test.ts && npx tsx src/lib/editor/latexAutocomplete.test.ts && npx tsx src/lib/services/scrollSyncService.test.ts && npx tsx src/lib/visual/latexConverter.test.ts && npx tsx src/lib/services/preferencesService.test.ts",
     "tauri": "tauri"
   },
   "devDependencies": {
@@ -33,13 +33,14 @@
     "@codemirror/commands": "^6.11.1",
     "@codemirror/language": "^6.13.1",
     "@codemirror/legacy-modes": "^6.5.5",
+    "@codemirror/search": "^6.7.2",
     "@codemirror/state": "^6.7.6",
     "@codemirror/view": "^6.43.15",
     "@lucide/svelte": "^1.59.0",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-fs": "^2.7.1",
-    "html2canvas": "^1.4.1",
+    "html2canvas-pro": "^2.5.2",
     "jspdf": "^4.2.1",
     "katex": "^0.19.0"
   }

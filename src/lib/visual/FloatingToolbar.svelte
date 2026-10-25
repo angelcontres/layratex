@@ -11,12 +11,12 @@
 
 {#if isOpen}
   <div 
-    class="fixed z-50 bg-slate-900/95 dark:bg-[#161c28]/95 text-white border border-white/10 rounded-2xl shadow-2xl flex items-center p-1.5 gap-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
+    class="fixed z-50 bg-slate-900/95 dark:bg-[#161c28]/95 text-white border border-white/10 rounded-md shadow-2xl flex items-center p-1 gap-0.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
     style="left: {x}px; top: {y}px; transform: translate(-50%, -100%) translateY(-10px);"
   >
     <button 
       type="button"
-      class="p-1.5 rounded-xl hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
+      class="p-1.5 rounded-xs hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
       onclick={() => onFormat('bold')}
       title="Negrita (Ctrl+B)"
     >
@@ -24,7 +24,7 @@
     </button>
     <button 
       type="button"
-      class="p-1.5 rounded-xl hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
+      class="p-1.5 rounded-xs hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
       onclick={() => onFormat('italic')}
       title="Cursiva (Ctrl+I)"
     >
@@ -35,7 +35,7 @@
 
     <button 
       type="button"
-      class="p-1.5 rounded-xl hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
+      class="p-1.5 rounded-xs hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
       onclick={() => onFormat('h1')}
       title="Título Principal"
     >
@@ -43,7 +43,7 @@
     </button>
     <button 
       type="button"
-      class="p-1.5 rounded-xl hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
+      class="p-1.5 rounded-xs hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
       onclick={() => onFormat('h2')}
       title="Subtítulo"
     >
@@ -54,7 +54,7 @@
 
     <button 
       type="button"
-      class="px-2 py-1 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 hover:text-white transition-all flex items-center gap-1 font-bold text-xs cursor-pointer"
+      class="px-2 py-1 rounded-xs bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 hover:text-white transition-all flex items-center gap-1 font-bold text-xs cursor-pointer"
       onclick={() => onFormat('math')}
       title="Convertir a Fórmula Matemática ($...$)"
     >
@@ -63,7 +63,7 @@
     </button>
     <button 
       type="button"
-      class="p-1.5 rounded-xl hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
+      class="p-1.5 rounded-xs hover:bg-white/10 transition-colors text-slate-200 hover:text-white cursor-pointer"
       onclick={() => onFormat('quote')}
       title="Convertir en Nota Destacada"
     >

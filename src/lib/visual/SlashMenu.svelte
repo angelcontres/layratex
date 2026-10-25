@@ -128,7 +128,7 @@
 
 {#if isOpen && filteredItems.length > 0}
   <div 
-    class="fixed z-50 bg-white/95 dark:bg-[#161c28]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden w-80 text-slate-900 dark:text-[#c9d1d9] p-2 animate-in fade-in zoom-in-95 duration-100"
+    class="fixed z-50 bg-white/95 dark:bg-[#161c28]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-md shadow-2xl overflow-hidden w-80 text-slate-900 dark:text-[#c9d1d9] p-1.5 animate-in fade-in zoom-in-95 duration-100"
     style={x !== null && y !== null ? `left: ${x}px; top: ${y}px; max-height: 380px; overflow-y: auto;` : 'bottom: 2rem; left: 50%; transform: translateX(-50%); max-height: 380px; overflow-y: auto;'}
   >
     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-[#8b949e] uppercase tracking-wider flex items-center justify-between">
@@ -140,11 +140,11 @@
         {@const Icon = item.icon}
         <button
           type="button"
-          class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left text-xs transition-all cursor-pointer {idx === selectedIndex ? 'bg-indigo-50/80 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-medium' : 'hover:bg-slate-100/70 dark:hover:bg-[#1f2633] text-slate-700 dark:text-slate-300'}"
+          class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xs text-left text-xs transition-all cursor-pointer {idx === selectedIndex ? 'bg-indigo-50/80 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-medium' : 'hover:bg-slate-100/70 dark:hover:bg-[#1f2633] text-slate-700 dark:text-slate-300'}"
           onclick={() => onSelect(item.id)}
           onmouseenter={() => selectedIndex = idx}
         >
-          <div class="w-7 h-7 rounded-lg {item.color} flex items-center justify-center shrink-0">
+          <div class="w-7 h-7 rounded-xs {item.color} flex items-center justify-center shrink-0">
             <Icon size={15} />
           </div>
           <div class="truncate flex-1">

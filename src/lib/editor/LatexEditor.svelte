@@ -5,6 +5,21 @@
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { StreamLanguage, syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
   import { stex } from '@codemirror/legacy-modes/mode/stex';
+  import {
+    search,
+    searchKeymap,
+    highlightSelectionMatches,
+    openSearchPanel,
+    closeSearchPanel,
+    searchPanelOpen,
+    getSearchQuery,
+    setSearchQuery,
+    findNext,
+    findPrevious,
+    replaceNext,
+    replaceAll,
+    SearchQuery
+  } from '@codemirror/search';
   import { Link2, Unlink } from '@lucide/svelte';
   import { createLatexAutocompleteExtension } from './latexAutocomplete';
 
@@ -117,6 +132,14 @@
       backgroundColor: "#1f6feb33",
       outline: "1px solid #58a6ff",
       borderRadius: "2px"
+    },
+    ".cm-searchMatch": {
+      backgroundColor: "#f2cc6026",
+      outline: "1px solid #d29922"
+    },
+    ".cm-searchMatch-selected": {
+      backgroundColor: "#f2cc6040",
+      outline: "1px solid #f0b72f"
     }
   }, { dark: true });
 
@@ -135,11 +158,13 @@
         highlightActiveLine(),
         history(),
         bracketMatching(),
+        highlightSelectionMatches(),
         StreamLanguage.define(stex),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         darkTheme,
         ...createLatexAutocompleteExtension(),
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        search({ top: true }),
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             const newDoc = update.state.doc.toString();
@@ -179,6 +204,26 @@
   /**
    * Salta a una línea específica en CodeMirror, posicionando el cursor y haciendo scroll suave.
    */
+    export function openSearch() {
+    if (!view) return;
+    openSearchPanel(view);
+    setTimeout(() => {
+      const searchInput = view?.dom.querySelector('.cm-panel.cm-search input[name="search"]') as HTMLInputElement | null;
+      searchInput?.focus();
+      searchInput?.select();
+    }, 10);
+  }
+
+  export function openReplace() {
+    if (!view) return;
+    openSearchPanel(view);
+    setTimeout(() => {
+      const replaceInput = view?.dom.querySelector('.cm-panel.cm-search input[name="replace"]') as HTMLInputElement | null;
+      replaceInput?.focus();
+      replaceInput?.select();
+    }, 10);
+  }
+
   export function goToLine(lineNumber: number) {
     if (!view) return;
     const doc = view.state.doc;
@@ -205,6 +250,97 @@
   export function setScrollTop(top: number) {
     if (!view) return;
     view.scrollDOM.scrollTop = top;
+  }
+
+  type SearchStats = { count: number; current: number };
+
+  function ensureSearchPanel() {
+    if (!view) return;
+    if (!searchPanelOpen(view.state)) {
+      openSearchPanel(view);
+    }
+  }
+
+  function updateSearchQuery(query: string, caseSensitive: boolean, replacement = '') {
+    ensureSearchPanel();
+    if (!view) return;
+    view.dispatch({
+      effects: setSearchQuery.of(
+        new SearchQuery({ search: query, caseSensitive, replace: replacement })
+      )
+    });
+  }
+
+  function collectSearchMatches(): { from: number; to: number }[] {
+    if (!view) return [];
+    const query = getSearchQuery(view.state);
+    if (!query.valid || !query.search) return [];
+
+    const matches: { from: number; to: number }[] = [];
+    const cursor = query.getCursor(view.state);
+    let step = cursor.next();
+    while (!step.done) {
+      matches.push({ from: step.value.from, to: step.value.to });
+      step = cursor.next();
+    }
+    return matches;
+  }
+
+  /**
+   * Devuelve el número total de coincidencias y el índice (1-based) de la
+   * coincidencia actualmente seleccionada.
+   */
+  export function getSearchStats(): SearchStats {
+    if (!view) return { count: 0, current: 0 };
+    const matches = collectSearchMatches();
+    if (matches.length === 0) return { count: 0, current: 0 };
+
+    const selection = view.state.selection.main;
+    const index = matches.findIndex(
+      (match) => match.from === selection.from && match.to === selection.to
+    );
+    return { count: matches.length, current: index >= 0 ? index + 1 : 1 };
+  }
+
+  /**
+   * Actualiza la consulta de búsqueda sin abrir el panel nativo (permanece
+   * oculto; la UI la renderiza SearchReplaceBar).
+   */
+  export function setSearch(query: string, caseSensitive: boolean, replacement = '') {
+    updateSearchQuery(query, caseSensitive, replacement);
+  }
+
+  export function searchNext() {
+    ensureSearchPanel();
+    if (!view) return;
+    findNext(view);
+  }
+
+  export function searchPrevious() {
+    ensureSearchPanel();
+    if (!view) return;
+    findPrevious(view);
+  }
+
+  export function replaceCurrent(replacement: string) {
+    if (!view) return;
+    const query = getSearchQuery(view.state);
+    updateSearchQuery(query.search, query.caseSensitive, replacement);
+    replaceNext(view);
+  }
+
+  export function replaceAllMatches(replacement: string) {
+    if (!view) return;
+    const query = getSearchQuery(view.state);
+    updateSearchQuery(query.search, query.caseSensitive, replacement);
+    replaceAll(view);
+  }
+
+  export function clearSearch() {
+    if (!view) return;
+    if (searchPanelOpen(view.state)) {
+      closeSearchPanel(view);
+    }
   }
 
   onDestroy(() => {
