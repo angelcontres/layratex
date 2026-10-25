@@ -41,7 +41,9 @@
     onStatsChange?: (stats: { words: number; pages: number }) => void;
   } = $props();
 
-  let textareaRef = $state<HTMLTextAreaElement | null>(null);
+  let activeTextareaRef = $state<HTMLTextAreaElement | null>(null);
+  let activeBlockId = $state<string | null>(null);
+  let blockDraftText = $state<string>('');
   let showMathModal = $state(false);
   let showTableModal = $state(false);
   let activeMathTex = $state('');
@@ -88,8 +90,6 @@
   let matchCase = $state(false);
   let matches: number[] = $state([]);
   let currentMatchIndex = $state(0);
-  let highlightBackdropRef = $state<HTMLDivElement | null>(null);
-
   function escapeHtml(str: string): string {
     return str
       .replace(/&/g, '&amp;')
@@ -99,37 +99,6 @@
       .replace(/'/g, '&#39;');
   }
 
-  // Genera el sombreado visual de coincidencias sin alterar la selección ni robar el foco
-  let highlightedBackdropHtml = $derived.by(() => {
-    if (!showFindBar || !findQuery || matches.length === 0) return '';
-    const text = content || '';
-    const len = findQuery.length;
-    let html = '';
-    let lastIdx = 0;
-
-    for (let i = 0; i < matches.length; i++) {
-      const matchStart = matches[i];
-      if (matchStart > lastIdx) {
-        html += escapeHtml(text.substring(lastIdx, matchStart));
-      }
-      const matchText = text.substring(matchStart, matchStart + len);
-      const isCurrent = i === currentMatchIndex;
-      const highlightClass = isCurrent
-        ? 'bg-amber-400/50 ring-2 ring-amber-400/80 rounded-[2px]'
-        : 'bg-amber-400/20 rounded-[2px]';
-      html += `<mark class="${highlightClass} text-transparent select-none">${escapeHtml(matchText)}</mark>`;
-      lastIdx = matchStart + len;
-    }
-
-    if (lastIdx < text.length) {
-      html += escapeHtml(text.substring(lastIdx));
-    }
-    if (text.endsWith('\n')) {
-      html += ' ';
-    }
-    return html;
-  });
-
   let currentMatchLine = $derived.by(() => {
     if (matches.length === 0 || !content) return 0;
     const startPos = matches[currentMatchIndex] ?? 0;
@@ -137,22 +106,14 @@
   });
 
   function closeFindBar() {
-    const lastPos = matches.length > 0 ? matches[currentMatchIndex] : null;
     showFindBar = false;
     showReplace = false;
     matches = [];
     currentMatchIndex = 0;
-    if (textareaRef) {
-      textareaRef.focus();
-      if (lastPos !== null) {
-        // Coloca el cursor al inicio de la coincidencia sin seleccionarla para no sobreescribir
-        textareaRef.setSelectionRange(lastPos, lastPos);
-      }
-    }
   }
 
   function findMatches() {
-    const text = textareaRef?.value ?? content ?? '';
+    const text = content || '';
     if (!text || !findQuery) {
       matches = [];
       currentMatchIndex = 0;
@@ -187,16 +148,16 @@
   }
 
   function scrollToCurrentMatch() {
-    if (!textareaRef || matches.length === 0) return;
-    const text = textareaRef.value || content || '';
+    if (matches.length === 0 || !content) return;
     const startPos = matches[currentMatchIndex];
-    const before = text.substring(0, startPos);
+    const before = content.substring(0, startPos);
     const lineIndex = before.split('\n').length - 1;
-    const approxLineHeight = 28;
-    const targetScroll = Math.max(0, (lineIndex - 4) * approxLineHeight);
-    textareaRef.scrollTop = targetScroll;
-    if (highlightBackdropRef) {
-      highlightBackdropRef.scrollTop = targetScroll;
+    const targetBlock = liveBlocks.find(b => b.lineStart <= lineIndex && b.lineEnd > lineIndex);
+    if (targetBlock) {
+      const el = document.getElementById(targetBlock.id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   }
 
@@ -223,19 +184,22 @@
   }
 
   function replaceCurrent() {
-    if (!textareaRef || matches.length === 0 || !findQuery) return;
+    if (matches.length === 0 || !findQuery) return;
     const startPos = matches[currentMatchIndex];
     const len = findQuery.length;
-    const text = textareaRef.value || content || '';
+    const text = content || '';
     const newText = text.substring(0, startPos) + replaceQuery + text.substring(startPos + len);
     content = newText;
-    if (textareaRef) textareaRef.value = newText;
+    if (activeBlockId !== null) {
+      const curBlock = liveBlocks.find(b => b.id === activeBlockId);
+      if (curBlock) blockDraftText = curBlock.rawText;
+    }
     findMatches();
   }
 
   function replaceAll() {
-    if (!textareaRef || !findQuery) return;
-    let text = textareaRef.value || content || '';
+    if (!findQuery) return;
+    let text = content || '';
     if (!matchCase) {
       const regex = new RegExp(findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
       text = text.replace(regex, replaceQuery);
@@ -244,15 +208,11 @@
       text = text.replace(regex, replaceQuery);
     }
     content = text;
-    if (textareaRef) textareaRef.value = text;
-    findMatches();
-  }
-
-  function handleTextareaScroll() {
-    if (highlightBackdropRef && textareaRef) {
-      highlightBackdropRef.scrollTop = textareaRef.scrollTop;
-      highlightBackdropRef.scrollLeft = textareaRef.scrollLeft;
+    if (activeBlockId !== null) {
+      const curBlock = liveBlocks.find(b => b.id === activeBlockId);
+      if (curBlock) blockDraftText = curBlock.rawText;
     }
+    findMatches();
   }
   const toneThemes: Record<PaperTone, {
     name: string;
@@ -318,114 +278,262 @@
 
   let activeTheme = $derived(toneThemes[paperTone as PaperTone] || toneThemes.dark);
 
-  interface SheetBlock {
+  interface LiveBlock {
     id: string;
-    type: 'h1' | 'h2' | 'h3' | 'math' | 'callout' | 'list' | 'numbered' | 'p' | 'divider' | 'table';
+    type: 'h1' | 'h2' | 'h3' | 'math' | 'callout' | 'list' | 'table' | 'divider' | 'empty' | 'p';
+    rawText: string;
     content: string;
+    lineStart: number;
+    lineEnd: number;
     isOrdered?: boolean;
     tableData?: { headers: string[]; rows: string[][] };
   }
 
-  // Parseo estructurado de bloques del documento
-  let blocks = $derived.by(() => {
-    const lines = content.split('\n');
-    const result: SheetBlock[] = [];
-    let inMath = false;
-    let mathAcc: string[] = [];
+  function parseRow(line: string): string[] {
+    return line.split('|').slice(1, -1).map(c => c.trim());
+  }
 
-    for (let i = 0; i < lines.length; i++) {
+  function parseDocumentToLiveBlocks(text: string): LiveBlock[] {
+    if (!text) {
+      return [{
+        id: 'block-0',
+        type: 'empty',
+        rawText: '',
+        content: '',
+        lineStart: 0,
+        lineEnd: 1
+      }];
+    }
+
+    const lines = text.split('\n');
+    const result: LiveBlock[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
       const line = lines[i];
+      const trimmed = line.trim();
 
-      // Bloque de Ecuación Matemática $$ ... $$
-      if (line.trim().startsWith('$$')) {
-        if (!inMath) {
-          inMath = true;
-          mathAcc = [line.replace('$$', '')];
-          if (line.trim().endsWith('$$') && line.trim().length > 2) {
-            inMath = false;
-            result.push({
-              id: `math-${i}`,
-              type: 'math',
-              content: line.replace(/\$\$/g, '').trim()
-            });
-            mathAcc = [];
-          }
-        } else {
-          inMath = false;
-          mathAcc.push(line.replace('$$', ''));
+      // 1. Bloque de Ecuación Matemática $$ ... $$
+      if (trimmed.startsWith('$$')) {
+        const startLine = i;
+        let rawLines = [line];
+        if (trimmed.endsWith('$$') && trimmed.length > 2 && trimmed !== '$$') {
+          const mathContent = trimmed.slice(2, -2).trim();
           result.push({
-            id: `math-${i}`,
+            id: `block-${result.length}`,
             type: 'math',
-            content: mathAcc.join('\n').trim()
+            rawText: rawLines.join('\n'),
+            content: mathContent,
+            lineStart: startLine,
+            lineEnd: i + 1
           });
-          mathAcc = [];
-        }
-        continue;
-      }
-
-      if (inMath) {
-        mathAcc.push(line);
-        continue;
-      }
-
-      // Bloque de Tabla Markdown (| Col | Col |)
-      if (line.trim().startsWith('|')) {
-        const tableLines = [line];
-        while (i + 1 < lines.length && lines[i + 1].trim().startsWith('|')) {
           i++;
-          tableLines.push(lines[i]);
-        }
-        if (tableLines.length >= 2) {
-          const parseRow = (l: string) => l.split('|').slice(1, -1).map(c => c.trim());
-          const headers = parseRow(tableLines[0]);
-          const isDiv = tableLines[1].replace(/[\s|:-]/g, '') === '';
-          const startIdx = isDiv ? 2 : 1;
-          const rows: string[][] = [];
-          for (let j = startIdx; j < tableLines.length; j++) {
-            const r = parseRow(tableLines[j]);
-            if (r.length > 0 && !r.every(c => !c)) {
-              rows.push(r);
-            }
-          }
-          result.push({
-            id: `table-${i}`,
-            type: 'table',
-            content: tableLines.join('\n'),
-            tableData: { headers, rows }
-          });
           continue;
         }
+        i++;
+        while (i < lines.length) {
+          rawLines.push(lines[i]);
+          if (lines[i].trim().endsWith('$$')) {
+            i++;
+            break;
+          }
+          i++;
+        }
+        const rawText = rawLines.join('\n');
+        const mathContent = rawLines
+          .join('\n')
+          .replace(/^\s*\$\$/, '')
+          .replace(/\$\$\s*$/, '')
+          .trim();
+
+        result.push({
+          id: `block-${result.length}`,
+          type: 'math',
+          rawText,
+          content: mathContent,
+          lineStart: startLine,
+          lineEnd: i
+        });
+        continue;
       }
 
-      if (line.startsWith('# ')) {
-        result.push({ id: `h1-${i}`, type: 'h1', content: line.substring(2).trim() });
-      } else if (line.startsWith('## ')) {
-        result.push({ id: `h2-${i}`, type: 'h2', content: line.substring(3).trim() });
-      } else if (line.startsWith('### ')) {
-        result.push({ id: `h3-${i}`, type: 'h3', content: line.substring(4).trim() });
-      } else if (line.startsWith('> ')) {
-        result.push({ id: `quote-${i}`, type: 'callout', content: line.substring(2).trim() });
-      } else if (line.startsWith('* ')) {
-        result.push({ id: `list-${i}`, type: 'list', content: line.substring(2).trim() });
-      } else if (line.trim() === '---') {
-        result.push({ id: `div-${i}`, type: 'divider', content: '' });
-      } else if (line.trim()) {
-        result.push({ id: `p-${i}`, type: 'p', content: line.trim() });
+      // 2. Bloque de Tabla Markdown (| Col | Col |)
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        const startLine = i;
+        const tableLines = [line];
+        i++;
+        while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+          tableLines.push(lines[i]);
+          i++;
+        }
+        const rawText = tableLines.join('\n');
+        const headers = parseRow(tableLines[0]);
+        const isDivider = tableLines.length > 1 && tableLines[1].replace(/[\s|:-]/g, '') === '';
+        const rowStart = isDivider ? 2 : 1;
+        const rows: string[][] = [];
+        for (let r = rowStart; r < tableLines.length; r++) {
+          const rowCells = parseRow(tableLines[r]);
+          if (rowCells.length > 0 && !rowCells.every(c => !c)) {
+            rows.push(rowCells);
+          }
+        }
+        result.push({
+          id: `block-${result.length}`,
+          type: 'table',
+          rawText,
+          content: rawText,
+          tableData: { headers, rows },
+          lineStart: startLine,
+          lineEnd: i
+        });
+        continue;
       }
+
+      // 3. Bloque de Cita / Callout (> ...)
+      if (line.startsWith('>')) {
+        const startLine = i;
+        const quoteLines = [line];
+        i++;
+        while (i < lines.length && lines[i].startsWith('>')) {
+          quoteLines.push(lines[i]);
+          i++;
+        }
+        const rawText = quoteLines.join('\n');
+        const content = quoteLines.map(l => l.replace(/^>\s?/, '')).join('\n');
+        result.push({
+          id: `block-${result.length}`,
+          type: 'callout',
+          rawText,
+          content,
+          lineStart: startLine,
+          lineEnd: i
+        });
+        continue;
+      }
+
+      // 4. Encabezados
+      if (line.startsWith('# ')) {
+        result.push({
+          id: `block-${result.length}`,
+          type: 'h1',
+          rawText: line,
+          content: line.substring(2).trim(),
+          lineStart: i,
+          lineEnd: i + 1
+        });
+        i++;
+        continue;
+      }
+      if (line.startsWith('## ')) {
+        result.push({
+          id: `block-${result.length}`,
+          type: 'h2',
+          rawText: line,
+          content: line.substring(3).trim(),
+          lineStart: i,
+          lineEnd: i + 1
+        });
+        i++;
+        continue;
+      }
+      if (line.startsWith('### ')) {
+        result.push({
+          id: `block-${result.length}`,
+          type: 'h3',
+          rawText: line,
+          content: line.substring(4).trim(),
+          lineStart: i,
+          lineEnd: i + 1
+        });
+        i++;
+        continue;
+      }
+
+      // 5. Separador
+      if (trimmed === '---' || trimmed === '***') {
+        result.push({
+          id: `block-${result.length}`,
+          type: 'divider',
+          rawText: line,
+          content: '',
+          lineStart: i,
+          lineEnd: i + 1
+        });
+        i++;
+        continue;
+      }
+
+      // 6. Listas
+      if (line.startsWith('* ') || line.startsWith('- ') || line.startsWith('+ ')) {
+        result.push({
+          id: `block-${result.length}`,
+          type: 'list',
+          rawText: line,
+          content: line.substring(2).trim(),
+          isOrdered: false,
+          lineStart: i,
+          lineEnd: i + 1
+        });
+        i++;
+        continue;
+      }
+      if (/^\d+\.\s+/.test(line)) {
+        const match = line.match(/^(\d+\.)\s+(.*)/);
+        result.push({
+          id: `block-${result.length}`,
+          type: 'list',
+          rawText: line,
+          content: match ? match[2] : line,
+          isOrdered: true,
+          lineStart: i,
+          lineEnd: i + 1
+        });
+        i++;
+        continue;
+      }
+
+      // 7. Línea vacía
+      if (!trimmed) {
+        result.push({
+          id: `block-${result.length}`,
+          type: 'empty',
+          rawText: line,
+          content: '',
+          lineStart: i,
+          lineEnd: i + 1
+        });
+        i++;
+        continue;
+      }
+
+      // 8. Párrafo común
+      result.push({
+        id: `block-${result.length}`,
+        type: 'p',
+        rawText: line,
+        content: line.trim(),
+        lineStart: i,
+        lineEnd: i + 1
+      });
+      i++;
     }
 
     return result;
-  });
+  }
+
+  // Parseo estructurado en bloques interactivos Live Preview
+  let liveBlocks = $derived.by(() => parseDocumentToLiveBlocks(content));
+  let blocks = $derived(liveBlocks.filter(b => b.type !== 'empty'));
 
   // Paginación realista de hojas A4
   interface SheetPage {
     pageNumber: number;
-    blocks: SheetBlock[];
+    blocks: LiveBlock[];
   }
 
   let pages = $derived.by(() => {
     const result: SheetPage[] = [];
-    let currentPageBlocks: SheetBlock[] = [];
+    let currentPageBlocks: LiveBlock[] = [];
     let currentWordCount = 0;
     let pageNum = 1;
 
@@ -459,15 +567,85 @@
     onStatsChange({ words, pages: estimatedPages });
   });
 
-  function renderInlineMath(text: string): string {
-    return text.replace(/\$([^\$\n]+)\$/g, (_, math) => {
-      try {
-        return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
-      } catch {
-        return `$${math}$`;
+  function autoResize(el: HTMLTextAreaElement | null) {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.max(el.scrollHeight, 28)}px`;
+  }
+
+  function startEditing(block: LiveBlock) {
+    if (activeBlockId === block.id) return;
+    if (activeBlockId !== null) {
+      const prevBlock = liveBlocks.find(b => b.id === activeBlockId);
+      if (prevBlock) {
+        commitBlock(prevBlock);
       }
-    }).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    }
+    const currentBlock = liveBlocks.find(b => b.id === block.id) || block;
+    activeBlockId = currentBlock.id;
+    blockDraftText = currentBlock.rawText;
+    
+    setTimeout(() => {
+      if (activeTextareaRef) {
+        autoResize(activeTextareaRef);
+        activeTextareaRef.focus();
+        const len = activeTextareaRef.value.length;
+        activeTextareaRef.setSelectionRange(len, len);
+      }
+    }, 15);
+  }
+
+  function commitBlock(block: LiveBlock) {
+    if (activeBlockId !== block.id) return;
+    const target = liveBlocks.find(b => b.id === block.id) || block;
+    const newText = blockDraftText;
+    const lines = content.split('\n');
+    const newLines = newText.split('\n');
+    lines.splice(target.lineStart, target.lineEnd - target.lineStart, ...newLines);
+    content = lines.join('\n');
+    activeBlockId = null;
+    blockDraftText = '';
+  }
+
+  function appendNewBlock() {
+    if (activeBlockId !== null) {
+      const prevBlock = liveBlocks.find(b => b.id === activeBlockId);
+      if (prevBlock) {
+        commitBlock(prevBlock);
+      }
+    }
+    const lines = content ? content.split('\n') : [];
+    lines.push('');
+    content = lines.join('\n');
+    
+    setTimeout(() => {
+      const lastBlock = liveBlocks[liveBlocks.length - 1];
+      if (lastBlock) {
+        startEditing(lastBlock);
+      }
+    }, 25);
+  }
+
+  function renderInlineMath(text: string): string {
+    let rendered = text
+      .replace(/\$([^\$\n]+)\$/g, (_, math) => {
+        try {
+          return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
+        } catch {
+          return `$${math}$`;
+        }
+      })
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded-sm bg-black/10 dark:bg-white/10 font-mono text-[13px]">$1</code>');
+
+    if (showFindBar && findQuery.trim()) {
+      const q = findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const flags = matchCase ? 'g' : 'gi';
+      rendered = rendered.replace(new RegExp(`(?![^<]*>)(${q})`, flags), '<mark class="bg-amber-400/50 text-inherit rounded-[2px] px-0.5">$1</mark>');
+    }
+
+    return rendered;
   }
 
   function renderKaTeXBlock(tex: string): string {
@@ -493,42 +671,106 @@
   }
 
   function handleInsertFormula(newTex: string) {
-    const formulaBlock = `\n$$\n${newTex}\n$$\n`;
-    content += formulaBlock;
+    const formulaBlock = `$$\n${newTex}\n$$`;
+    if (activeBlockId !== null) {
+      const curBlock = liveBlocks.find(b => b.id === activeBlockId);
+      if (curBlock) {
+        blockDraftText = formulaBlock;
+        commitBlock(curBlock);
+        return;
+      }
+    }
+    content += (content.endsWith('\n') ? '' : '\n') + formulaBlock + '\n';
   }
 
   function handleInsertTable(tableMd: string) {
-    content += tableMd;
+    if (activeBlockId !== null) {
+      const curBlock = liveBlocks.find(b => b.id === activeBlockId);
+      if (curBlock) {
+        blockDraftText = tableMd;
+        commitBlock(curBlock);
+        return;
+      }
+    }
+    content += (content.endsWith('\n') ? '' : '\n') + tableMd + '\n';
   }
 
   function handleSelectSlashAction(action: string) {
     showSlashMenu = false;
-    if (action === 'h1') content += '\n# Nuevo Título\n';
-    else if (action === 'h2') content += '\n## Nuevo Subtítulo\n';
-    else if (action === 'math') openMathEditor();
-    else if (action === 'table') showTableModal = true;
-    else if (action === 'image') content += '\n![Descripción de la imagen](ruta/o/enlace.png)\n';
-    else if (action === 'callout') content += '\n> Nota importante...\n';
-    else if (action === 'bullet') content += '\n* Elemento de lista\n';
-    else if (action === 'numbered') content += '\n1. Primer paso\n2. Segundo paso\n';
-    else if (action === 'divider') content += '\n---\n';
+    if (!activeTextareaRef) {
+      if (action === 'h1') content += (content.endsWith('\n') ? '' : '\n') + '# Nuevo Título\n';
+      else if (action === 'h2') content += (content.endsWith('\n') ? '' : '\n') + '## Nuevo Subtítulo\n';
+      else if (action === 'math') openMathEditor();
+      else if (action === 'table') showTableModal = true;
+      else if (action === 'image') content += (content.endsWith('\n') ? '' : '\n') + '![Descripción de la imagen](ruta/o/enlace.png)\n';
+      else if (action === 'callout') content += (content.endsWith('\n') ? '' : '\n') + '> Nota importante...\n';
+      else if (action === 'bullet') content += (content.endsWith('\n') ? '' : '\n') + '* Elemento de lista\n';
+      else if (action === 'numbered') content += (content.endsWith('\n') ? '' : '\n') + '1. Primer paso\n';
+      else if (action === 'divider') content += (content.endsWith('\n') ? '' : '\n') + '---\n';
+      return;
+    }
+
+    const cursor = activeTextareaRef.selectionStart;
+    const before = blockDraftText.substring(0, cursor).replace(/\/([a-zA-Z0-9]*)$/, '');
+    const after = blockDraftText.substring(cursor);
+
+    let inserted = '';
+    if (action === 'h1') inserted = '# ';
+    else if (action === 'h2') inserted = '## ';
+    else if (action === 'math') { openMathEditor(); return; }
+    else if (action === 'table') { showTableModal = true; return; }
+    else if (action === 'image') inserted = '![Descripción](imagen.png)';
+    else if (action === 'callout') inserted = '> ';
+    else if (action === 'bullet') inserted = '* ';
+    else if (action === 'numbered') inserted = '1. ';
+    else if (action === 'divider') inserted = '---\n';
+
+    blockDraftText = before + inserted + after;
+    setTimeout(() => {
+      if (activeTextareaRef) {
+        autoResize(activeTextareaRef);
+        const newPos = before.length + inserted.length;
+        activeTextareaRef.setSelectionRange(newPos, newPos);
+        activeTextareaRef.focus();
+      }
+    }, 10);
+  }
+
+  function wrapSelectionInDraft(before: string, after: string) {
+    if (!activeTextareaRef) return;
+    const start = activeTextareaRef.selectionStart;
+    const end = activeTextareaRef.selectionEnd;
+    const selected = blockDraftText.substring(start, end);
+    const replacement = `${before}${selected || 'texto'}${after}`;
+    blockDraftText = blockDraftText.substring(0, start) + replacement + blockDraftText.substring(end);
+    setTimeout(() => {
+      if (activeTextareaRef) {
+        autoResize(activeTextareaRef);
+        const newCursor = start + before.length + (selected ? selected.length : 5);
+        activeTextareaRef.setSelectionRange(newCursor, newCursor);
+        activeTextareaRef.focus();
+      }
+    }, 10);
   }
 
   function handleFormat(action: string) {
-    if (!textareaRef) return;
-    const start = textareaRef.selectionStart;
-    const end = textareaRef.selectionEnd;
-    const selected = content.substring(start, end);
+    if (!activeTextareaRef) {
+      if (action === 'bold') content += '**texto**';
+      else if (action === 'italic') content += '*texto*';
+      else if (action === 'math') content += '\n$$\nx\n$$\n';
+      else if (action === 'h1') content += '\n# Título\n';
+      else if (action === 'h2') content += '\n## Subtítulo\n';
+      else if (action === 'quote') content += '\n> Nota\n';
+      showToolbar = false;
+      return;
+    }
 
-    let replacement = '';
-    if (action === 'bold') replacement = `**${selected || 'texto'}**`;
-    else if (action === 'italic') replacement = `*${selected || 'texto'}*`;
-    else if (action === 'math') replacement = `$${selected || 'x'}\$`;
-    else if (action === 'h1') replacement = `\n# ${selected || 'Título'}\n`;
-    else if (action === 'h2') replacement = `\n## ${selected || 'Subtítulo'}\n`;
-    else if (action === 'quote') replacement = `\n> ${selected || 'Nota'}\n`;
-
-    content = content.substring(0, start) + replacement + content.substring(end);
+    if (action === 'bold') wrapSelectionInDraft('**', '**');
+    else if (action === 'italic') wrapSelectionInDraft('*', '*');
+    else if (action === 'math') wrapSelectionInDraft('$', '$');
+    else if (action === 'h1') wrapSelectionInDraft('# ', '');
+    else if (action === 'h2') wrapSelectionInDraft('## ', '');
+    else if (action === 'quote') wrapSelectionInDraft('> ', '');
     showToolbar = false;
   }
 
@@ -545,8 +787,9 @@
     }
   }
 
-  function handleTextareaKeyDown(e: KeyboardEvent) {
+  function handleActiveKeyDown(e: KeyboardEvent, block: LiveBlock) {
     const isMod = e.ctrlKey || e.metaKey;
+
     if (showSlashMenu && slashMenuRef) {
       if (slashMenuRef.handleKeyDown(e)) {
         return;
@@ -564,47 +807,207 @@
       return;
     }
 
-    // Atajos de formato universales
     if (isMod && e.key.toLowerCase() === 'b') {
       e.preventDefault();
-      handleFormat('bold');
-    } else if (isMod && e.key.toLowerCase() === 'i') {
+      wrapSelectionInDraft('**', '**');
+      return;
+    }
+    if (isMod && e.key.toLowerCase() === 'i') {
       e.preventDefault();
-      handleFormat('italic');
-    } else if (isMod && e.key.toLowerCase() === 'e') {
+      wrapSelectionInDraft('*', '*');
+      return;
+    }
+    if (isMod && e.key.toLowerCase() === 'e') {
       e.preventDefault();
       openMathEditor();
+      return;
     }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      commitBlock(block);
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        setTimeout(() => autoResize(activeTextareaRef), 0);
+        return;
+      }
+
+      if (block.type === 'math' || block.type === 'table') {
+        if (isMod) {
+          e.preventDefault();
+          commitBlock(block);
+        } else {
+          setTimeout(() => autoResize(activeTextareaRef), 0);
+        }
+        return;
+      }
+
+      if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3' || block.type === 'divider') {
+        e.preventDefault();
+        const currentVal = blockDraftText;
+        const target = liveBlocks.find(b => b.id === block.id) || block;
+        const lines = content.split('\n');
+        const newLines = currentVal.split('\n');
+        lines.splice(target.lineStart, target.lineEnd - target.lineStart, ...newLines, '');
+        content = lines.join('\n');
+        activeBlockId = null;
+        blockDraftText = '';
+        
+        setTimeout(() => {
+          const targetLine = target.lineStart + newLines.length;
+          const nextBlock = liveBlocks.find(b => b.lineStart <= targetLine && b.lineEnd > targetLine);
+          if (nextBlock) {
+            startEditing(nextBlock);
+          }
+        }, 30);
+        return;
+      }
+
+      if (block.type === 'list') {
+        e.preventDefault();
+        const trimmed = blockDraftText.trim();
+        if (/^(\*|-|\+|\d+\.)\s*$/.test(trimmed)) {
+          const target = liveBlocks.find(b => b.id === block.id) || block;
+          const lines = content.split('\n');
+          lines.splice(target.lineStart, target.lineEnd - target.lineStart, '');
+          content = lines.join('\n');
+          activeBlockId = null;
+          blockDraftText = '';
+          return;
+        }
+
+        let nextPrefix = '* ';
+        const numMatch = blockDraftText.match(/^(\d+)\.\s+/);
+        if (numMatch) {
+          const nextNum = parseInt(numMatch[1], 10) + 1;
+          nextPrefix = `${nextNum}. `;
+        } else if (blockDraftText.trimStart().startsWith('- ')) {
+          nextPrefix = '- ';
+        }
+
+        const target = liveBlocks.find(b => b.id === block.id) || block;
+        const lines = content.split('\n');
+        const newLines = blockDraftText.split('\n');
+        lines.splice(target.lineStart, target.lineEnd - target.lineStart, ...newLines, nextPrefix);
+        content = lines.join('\n');
+        activeBlockId = null;
+        blockDraftText = '';
+
+        setTimeout(() => {
+          const targetLine = target.lineStart + newLines.length;
+          const nextBlock = liveBlocks.find(b => b.lineStart <= targetLine && b.lineEnd > targetLine);
+          if (nextBlock) {
+            startEditing(nextBlock);
+          }
+        }, 30);
+        return;
+      }
+
+      if (block.type === 'p' || block.type === 'empty') {
+        const textarea = activeTextareaRef;
+        if (textarea) {
+          const cursor = textarea.selectionStart;
+          const before = blockDraftText.substring(0, cursor);
+          const after = blockDraftText.substring(cursor);
+
+          e.preventDefault();
+          const target = liveBlocks.find(b => b.id === block.id) || block;
+          const lines = content.split('\n');
+          lines.splice(target.lineStart, target.lineEnd - target.lineStart, before, after);
+          content = lines.join('\n');
+          activeBlockId = null;
+          blockDraftText = '';
+
+          setTimeout(() => {
+            const targetLine = target.lineStart + 1;
+            const nextBlock = liveBlocks.find(b => b.lineStart <= targetLine && b.lineEnd > targetLine);
+            if (nextBlock) {
+              startEditing(nextBlock);
+            }
+          }, 30);
+          return;
+        }
+      }
+    }
+
+    if (e.key === 'Backspace' && blockDraftText === '') {
+      e.preventDefault();
+      const target = liveBlocks.find(b => b.id === block.id) || block;
+      const lines = content.split('\n');
+      const prevBlockIdx = liveBlocks.findIndex(b => b.id === block.id) - 1;
+      lines.splice(target.lineStart, target.lineEnd - target.lineStart);
+      content = lines.join('\n');
+      activeBlockId = null;
+      blockDraftText = '';
+
+      if (prevBlockIdx >= 0) {
+        setTimeout(() => {
+          const prevBlock = liveBlocks[prevBlockIdx];
+          if (prevBlock) {
+            startEditing(prevBlock);
+          }
+        }, 30);
+      }
+      return;
+    }
+
+    setTimeout(() => autoResize(activeTextareaRef), 0);
   }
 
-  function handleTextareaInput(e: Event) {
+  function handleActiveInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
+    autoResize(target);
+
     const textBeforeCursor = target.value.substring(0, target.selectionStart);
     const matchSlash = textBeforeCursor.match(/\/([a-zA-Z0-9]*)$/);
     if (matchSlash) {
       showSlashMenu = true;
       slashFilter = matchSlash[1];
 
-      // Calcular posición aproximada del cursor dentro del textarea
       const rect = target.getBoundingClientRect();
-      const lines = textBeforeCursor.split('\n');
-      const currentLineIndex = lines.length - 1;
-      const currentLineText = lines[currentLineIndex];
-      const approxLineHeight = 28;
-      const approxCharWidth = 8.5;
-
-      const calculatedY = rect.top + (currentLineIndex * approxLineHeight) + 36;
-      const calculatedX = Math.min(rect.left + (currentLineText.length * approxCharWidth) + 20, window.innerWidth - 340);
-
-      if (calculatedY > 0 && calculatedY < window.innerHeight - 300) {
-        slashMenuX = Math.max(20, calculatedX);
-        slashMenuY = calculatedY;
-      } else {
-        slashMenuX = null;
-        slashMenuY = null;
-      }
+      slashMenuX = Math.min(Math.max(20, rect.left + 30), window.innerWidth - 340);
+      slashMenuY = Math.min(rect.bottom + 10, window.innerHeight - 300);
     } else {
       showSlashMenu = false;
+    }
+  }
+
+  function getBlockEditorClass(type: LiveBlock['type']): string {
+    switch (type) {
+      case 'h1':
+        return `text-2xl md:text-3xl font-bold tracking-tight ${activeTheme.titleClass}`;
+      case 'h2':
+        return `text-xl md:text-2xl font-bold tracking-tight ${activeTheme.titleClass}`;
+      case 'h3':
+        return `text-lg md:text-xl font-semibold tracking-tight ${activeTheme.titleClass}`;
+      case 'math':
+        return 'font-mono text-sm leading-relaxed text-indigo-300';
+      case 'table':
+        return 'font-mono text-xs leading-relaxed text-slate-200';
+      case 'callout':
+        return 'text-sm italic pl-2 border-l-2 border-indigo-400 text-slate-300';
+      case 'divider':
+        return 'text-xs font-mono text-center opacity-60';
+      default:
+        return `text-[15px] leading-[1.85] ${activeTheme.textClass}`;
+    }
+  }
+
+  function getBlockTypeLabel(type: LiveBlock['type']): string {
+    switch (type) {
+      case 'h1': return 'Título H1';
+      case 'h2': return 'Subtítulo H2';
+      case 'h3': return 'Sección H3';
+      case 'math': return 'Ecuación KaTeX';
+      case 'table': return 'Tabla Markdown';
+      case 'callout': return 'Nota / Callout';
+      case 'list': return 'Elemento de lista';
+      case 'divider': return 'Separador';
+      case 'empty': return 'Línea en blanco';
+      default: return 'Párrafo';
     }
   }
 </script>
@@ -646,26 +1049,113 @@
       </div>
     </div>
 
-    <!-- Área de Redacción Directa con Sombreado de Coincidencias -->
-    <div class="flex-1 flex flex-col relative min-h-[700px]">
-      {#if showFindBar && findQuery && matches.length > 0}
-        <div
-          bind:this={highlightBackdropRef}
-          aria-hidden="true"
-          class="absolute inset-0 pointer-events-none overflow-hidden select-none whitespace-pre-wrap break-words {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} text-[15px] leading-[1.85] p-0 text-transparent"
-        >
-          {@html highlightedBackdropHtml}
-        </div>
-      {/if}
-      <textarea
-        bind:this={textareaRef}
-        bind:value={content}
-        onscroll={handleTextareaScroll}
-        oninput={handleTextareaInput}
-        onkeydown={handleTextareaKeyDown}
-        class="w-full flex-1 bg-transparent border-none outline-hidden resize-none {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.textClass} text-[15px] leading-[1.85] p-0 focus:ring-0 min-h-[700px] placeholder:opacity-40 relative z-10"
-        placeholder="Escribe directamente en esta hoja de papel...&#10;&#10;Consejos rápidos:&#10;• Teclea '/' para desplegar el menú de inserción de fórmulas, tablas, títulos y notas.&#10;• Selecciona texto para aplicar negrita, cursiva o formato matemático.&#10;• Usa atajos rápidos: Ctrl+B (Negrita), Ctrl+I (Cursiva), Ctrl+E (Fórmula fx)."
-      ></textarea>
+    <!-- Bloques Interactivos Live Preview (Estilo Obsidian) -->
+    <div class="flex-1 flex flex-col min-h-[700px] space-y-2 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
+      {#each liveBlocks as block, idx (block.id)}
+        {#if activeBlockId === block.id}
+          <!-- MODO EDICIÓN EN VIVO: Campo autoexpandible con markdown crudo (# Titulo, $$formula$$, etc.) -->
+          <div class="relative w-full rounded-sm bg-indigo-500/5 ring-1 ring-indigo-500/30 p-2 transition-all">
+            <textarea
+              bind:this={activeTextareaRef}
+              bind:value={blockDraftText}
+              oninput={handleActiveInput}
+              onkeydown={(e) => handleActiveKeyDown(e, block)}
+              onblur={() => commitBlock(block)}
+              rows={1}
+              class="w-full bg-transparent border-none outline-hidden resize-none p-0 focus:ring-0 {getBlockEditorClass(block.type)} overflow-hidden"
+              placeholder="Escribe en este bloque..."
+            ></textarea>
+            <div class="flex items-center justify-between text-[10px] {activeTheme.mutedClass} pt-1 select-none font-mono opacity-60">
+              <span>{getBlockTypeLabel(block.type)}</span>
+              <span>Esc / clic fuera para previsualizar • Enter para siguiente línea</span>
+            </div>
+          </div>
+        {:else}
+          <!-- MODO PREVISUALIZACIÓN EN VIVO: Renderizado visual formateado (sin #, KaTeX renderizado, etc.) -->
+          <div 
+            id={block.id}
+            role="button"
+            tabindex="0"
+            onclick={() => startEditing(block)}
+            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startEditing(block); }}
+            class="group relative py-1 px-1.5 -mx-1.5 rounded-sm hover:ring-1 hover:ring-indigo-400/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-all cursor-text"
+            title="Haz clic para editar este bloque"
+          >
+            {#if block.type === 'h1'}
+              <h2 class="text-2xl md:text-3xl font-bold tracking-tight {activeTheme.titleClass} border-b {activeTheme.borderClass} pb-2 pt-2">
+                {@html renderInlineMath(block.content)}
+              </h2>
+            {:else if block.type === 'h2'}
+              <h3 class="text-xl md:text-2xl font-bold tracking-tight {activeTheme.titleClass} pb-1 pt-2">
+                {@html renderInlineMath(block.content)}
+              </h3>
+            {:else if block.type === 'h3'}
+              <h4 class="text-lg md:text-xl font-semibold tracking-tight {activeTheme.titleClass} pb-0.5 pt-1">
+                {@html renderInlineMath(block.content)}
+              </h4>
+            {:else if block.type === 'callout'}
+              <div class="p-4 rounded-xl border-l-4 {activeTheme.calloutClass} text-sm my-2 italic">
+                {@html renderInlineMath(block.content)}
+              </div>
+            {:else if block.type === 'math'}
+              <div class="my-4 py-3 text-center text-lg rounded-xl transition-colors {activeTheme.hoverMathClass}">
+                {@html renderKaTeXBlock(block.content)}
+              </div>
+            {:else if block.type === 'table' && block.tableData}
+              <div class="my-4 overflow-x-auto rounded-xl border {activeTheme.borderClass}">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead class="bg-black/5 dark:bg-white/5 font-semibold {activeTheme.titleClass}">
+                    <tr>
+                      {#each block.tableData.headers as h}
+                        <th class="p-3 border-b {activeTheme.borderClass}">{@html renderInlineMath(h)}</th>
+                      {/each}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each block.tableData.rows as row, rIdx}
+                      <tr class="{rIdx % 2 === 1 ? 'bg-black/[0.02] dark:bg-white/[0.02]' : ''}">
+                        {#each row as cell}
+                          <td class="p-3 border-b {activeTheme.borderClass} border-dashed {activeTheme.textClass}">{@html renderInlineMath(cell)}</td>
+                        {/each}
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            {:else if block.type === 'list'}
+              <div class="flex items-start gap-2.5 ml-3 my-1">
+                <span class="text-indigo-400 select-none text-base leading-[1.85]">{block.isOrdered ? `${block.id.split('-')[1]}.` : '•'}</span>
+                <span class="leading-[1.85] {activeTheme.textClass}">{@html renderInlineMath(block.content)}</span>
+              </div>
+            {:else if block.type === 'divider'}
+              <hr class="my-6 border-t {activeTheme.borderClass}" />
+            {:else if block.type === 'empty'}
+              <div class="h-6 w-full cursor-text hover:bg-black/[0.02] dark:hover:bg-white/[0.02] rounded-xs transition-colors"></div>
+            {:else}
+              <p class="leading-[1.85] text-justify {activeTheme.textClass}">
+                {@html renderInlineMath(block.content)}
+              </p>
+            {/if}
+
+            <!-- Indicador sutil al pasar el mouse por encima -->
+            <span class="absolute right-2 top-2 opacity-0 group-hover:opacity-40 text-[10px] uppercase font-mono pointer-events-none transition-opacity">
+              {getBlockTypeLabel(block.type)} • Clic para editar
+            </span>
+          </div>
+        {/if}
+      {/each}
+
+      <!-- Zona de continuación al final del documento -->
+      <div 
+        role="button"
+        tabindex="0"
+        onclick={appendNewBlock}
+        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') appendNewBlock(); }}
+        class="flex-1 min-h-[140px] w-full cursor-text py-4 text-xs {activeTheme.mutedClass} opacity-40 hover:opacity-80 transition-opacity flex items-start"
+        title="Haz clic para continuar redactando..."
+      >
+        <span>Haz clic aquí para añadir contenido... (teclea '/' para comandos rápidos)</span>
+      </div>
     </div>
 
     <!-- Running Footer Inferior -->
