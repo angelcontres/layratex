@@ -511,7 +511,14 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     showNotification('Generando PDF con el Motor Autónomo de Layratex...', 'info');
 
     try {
-      // 1. Obtener los elementos de página renderizados en el DOM
+      // 1. Si estamos en modo código, sincronizar con el modelo visual para que la hoja maquetada esté al día
+      if (editorViewMode === 'code') {
+        visualContent = latexToVisual(documentContent);
+        // Breve espera para que el DOM reactivo calcule las páginas maquetadas
+        await new Promise(resolve => setTimeout(resolve, 80));
+      }
+
+      // 2. Obtener los elementos de página renderizados en el DOM
       let pages = paperEditorRef?.getPrintPages?.() || [];
       if (!pages || pages.length === 0) {
         pages = Array.from(document.querySelectorAll<HTMLElement>('#layratex-pdf-render-target [data-paper-page]'));
@@ -628,39 +635,15 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         // Abrir diálogo de exportación nativo para guardar el PDF
         await handleExportPdf(true);
       } else {
-        compilationError = true;
-        if (parsedIssues.length === 0) {
-          parsedIssues = [{
-            id: 'issue-fallback',
-            type: 'error',
-            message: output.error_message || 'El compilador LaTeX finalizó con advertencias de sintaxis.',
-            line: null,
-            detail: combinedLog.trim() || undefined
-          }];
-        }
-        compilationIssues = parsedIssues;
-        showErrorPanel = true;
-        showNotification(`Aviso en compilación: se puede usar el Motor Autónomo`, 'error');
+        // Si el compilador externo no pudo completar el PDF (por sintaxis, paquetes ausentes o falta de red),
+        // Layratex activa inmediatamente su Motor Autónomo para que el usuario SIEMPRE obtenga su PDF.
+        console.warn('Compilador nativo finalizó con advertencias, activando Motor Autónomo de Layratex...');
+        await handleAutonomousPdfExport();
       }
     } catch (err: any) {
       isCompiling = false;
-      const errMsg = err?.message || String(err);
-
-      if (errMsg.includes('No se encontró ningún compilador') || errMsg.includes('sudo dnf install')) {
-        // Fallback transparente al motor autónomo de Layratex: ¡CERO ERRORES de falta de compilador!
-        await handleAutonomousPdfExport();
-      } else {
-        compilationError = true;
-        const parsed = parseLatexLog(errMsg);
-        compilationIssues = parsed.length > 0 ? parsed : [{
-          id: 'issue-err',
-          type: 'error',
-          message: errMsg,
-          line: null
-        }];
-        showErrorPanel = true;
-        showNotification('Error al iniciar la compilación', 'error');
-      }
+      // Ante cualquier excepción o ausencia de motor nativo, exportar de inmediato con el motor autónomo
+      await handleAutonomousPdfExport();
     }
   }
 
@@ -1016,20 +999,24 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       </div>
     {/if}
 
-    <!-- Área de Trabajo: Modo Visual PaperCraft (Notion-Like) o Modo Código Split -->
-    {#if editorViewMode === 'visual'}
-      <div class="flex-1 h-full overflow-hidden">
-        <PaperEditor 
-          bind:this={paperEditorRef}
-          bind:content={visualContent}
-          bind:title={documentTitle}
-          bind:author={documentAuthor}
-          bind:fontStyle={selectedFont}
-                    bind:paperTone={paperTone}
-          onStatsChange={(newStats: { words: number; pages: number }) => visualStats = newStats}
-        />
-      </div>
-    {:else}
+    <!-- Área de Trabajo: Modo Visual PaperCraft (Siempre montado para renderizado autónomo de PDF) -->
+    <div 
+      class="flex-1 h-full overflow-hidden"
+      style={editorViewMode === 'visual' ? '' : 'position: fixed; left: -9999px; top: 0; width: 820px; pointer-events: none; opacity: 0;'}
+      aria-hidden={editorViewMode !== 'visual'}
+    >
+      <PaperEditor 
+        bind:this={paperEditorRef}
+        bind:content={visualContent}
+        bind:title={documentTitle}
+        bind:author={documentAuthor}
+        bind:fontStyle={selectedFont}
+        bind:paperTone={paperTone}
+        onStatsChange={(newStats: { words: number; pages: number }) => visualStats = newStats}
+      />
+    </div>
+
+    {#if editorViewMode === 'code'}
       <div class="flex-1 flex overflow-hidden relative">
         <!-- Panel de Edición de Código -->
         <div class="h-full overflow-hidden" style="width: {splitRatio}%">

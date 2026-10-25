@@ -81,6 +81,70 @@ pub fn decode_base64(input: &str) -> Option<Vec<u8>> {
 
 /// Busca ejecutables en PATH y ubicaciones locales comunes.
 pub fn find_binary(name: &str) -> Option<PathBuf> {
+    // 1. Ubicaciones locales de desarrollo y paquetes de Layratex
+    if let Ok(current_dir) = std::env::current_dir() {
+        for sub in &["src-tauri/bin", "bin"] {
+            let candidate = current_dir.join(sub).join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            #[cfg(windows)]
+            {
+                let candidate_exe = current_dir.join(sub).join(format!("{}.exe", name));
+                if candidate_exe.is_file() {
+                    return Some(candidate_exe);
+                }
+            }
+        }
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let candidate = exe_dir.join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            let candidate_bin = exe_dir.join("bin").join(name);
+            if candidate_bin.is_file() {
+                return Some(candidate_bin);
+            }
+            #[cfg(windows)]
+            {
+                let candidate_exe = exe_dir.join(format!("{}.exe", name));
+                if candidate_exe.is_file() {
+                    return Some(candidate_exe);
+                }
+                let candidate_bin_exe = exe_dir.join("bin").join(format!("{}.exe", name));
+                if candidate_bin_exe.is_file() {
+                    return Some(candidate_bin_exe);
+                }
+            }
+        }
+    }
+
+    // 2. Ubicaciones estándar en el sistema operativo
+    #[cfg(windows)]
+    {
+        if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+            let candidates = [
+                PathBuf::from(&local_app_data).join("layratex").join("bin").join(format!("{}.exe", name)),
+                PathBuf::from(&local_app_data).join("Programs").join("MiKTeX").join("miktex").join("bin").join("x64").join(format!("{}.exe", name)),
+            ];
+            for c in &candidates {
+                if c.is_file() {
+                    return Some(c.clone());
+                }
+            }
+        }
+        for prog in &["C:\\Program Files\\MiKTeX\\miktex\\bin\\x64", "C:\\Program Files (x86)\\MiKTeX\\miktex\\bin"] {
+            let candidate = Path::new(prog).join(format!("{}.exe", name));
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    // 3. PATH del sistema
     if let Ok(path_var) = std::env::var("PATH") {
         for dir in std::env::split_paths(&path_var) {
             let candidate = dir.join(name);
@@ -199,7 +263,7 @@ pub fn compile_latex_internal(
 ) -> Result<CompilationOutput, String> {
     let compilers = detect_all_compilers();
     if compilers.is_empty() {
-        return Err(get_missing_compiler_message());
+        return Err("COMPILER_NOT_FOUND_USE_AUTONOMOUS".to_string());
     }
 
     let active_compiler = &compilers[0];
