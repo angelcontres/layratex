@@ -523,7 +523,35 @@
 
   // Parseo estructurado en bloques interactivos Live Preview
   let liveBlocks = $derived.by(() => parseDocumentToLiveBlocks(content));
-  let blocks = $derived(liveBlocks.filter(b => b.type !== 'empty'));
+
+  // Estimación de altura en píxeles de cada bloque para paginación A4 precisa
+  function estimateBlockHeight(b: LiveBlock): number {
+    if (b.type === 'h1') return 72;
+    if (b.type === 'h2') return 58;
+    if (b.type === 'h3') return 48;
+    if (b.type === 'divider') return 0; // Provoca salto de página
+    if (b.type === 'empty') return 24;
+    if (b.type === 'list') {
+      const lines = Math.max(1, Math.ceil((b.content || '').length / 70));
+      return lines * 28 + 6;
+    }
+    if (b.type === 'math') {
+      const lineCount = (b.content || '').split('\n').length;
+      return Math.max(90, 60 + lineCount * 26);
+    }
+    if (b.type === 'table') {
+      const rows = b.tableData?.rows.length ?? 2;
+      return 45 + rows * 36 + 20;
+    }
+    if (b.type === 'callout') {
+      const lines = Math.max(1, Math.ceil((b.content || '').length / 70));
+      return 36 + lines * 26;
+    }
+    // Párrafo normal (p)
+    const textLen = (b.content || '').length;
+    const lines = Math.max(1, Math.ceil(textLen / 70));
+    return lines * 28 + 10;
+  }
 
   // Paginación realista de hojas A4
   interface SheetPage {
@@ -534,29 +562,35 @@
   let pages = $derived.by(() => {
     const result: SheetPage[] = [];
     let currentPageBlocks: LiveBlock[] = [];
-    let currentWordCount = 0;
+    let currentHeight = 0;
     let pageNum = 1;
 
-    for (const b of blocks) {
+    for (const b of liveBlocks) {
       if (b.type === 'divider') {
+        currentPageBlocks.push(b);
         result.push({ pageNumber: pageNum++, blocks: currentPageBlocks });
         currentPageBlocks = [];
-        currentWordCount = 0;
+        currentHeight = 0;
         continue;
       }
 
-      const blockWords = b.content.split(/\s+/).filter(Boolean).length;
-      if (currentWordCount + blockWords > 380 && currentPageBlocks.length > 0) {
+      const h = estimateBlockHeight(b);
+      // La hoja 1 incluye el banner de título y autor (~150px), por lo que tiene ~720px útiles frente a ~870px en hojas posteriores
+      const maxPageHeight = pageNum === 1 ? 720 : 870;
+
+      if (currentHeight + h > maxPageHeight && currentPageBlocks.length > 0) {
         result.push({ pageNumber: pageNum++, blocks: currentPageBlocks });
         currentPageBlocks = [b];
-        currentWordCount = blockWords;
+        currentHeight = h;
       } else {
         currentPageBlocks.push(b);
-        currentWordCount += blockWords;
+        currentHeight += h;
       }
     }
 
-    result.push({ pageNumber: pageNum, blocks: currentPageBlocks });
+    if (currentPageBlocks.length > 0 || result.length === 0) {
+      result.push({ pageNumber: pageNum, blocks: currentPageBlocks });
+    }
     return result;
   });
 
@@ -1019,152 +1053,163 @@
   onmouseup={checkSelection}
 >
 
-  <!-- HOJA FÍSICA A4 UNIFICADA (ESTILO WORD) -->
-  <div class="w-full max-w-[820px] min-h-[1154px] rounded-[3px] {activeTheme.sheetClass} px-16 py-20 flex flex-col relative transition-all duration-200 mb-16 shadow-2xl">
-    {#if showCropMarks}
-      <div class="absolute top-6 left-6 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
-      <div class="absolute top-6 right-6 w-3 h-3 border-t border-r {activeTheme.cropClass} pointer-events-none"></div>
-      <div class="absolute bottom-6 left-6 w-3 h-3 border-b border-l {activeTheme.cropClass} pointer-events-none"></div>
-      <div class="absolute bottom-6 right-6 w-3 h-3 border-b border-r {activeTheme.cropClass} pointer-events-none"></div>
-    {/if}
+  <!-- HOJAS FÍSICAS A4 PAGINADAS (ESTILO MICROSOFT WORD / GOOGLE DOCS) -->
+  {#each pages as page, pageIndex (page.pageNumber)}
+    <div 
+      data-paper-page={pageIndex}
+      class="w-full max-w-[820px] min-h-[1154px] rounded-[3px] {activeTheme.sheetClass} px-14 py-16 flex flex-col relative transition-all duration-200 mb-12 shadow-2xl"
+    >
+      {#if showCropMarks}
+        <div class="absolute top-5 left-5 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
+        <div class="absolute top-5 right-5 w-3 h-3 border-t border-r {activeTheme.cropClass} pointer-events-none"></div>
+        <div class="absolute bottom-5 left-5 w-3 h-3 border-b border-l {activeTheme.cropClass} pointer-events-none"></div>
+        <div class="absolute bottom-5 right-5 w-3 h-3 border-b border-r {activeTheme.cropClass} pointer-events-none"></div>
+      {/if}
 
-    <!-- Running Header Superior de la Hoja -->
-    <div class="flex items-center justify-between text-[11px] {activeTheme.mutedClass} uppercase tracking-widest font-mono pb-4 mb-8 border-b {activeTheme.borderClass}">
-      <span class="truncate max-w-sm">{title || 'Documento Técnico'}</span>
-      <span>Layratex • A4 • {activeTheme.name}</span>
-    </div>
-
-    <!-- Título de la Hoja -->
-    <div class="mb-10 text-center space-y-2 border-b {activeTheme.borderClass} pb-8">
-      <input 
-        type="text" 
-        bind:value={title}
-        class="w-full text-2xl md:text-3xl font-bold {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.titleClass} bg-transparent border-none outline-hidden focus:ring-0 text-center tracking-tight"
-        placeholder="Título del Documento"
-      />
-      <div class="text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} flex items-center justify-center gap-2 pt-1">
-        <span>{author || 'Autor'}</span>
-        <span>•</span>
-        <span>{new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+      <!-- Running Header Superior de la Hoja -->
+      <div class="flex items-center justify-between text-[11px] {activeTheme.mutedClass} uppercase tracking-widest font-mono pb-3 mb-6 border-b {activeTheme.borderClass}">
+        <span class="truncate max-w-sm">{title || 'Documento Técnico'}</span>
+        <span>{pageIndex === 0 ? `Layratex • A4 • ${activeTheme.name}` : `Hoja ${page.pageNumber} de ${pages.length}`}</span>
       </div>
-    </div>
 
-    <!-- Bloques Interactivos Live Preview (Estilo Obsidian) -->
-    <div class="flex-1 flex flex-col min-h-[700px] space-y-2 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
-      {#each liveBlocks as block, idx (block.id)}
-        {#if activeBlockId === block.id}
-          <!-- MODO EDICIÓN EN VIVO: Campo autoexpandible con markdown crudo (# Titulo, $$formula$$, etc.) -->
-          <div class="relative w-full rounded-sm bg-indigo-500/5 ring-1 ring-indigo-500/30 p-2 transition-all">
-            <textarea
-              bind:this={activeTextareaRef}
-              bind:value={blockDraftText}
-              oninput={handleActiveInput}
-              onkeydown={(e) => handleActiveKeyDown(e, block)}
-              onblur={() => commitBlock(block)}
-              rows={1}
-              class="w-full bg-transparent border-none outline-hidden resize-none p-0 focus:ring-0 {getBlockEditorClass(block.type)} overflow-hidden"
-              placeholder="Escribe en este bloque..."
-            ></textarea>
-            <div class="flex items-center justify-between text-[10px] {activeTheme.mutedClass} pt-1 select-none font-mono opacity-60">
-              <span>{getBlockTypeLabel(block.type)}</span>
-              <span>Esc / clic fuera para previsualizar • Enter para siguiente línea</span>
-            </div>
+      <!-- Título de la Hoja (sólo en la Página 1) -->
+      {#if pageIndex === 0}
+        <div class="mb-8 text-center space-y-2 border-b {activeTheme.borderClass} pb-6">
+          <input 
+            type="text" 
+            bind:value={title}
+            class="w-full text-2xl md:text-3xl font-bold {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.titleClass} bg-transparent border-none outline-hidden focus:ring-0 text-center tracking-tight"
+            placeholder="Título del Documento"
+          />
+          <div class="text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} flex items-center justify-center gap-2 pt-1">
+            <span>{author || 'Autor'}</span>
+            <span>•</span>
+            <span>{new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
-        {:else}
-          <!-- MODO PREVISUALIZACIÓN EN VIVO: Renderizado visual formateado (sin #, KaTeX renderizado, etc.) -->
-          <div 
-            id={block.id}
-            role="button"
-            tabindex="0"
-            onclick={() => startEditing(block)}
-            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startEditing(block); }}
-            class="group relative py-1 px-1.5 -mx-1.5 rounded-sm hover:ring-1 hover:ring-indigo-400/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-all cursor-text"
-            title="Haz clic para editar este bloque"
-          >
-            {#if block.type === 'h1'}
-              <h2 class="text-2xl md:text-3xl font-bold tracking-tight {activeTheme.titleClass} border-b {activeTheme.borderClass} pb-2 pt-2">
-                {@html renderInlineMath(block.content)}
-              </h2>
-            {:else if block.type === 'h2'}
-              <h3 class="text-xl md:text-2xl font-bold tracking-tight {activeTheme.titleClass} pb-1 pt-2">
-                {@html renderInlineMath(block.content)}
-              </h3>
-            {:else if block.type === 'h3'}
-              <h4 class="text-lg md:text-xl font-semibold tracking-tight {activeTheme.titleClass} pb-0.5 pt-1">
-                {@html renderInlineMath(block.content)}
-              </h4>
-            {:else if block.type === 'callout'}
-              <div class="p-4 rounded-xl border-l-4 {activeTheme.calloutClass} text-sm my-2 italic">
-                {@html renderInlineMath(block.content)}
+        </div>
+      {/if}
+
+      <!-- Bloques Interactivos Live Preview de esta Hoja -->
+      <div class="flex-1 flex flex-col space-y-2 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
+        {#each page.blocks as block (block.id)}
+          {#if activeBlockId === block.id}
+            <!-- MODO EDICIÓN EN VIVO: Campo autoexpandible con markdown crudo (# Titulo, $$formula$$, etc.) -->
+            <div class="relative w-full rounded-sm bg-indigo-500/5 ring-1 ring-indigo-500/30 p-2 transition-all">
+              <textarea
+                bind:this={activeTextareaRef}
+                bind:value={blockDraftText}
+                oninput={handleActiveInput}
+                onkeydown={(e) => handleActiveKeyDown(e, block)}
+                onblur={() => commitBlock(block)}
+                rows={1}
+                class="w-full bg-transparent border-none outline-hidden resize-none p-0 focus:ring-0 {getBlockEditorClass(block.type)} overflow-hidden"
+                placeholder="Escribe en este bloque..."
+              ></textarea>
+              <div class="flex items-center justify-between text-[10px] {activeTheme.mutedClass} pt-1 select-none font-mono opacity-60">
+                <span>{getBlockTypeLabel(block.type)}</span>
+                <span>Esc / clic fuera para previsualizar • Enter para siguiente línea</span>
               </div>
-            {:else if block.type === 'math'}
-              <div class="my-4 py-3 text-center text-lg rounded-xl transition-colors {activeTheme.hoverMathClass}">
-                {@html renderKaTeXBlock(block.content)}
-              </div>
-            {:else if block.type === 'table' && block.tableData}
-              <div class="my-4 overflow-x-auto rounded-xl border {activeTheme.borderClass}">
-                <table class="w-full text-left text-xs border-collapse">
-                  <thead class="bg-black/5 dark:bg-white/5 font-semibold {activeTheme.titleClass}">
-                    <tr>
-                      {#each block.tableData.headers as h}
-                        <th class="p-3 border-b {activeTheme.borderClass}">{@html renderInlineMath(h)}</th>
-                      {/each}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {#each block.tableData.rows as row, rIdx}
-                      <tr class="{rIdx % 2 === 1 ? 'bg-black/[0.02] dark:bg-white/[0.02]' : ''}">
-                        {#each row as cell}
-                          <td class="p-3 border-b {activeTheme.borderClass} border-dashed {activeTheme.textClass}">{@html renderInlineMath(cell)}</td>
+            </div>
+          {:else}
+            <!-- MODO PREVISUALIZACIÓN EN VIVO: Renderizado visual formateado (sin #, KaTeX renderizado, etc.) -->
+            <div 
+              id={block.id}
+              role="button"
+              tabindex="0"
+              onclick={() => startEditing(block)}
+              onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startEditing(block); }}
+              class="group relative py-1 px-1.5 -mx-1.5 rounded-sm hover:ring-1 hover:ring-indigo-400/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-all cursor-text"
+              title="Haz clic para editar este bloque"
+            >
+              {#if block.type === 'h1'}
+                <h2 class="text-2xl md:text-3xl font-bold tracking-tight {activeTheme.titleClass} border-b {activeTheme.borderClass} pb-2 pt-2">
+                  {@html renderInlineMath(block.content)}
+                </h2>
+              {:else if block.type === 'h2'}
+                <h3 class="text-xl md:text-2xl font-bold tracking-tight {activeTheme.titleClass} pb-1 pt-2">
+                  {@html renderInlineMath(block.content)}
+                </h3>
+              {:else if block.type === 'h3'}
+                <h4 class="text-lg md:text-xl font-semibold tracking-tight {activeTheme.titleClass} pb-0.5 pt-1">
+                  {@html renderInlineMath(block.content)}
+                </h4>
+              {:else if block.type === 'callout'}
+                <div class="p-4 rounded-xl border-l-4 {activeTheme.calloutClass} text-sm my-2 italic">
+                  {@html renderInlineMath(block.content)}
+                </div>
+              {:else if block.type === 'math'}
+                <div class="my-4 py-3 text-center text-lg rounded-xl transition-colors {activeTheme.hoverMathClass}">
+                  {@html renderKaTeXBlock(block.content)}
+                </div>
+              {:else if block.type === 'table' && block.tableData}
+                <div class="my-4 overflow-x-auto rounded-xl border {activeTheme.borderClass}">
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-black/5 dark:bg-white/5 font-semibold {activeTheme.titleClass}">
+                      <tr>
+                        {#each block.tableData.headers as h}
+                          <th class="p-3 border-b {activeTheme.borderClass}">{@html renderInlineMath(h)}</th>
                         {/each}
                       </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {:else if block.type === 'list'}
-              <div class="flex items-start gap-2.5 ml-3 my-1">
-                <span class="text-indigo-400 select-none text-base leading-[1.85]">{block.isOrdered ? `${block.id.split('-')[1]}.` : '•'}</span>
-                <span class="leading-[1.85] {activeTheme.textClass}">{@html renderInlineMath(block.content)}</span>
-              </div>
-            {:else if block.type === 'divider'}
-              <hr class="my-6 border-t {activeTheme.borderClass}" />
-            {:else if block.type === 'empty'}
-              <div class="h-6 w-full cursor-text hover:bg-black/[0.02] dark:hover:bg-white/[0.02] rounded-xs transition-colors"></div>
-            {:else}
-              <p class="leading-[1.85] text-justify {activeTheme.textClass}">
-                {@html renderInlineMath(block.content)}
-              </p>
-            {/if}
+                    </thead>
+                    <tbody>
+                      {#each block.tableData.rows as row, rIdx}
+                        <tr class="{rIdx % 2 === 1 ? 'bg-black/[0.02] dark:bg-white/[0.02]' : ''}">
+                          {#each row as cell}
+                            <td class="p-3 border-b {activeTheme.borderClass} border-dashed {activeTheme.textClass}">{@html renderInlineMath(cell)}</td>
+                          {/each}
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {:else if block.type === 'list'}
+                <div class="flex items-start gap-2.5 ml-3 my-1">
+                  <span class="text-indigo-400 select-none text-base leading-[1.85]">{block.isOrdered ? `${block.id.split('-')[1] || '1'}.` : '•'}</span>
+                  <span class="leading-[1.85] {activeTheme.textClass}">{@html renderInlineMath(block.content)}</span>
+                </div>
+              {:else if block.type === 'divider'}
+                <div class="py-4 flex items-center justify-center">
+                  <hr class="w-full border-t {activeTheme.borderClass}" />
+                </div>
+              {:else if block.type === 'empty'}
+                <div class="h-6 w-full cursor-text hover:bg-black/[0.02] dark:hover:bg-white/[0.02] rounded-xs transition-colors"></div>
+              {:else}
+                <p class="leading-[1.85] text-justify {activeTheme.textClass}">
+                  {@html renderInlineMath(block.content)}
+                </p>
+              {/if}
 
-            <!-- Indicador sutil al pasar el mouse por encima -->
-            <span class="absolute right-2 top-2 opacity-0 group-hover:opacity-40 text-[10px] uppercase font-mono pointer-events-none transition-opacity">
-              {getBlockTypeLabel(block.type)} • Clic para editar
-            </span>
+              <!-- Indicador sutil al pasar el mouse por encima -->
+              <span class="absolute right-2 top-2 opacity-0 group-hover:opacity-40 text-[10px] uppercase font-mono pointer-events-none transition-opacity">
+                {getBlockTypeLabel(block.type)} • Clic para editar
+              </span>
+            </div>
+          {/if}
+        {/each}
+
+        <!-- Zona de continuación sólo en la última página -->
+        {#if pageIndex === pages.length - 1}
+          <div 
+            role="button"
+            tabindex="0"
+            onclick={appendNewBlock}
+            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') appendNewBlock(); }}
+            class="flex-1 min-h-[100px] w-full cursor-text py-4 text-xs {activeTheme.mutedClass} opacity-40 hover:opacity-80 transition-opacity flex items-start"
+            title="Haz clic para continuar redactando..."
+          >
+            <span>Haz clic aquí para añadir contenido... (teclea '/' para comandos rápidos)</span>
           </div>
         {/if}
-      {/each}
+      </div>
 
-      <!-- Zona de continuación al final del documento -->
-      <div 
-        role="button"
-        tabindex="0"
-        onclick={appendNewBlock}
-        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') appendNewBlock(); }}
-        class="flex-1 min-h-[140px] w-full cursor-text py-4 text-xs {activeTheme.mutedClass} opacity-40 hover:opacity-80 transition-opacity flex items-start"
-        title="Haz clic para continuar redactando..."
-      >
-        <span>Haz clic aquí para añadir contenido... (teclea '/' para comandos rápidos)</span>
+      <!-- Running Footer Inferior de cada Hoja -->
+      <div class="pt-8 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
+        <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
+        <span class="font-bold tracking-wider">— Hoja {page.pageNumber} de {pages.length} —</span>
+        <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
       </div>
     </div>
-
-    <!-- Running Footer Inferior -->
-    <div class="pt-10 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
-      <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
-      <span class="font-bold tracking-wider">— {pages.length > 1 ? `Hoja 1 de ${pages.length}` : 'Página 1'} —</span>
-      <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
-    </div>
-  </div>
+  {/each}
 
   <!-- Barra de Búsqueda y Reemplazo Global (siempre accesible) -->
   {#if showFindBar}
@@ -1290,6 +1335,8 @@
             <li class="ml-6 list-disc text-slate-800">{@html renderInlineMath(b.content)}</li>
           {:else if b.type === 'divider'}
             <hr class="border-t border-slate-200 my-6" />
+          {:else if b.type === 'empty'}
+            <div class="h-3"></div>
           {:else}
             <p class="leading-[1.85] text-justify text-slate-800">{@html renderInlineMath(b.content)}</p>
           {/if}
