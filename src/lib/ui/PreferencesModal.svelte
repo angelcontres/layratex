@@ -83,12 +83,12 @@
     tabindex="-1"
   >
     <!-- Modal Container -->
-    <div class="w-full max-w-2xl rounded-2xl {isLight ? 'bg-white text-slate-800 border-slate-200 shadow-2xl' : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] shadow-2xl'} border flex flex-col max-h-[85vh] overflow-hidden">
+    <div class="w-full max-w-2xl rounded-md {isLight ? 'bg-white text-slate-800 border-slate-200 shadow-2xl' : 'bg-[#161b22] text-[#c9d1d9] border-[#30363d] shadow-2xl'} border flex flex-col max-h-[85vh] overflow-hidden">
       
       <!-- Modal Header -->
       <div class="px-6 py-4 border-b {isLight ? 'border-slate-200 bg-slate-50' : 'border-[#21262d] bg-[#0d1117]'} flex items-center justify-between">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg {isLight ? 'bg-indigo-100 text-indigo-600' : 'bg-indigo-500/20 text-indigo-400'} flex items-center justify-center">
+          <div class="w-8 h-8 rounded-xs {isLight ? 'bg-indigo-100 text-indigo-600' : 'bg-indigo-500/20 text-indigo-400'} flex items-center justify-center">
             <Settings size={18} />
           </div>
           <div>
@@ -102,7 +102,7 @@
         </div>
         <button 
           type="button"
-          class="p-1.5 rounded-lg {isLight ? 'hover:bg-slate-200 text-slate-500 hover:text-slate-800' : 'hover:bg-[#21262d] text-[#8b949e] hover:text-white'} transition-colors cursor-pointer"
+          class="p-1.5 rounded-xs {isLight ? 'hover:bg-slate-200 text-slate-500 hover:text-slate-800' : 'hover:bg-[#21262d] text-[#8b949e] hover:text-white'} transition-colors cursor-pointer"
           onclick={handleClose}
           title="Cerrar (Esc)"
         >
@@ -157,10 +157,10 @@
               <!-- Dark Theme -->
               <button
                 type="button"
-                class="flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer {prefs.theme === 'dark' ? 'border-indigo-500 bg-indigo-500/10 shadow-xs' : (isLight ? 'border-slate-200 hover:border-slate-300 bg-slate-50' : 'border-[#30363d] hover:border-[#484f58] bg-[#0d1117]')}"
+                class="flex flex-col items-center gap-2 p-3 rounded-xs border transition-all text-center cursor-pointer {prefs.theme === 'dark' ? 'border-indigo-500 bg-indigo-500/10 shadow-xs' : (isLight ? 'border-slate-200 hover:border-slate-300 bg-slate-50' : 'border-[#30363d] hover:border-[#484f58] bg-[#0d1117]')}"
                 onclick={() => updateField('theme', 'dark')}
               >
-                <div class="w-8 h-8 rounded-lg bg-[#0d1117] border border-[#30363d] flex items-center justify-center text-slate-200">
+                <div class="w-8 h-8 rounded-xs bg-[#0d1117] border border-[#30363d] flex items-center justify-center text-slate-200">
                   <Moon size={16} />
                 </div>
                 <div class="font-medium {prefs.theme === 'dark' ? 'text-indigo-400' : (isLight ? 'text-slate-800' : 'text-slate-200')}">
@@ -174,10 +174,10 @@
               <!-- Light Theme -->
               <button
                 type="button"
-                class="flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer {prefs.theme === 'light' ? 'border-indigo-500 bg-indigo-500/10 shadow-xs' : (isLight ? 'border-slate-200 hover:border-slate-300 bg-slate-50' : 'border-[#30363d] hover:border-[#484f58] bg-[#0d1117]')}"
+                class="flex flex-col items-center gap-2 p-3 rounded-xs border transition-all text-center cursor-pointer {prefs.theme === 'light' ? 'border-indigo-500 bg-indigo-500/10 shadow-xs' : (isLight ? 'border-slate-200 hover:border-slate-300 bg-slate-50' : 'border-[#30363d] hover:border-[#484f58] bg-[#0d1117]')}"
                 onclick={() => updateField('theme', 'light')}
               >
-                <div class="w-8 h-8 rounded-lg bg-white border border-slate-300 flex items-center justify-center text-amber-500">
+                <div class="w-8 h-8 rounded-xs bg-white border border-slate-300 flex items-center justify-center text-amber-500">
                   <Sun size={16} />
                 </div>
                 <div class="font-medium {prefs.theme === 'light' ? 'text-indigo-600' : (isLight ? 'text-slate-800' : 'text-slate-200')}">
@@ -191,10 +191,10 @@
               <!-- System Theme -->
               <button
                 type="button"
-                class="flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center cursor-pointer {prefs.theme === 'system' ? 'border-indigo-500 bg-indigo-500/10 shadow-xs' : (isLight ? 'border-slate-200 hover:border-slate-300 bg-slate-50' : 'border-[#30363d] hover:border-[#484f58] bg-[#0d1117]')}"
+                class="flex flex-col items-center gap-2 p-3 rounded-xs border transition-all text-center cursor-pointer {prefs.theme === 'system' ? 'border-indigo-500 bg-indigo-500/10 shadow-xs' : (isLight ? 'border-slate-200 hover:border-slate-300 bg-slate-50' : 'border-[#30363d] hover:border-[#484f58] bg-[#0d1117]')}"
                 onclick={() => updateField('theme', 'system')}
               >
-                <div class="w-8 h-8 rounded-lg {isLight ? 'bg-slate-200 border-slate-300 text-slate-700' : 'bg-[#21262d] border-[#30363d] text-slate-300'} flex items-center justify-center">
+                <div class="w-8 h-8 rounded-xs {isLight ? 'bg-slate-200 border-slate-300 text-slate-700' : 'bg-[#21262d] border-[#30363d] text-slate-300'} flex items-center justify-center">
                   <Laptop size={16} />
                 </div>
                 <div class="font-medium {prefs.theme === 'system' ? 'text-indigo-400' : (isLight ? 'text-slate-800' : 'text-slate-200')}">
@@ -222,10 +222,10 @@
               <!-- Dark Tone -->
               <button
                 type="button"
-                class="p-3 rounded-xl border text-left cursor-pointer transition-all {prefs.paperTone === 'dark' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : (isLight ? 'border-slate-200 hover:border-slate-300' : 'border-[#30363d] hover:border-[#484f58]')}"
+                class="p-3 rounded-xs border text-left cursor-pointer transition-all {prefs.paperTone === 'dark' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : (isLight ? 'border-slate-200 hover:border-slate-300' : 'border-[#30363d] hover:border-[#484f58]')}"
                 onclick={() => updateField('paperTone', 'dark')}
               >
-                <div class="w-full h-8 rounded-md bg-[#161b22] border border-white/10 mb-2 flex items-center justify-center text-slate-400">
+                <div class="w-full h-8 rounded-xs bg-[#161b22] border border-white/10 mb-2 flex items-center justify-center text-slate-400">
                   <Moon size={13} />
                 </div>
                 <div class="font-semibold text-xs {isLight ? 'text-slate-800' : 'text-white'}">Grafito Noche</div>
@@ -235,10 +235,10 @@
               <!-- White Tone -->
               <button
                 type="button"
-                class="p-3 rounded-xl border text-left cursor-pointer transition-all {prefs.paperTone === 'white' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : (isLight ? 'border-slate-200 hover:border-slate-300' : 'border-[#30363d] hover:border-[#484f58]')}"
+                class="p-3 rounded-xs border text-left cursor-pointer transition-all {prefs.paperTone === 'white' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : (isLight ? 'border-slate-200 hover:border-slate-300' : 'border-[#30363d] hover:border-[#484f58]')}"
                 onclick={() => updateField('paperTone', 'white')}
               >
-                <div class="w-full h-8 rounded-md bg-white border border-slate-300 mb-2 flex items-center justify-center text-slate-700">
+                <div class="w-full h-8 rounded-xs bg-white border border-slate-300 mb-2 flex items-center justify-center text-slate-700">
                   <Sun size={13} />
                 </div>
                 <div class="font-semibold text-xs {isLight ? 'text-slate-800' : 'text-white'}">Blanco Nieve</div>
@@ -248,10 +248,10 @@
               <!-- Cream Tone -->
               <button
                 type="button"
-                class="p-3 rounded-xl border text-left cursor-pointer transition-all {prefs.paperTone === 'cream' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : (isLight ? 'border-slate-200 hover:border-slate-300' : 'border-[#30363d] hover:border-[#484f58]')}"
+                class="p-3 rounded-xs border text-left cursor-pointer transition-all {prefs.paperTone === 'cream' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : (isLight ? 'border-slate-200 hover:border-slate-300' : 'border-[#30363d] hover:border-[#484f58]')}"
                 onclick={() => updateField('paperTone', 'cream')}
               >
-                <div class="w-full h-8 rounded-md bg-[#fdfbf7] border border-[#ebdccb] mb-2 flex items-center justify-center text-[#9c783e]">
+                <div class="w-full h-8 rounded-xs bg-[#fdfbf7] border border-[#ebdccb] mb-2 flex items-center justify-center text-[#9c783e]">
                   <Sun size={13} />
                 </div>
                 <div class="font-semibold text-xs {isLight ? 'text-slate-800' : 'text-white'}">Marfil Cálido</div>
@@ -261,10 +261,10 @@
               <!-- Sepia Tone -->
               <button
                 type="button"
-                class="p-3 rounded-xl border text-left cursor-pointer transition-all {prefs.paperTone === 'sepia' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : (isLight ? 'border-slate-200 hover:border-slate-300' : 'border-[#30363d] hover:border-[#484f58]')}"
+                class="p-3 rounded-xs border text-left cursor-pointer transition-all {prefs.paperTone === 'sepia' ? 'border-indigo-500 ring-2 ring-indigo-500/20' : (isLight ? 'border-slate-200 hover:border-slate-300' : 'border-[#30363d] hover:border-[#484f58]')}"
                 onclick={() => updateField('paperTone', 'sepia')}
               >
-                <div class="w-full h-8 rounded-md bg-[#f4ecd8] border border-[#d6c4a8] mb-2 flex items-center justify-center text-[#7c5b35]">
+                <div class="w-full h-8 rounded-xs bg-[#f4ecd8] border border-[#d6c4a8] mb-2 flex items-center justify-center text-[#7c5b35]">
                   <Scroll size={13} />
                 </div>
                 <div class="font-semibold text-xs {isLight ? 'text-slate-800' : 'text-white'}">Sepia Vintage</div>
@@ -287,10 +287,10 @@
             <div class="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                class="p-3 rounded-xl border text-left cursor-pointer transition-all flex items-center gap-3 {prefs.paperFont === 'serif' ? 'border-indigo-500 bg-indigo-500/10' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
+                class="p-3 rounded-xs border text-left cursor-pointer transition-all flex items-center gap-3 {prefs.paperFont === 'serif' ? 'border-indigo-500 bg-indigo-500/10' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
                 onclick={() => updateField('paperFont', 'serif')}
               >
-                <div class="w-10 h-10 rounded-lg {isLight ? 'bg-white border-slate-300' : 'bg-[#161b22] border-[#30363d]'} border flex items-center justify-center font-serif text-lg font-bold">
+                <div class="w-10 h-10 rounded-xs {isLight ? 'bg-white border-slate-300' : 'bg-[#161b22] border-[#30363d]'} border flex items-center justify-center font-serif text-lg font-bold">
                   Ag
                 </div>
                 <div>
@@ -301,10 +301,10 @@
 
               <button
                 type="button"
-                class="p-3 rounded-xl border text-left cursor-pointer transition-all flex items-center gap-3 {prefs.paperFont === 'sans' ? 'border-indigo-500 bg-indigo-500/10' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
+                class="p-3 rounded-xs border text-left cursor-pointer transition-all flex items-center gap-3 {prefs.paperFont === 'sans' ? 'border-indigo-500 bg-indigo-500/10' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
                 onclick={() => updateField('paperFont', 'sans')}
               >
-                <div class="w-10 h-10 rounded-lg {isLight ? 'bg-white border-slate-300' : 'bg-[#161b22] border-[#30363d]'} border flex items-center justify-center font-sans text-lg font-bold">
+                <div class="w-10 h-10 rounded-xs {isLight ? 'bg-white border-slate-300' : 'bg-[#161b22] border-[#30363d]'} border flex items-center justify-center font-sans text-lg font-bold">
                   Ag
                 </div>
                 <div>
@@ -318,7 +318,7 @@
         {:else if activeCategory === 'sheet'}
           <!-- Modo Hoja (PaperCraft) Options -->
           <div class="space-y-4">
-            <div class="p-4 rounded-xl border {isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0d1117] border-[#30363d]'}">
+            <div class="p-4 rounded-xs border {isLight ? 'bg-slate-50 border-slate-200' : 'bg-[#0d1117] border-[#30363d]'}">
               <h3 class="font-semibold text-xs {isLight ? 'text-slate-800' : 'text-white'} flex items-center gap-1.5 mb-1">
                 <FileText size={14} class="text-indigo-400" />
                 <span>Hoja de Redacción Unificada (Estilo Word)</span>
@@ -366,7 +366,7 @@
                   <select
                     value={prefs.autoSaveIntervalSec}
                     onchange={(e) => updateField('autoSaveIntervalSec', Number((e.target as HTMLSelectElement).value))}
-                    class="px-2 py-1 rounded-lg text-xs {isLight ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-[#0d1117] border-[#30363d] text-slate-200'} border"
+                    class="px-2 py-1 rounded-xs text-xs {isLight ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-[#0d1117] border-[#30363d] text-slate-200'} border"
                   >
                     <option value={1}>Cada 1 s</option>
                     <option value={2}>Cada 2 s</option>
@@ -432,7 +432,7 @@
               <div class="grid grid-cols-3 gap-2">
                 <button
                   type="button"
-                  class="p-2.5 rounded-lg border text-left cursor-pointer transition-all {prefs.compilationEngine === 'auto' ? 'border-indigo-500 bg-indigo-500/10 font-semibold' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
+                  class="p-2.5 rounded-xs border text-left cursor-pointer transition-all {prefs.compilationEngine === 'auto' ? 'border-indigo-500 bg-indigo-500/10 font-semibold' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
                   onclick={() => updateField('compilationEngine', 'auto')}
                 >
                   <div class="text-xs {isLight ? 'text-slate-800' : 'text-white'}">Auto-detección</div>
@@ -441,7 +441,7 @@
 
                 <button
                   type="button"
-                  class="p-2.5 rounded-lg border text-left cursor-pointer transition-all {prefs.compilationEngine === 'tectonic' ? 'border-indigo-500 bg-indigo-500/10 font-semibold' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
+                  class="p-2.5 rounded-xs border text-left cursor-pointer transition-all {prefs.compilationEngine === 'tectonic' ? 'border-indigo-500 bg-indigo-500/10 font-semibold' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
                   onclick={() => updateField('compilationEngine', 'tectonic')}
                 >
                   <div class="text-xs {isLight ? 'text-slate-800' : 'text-white'}">Tectonic</div>
@@ -450,7 +450,7 @@
 
                 <button
                   type="button"
-                  class="p-2.5 rounded-lg border text-left cursor-pointer transition-all {prefs.compilationEngine === 'pdflatex' ? 'border-indigo-500 bg-indigo-500/10 font-semibold' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
+                  class="p-2.5 rounded-xs border text-left cursor-pointer transition-all {prefs.compilationEngine === 'pdflatex' ? 'border-indigo-500 bg-indigo-500/10 font-semibold' : (isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#0d1117]')}"
                   onclick={() => updateField('compilationEngine', 'pdflatex')}
                 >
                   <div class="text-xs {isLight ? 'text-slate-800' : 'text-white'}">pdflatex</div>
@@ -468,7 +468,7 @@
       <div class="px-6 py-3.5 border-t {isLight ? 'border-slate-200 bg-slate-50' : 'border-[#21262d] bg-[#0d1117]'} flex items-center justify-between text-xs">
         <button
           type="button"
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg {isLight ? 'hover:bg-slate-200 text-slate-600' : 'hover:bg-[#21262d] text-[#8b949e] hover:text-white'} transition-colors cursor-pointer"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xs {isLight ? 'hover:bg-slate-200 text-slate-600' : 'hover:bg-[#21262d] text-[#8b949e] hover:text-white'} transition-colors cursor-pointer"
           onclick={handleReset}
           title="Restablecer todos los ajustes a los valores iniciales"
         >
@@ -478,7 +478,7 @@
 
         <button
           type="button"
-          class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-xs transition-colors cursor-pointer"
+          class="flex items-center gap-1.5 px-4 py-1.5 rounded-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-xs transition-colors cursor-pointer"
           onclick={handleClose}
         >
           <Check size={14} />

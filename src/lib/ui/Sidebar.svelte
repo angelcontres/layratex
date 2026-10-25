@@ -19,7 +19,7 @@
     <!-- Logo Layratex -->
     <button
       type="button"
-      class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1f6feb] to-[#a371f7] flex items-center justify-center text-white font-bold text-sm shadow-md mb-2 cursor-pointer hover:scale-105 transition-transform" 
+      class="w-9 h-9 rounded-xs bg-gradient-to-tr from-[#1f6feb] to-[#a371f7] flex items-center justify-center text-white font-bold text-sm shadow-md mb-2 cursor-pointer hover:scale-105 transition-transform" 
       title="Layratex P2P • Abrir Preferencias"
       onclick={onOpenPreferences}
     >
@@ -29,7 +29,7 @@
     <!-- Navegación Lateral -->
     <button
       type="button"
-      class="w-10 h-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer {activeTab === 'files' ? (isLight ? 'bg-indigo-50 text-indigo-600' : 'bg-[#21262d] text-[#58a6ff]') : (isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-100' : 'text-[#8b949e] hover:text-white hover:bg-[#161b22]')}"
+      class="w-10 h-10 rounded-xs flex items-center justify-center transition-colors cursor-pointer {activeTab === 'files' ? (isLight ? 'bg-indigo-50 text-indigo-600' : 'bg-[#21262d] text-[#58a6ff]') : (isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-100' : 'text-[#8b949e] hover:text-white hover:bg-[#161b22]')}"
       onclick={() => activeTab = activeTab === 'files' ? '' : 'files'}
       title="Explorador de Archivos"
     >
@@ -38,7 +38,7 @@
 
     <button
       type="button"
-      class="w-10 h-10 rounded-lg flex items-center justify-center transition-colors relative cursor-pointer {activeTab === 'p2p' ? (isLight ? 'bg-purple-50 text-purple-600' : 'bg-[#21262d] text-[#a371f7]') : (isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-100' : 'text-[#8b949e] hover:text-white hover:bg-[#161b22]')}"
+      class="w-10 h-10 rounded-xs flex items-center justify-center transition-colors relative cursor-pointer {activeTab === 'p2p' ? (isLight ? 'bg-purple-50 text-purple-600' : 'bg-[#21262d] text-[#a371f7]') : (isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-100' : 'text-[#8b949e] hover:text-white hover:bg-[#161b22]')}"
       onclick={() => activeTab = activeTab === 'p2p' ? '' : 'p2p'}
       title="Red P2P & Dispositivos"
     >
@@ -50,7 +50,7 @@
 
     <button
       type="button"
-      class="w-10 h-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer {activeTab === 'settings' ? (isLight ? 'bg-indigo-50 text-indigo-600' : 'bg-[#21262d] text-[#58a6ff]') : (isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-100' : 'text-[#8b949e] hover:text-white hover:bg-[#161b22]')}"
+      class="w-10 h-10 rounded-xs flex items-center justify-center transition-colors cursor-pointer {activeTab === 'settings' ? (isLight ? 'bg-indigo-50 text-indigo-600' : 'bg-[#21262d] text-[#58a6ff]') : (isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-100' : 'text-[#8b949e] hover:text-white hover:bg-[#161b22]')}"
       onclick={() => activeTab = activeTab === 'settings' ? '' : 'settings'}
       title="Ajustes y Preferencias (Ctrl+,)"
     >
@@ -61,7 +61,7 @@
   <div class="flex flex-col items-center gap-3">
     <button 
       type="button" 
-      class="w-7 h-7 rounded-lg {isLight ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-[#21262d] text-[#8b949e]'} flex items-center justify-center transition-colors cursor-pointer"
+      class="w-7 h-7 rounded-xs {isLight ? 'hover:bg-slate-100 text-slate-500' : 'hover:bg-[#21262d] text-[#8b949e]'} flex items-center justify-center transition-colors cursor-pointer"
       onclick={onOpenPreferences}
       title="Preferencias de la aplicación (Ctrl+,)"
     >

@@ -98,13 +98,13 @@
 
 {#if isOpen}
   <div class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
-    <div class="bg-white dark:bg-[#161c28] border border-slate-200/80 dark:border-white/10 rounded-3xl shadow-2xl max-w-xl w-full p-7 text-slate-900 dark:text-[#c9d1d9] space-y-5 animate-in zoom-in-95 duration-150">
+    <div class="bg-white dark:bg-[#161c28] border border-slate-200/80 dark:border-white/10 rounded-md shadow-2xl max-w-xl w-full p-6 text-slate-900 dark:text-[#c9d1d9] space-y-4 animate-in zoom-in-95 duration-150">
       
       <!-- Encabezado del modal -->
-      <div class="flex items-center justify-between border-b border-slate-100 dark:border-[#21262d] pb-4">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-[#21262d] pb-3">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
-            <Calculator size={20} />
+          <div class="w-9 h-9 rounded-xs bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+            <Calculator size={18} />
           </div>
           <div>
             <h3 class="text-base font-bold text-slate-900 dark:text-white tracking-tight">Constructor Visual de Fórmulas</h3>
@@ -112,7 +112,7 @@
           </div>
         </div>
         <button 
-          class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
+          class="p-1 rounded-xs text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
           onclick={() => isOpen = false}
         >
           <X size={18} />
@@ -120,7 +120,7 @@
       </div>
 
       <!-- Área de Vista Previa Renderizada (KaTeX) -->
-      <div class="p-6 rounded-2xl bg-gradient-to-b from-slate-50 to-indigo-50/20 dark:from-[#0d1117] dark:to-[#121620] border border-slate-200/80 dark:border-[#21262d] flex flex-col items-center justify-center min-h-[100px] text-center shadow-inner">
+      <div class="p-5 rounded-xs bg-gradient-to-b from-slate-50 to-indigo-50/20 dark:from-[#0d1117] dark:to-[#121620] border border-slate-200/80 dark:border-[#21262d] flex flex-col items-center justify-center min-h-[90px] text-center shadow-inner">
         <div class="text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400 tracking-wider mb-1 self-start">
           Vista Previa en Vivo
         </div>
@@ -139,7 +139,7 @@
             id="formula-input"
             type="text" 
             bind:value={formula} 
-            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-[#30363d] text-slate-900 dark:text-white text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
+            class="w-full px-3 py-2 rounded-xs bg-slate-50 dark:bg-[#0d1117] border border-slate-200 dark:border-[#30363d] text-slate-900 dark:text-white text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner"
             placeholder={"Ejemplo: v = \\frac{\\Delta x}{\\Delta t}"}
           />
           {#if formula}
@@ -156,25 +156,25 @@
       </div>
 
       <!-- Pestañas de Categorías de Símbolos -->
-      <div class="space-y-3">
-        <div class="flex items-center gap-1 p-1 bg-slate-100 dark:bg-[#0d1117] rounded-xl text-xs font-medium">
+      <div class="space-y-2.5">
+        <div class="flex items-center gap-1 p-1 bg-slate-100 dark:bg-[#0d1117] rounded-xs text-xs font-medium">
           <button 
             type="button"
-            class="flex-1 py-1.5 rounded-lg transition-all cursor-pointer {activeTab === 'basics' ? 'bg-white dark:bg-[#1f2633] text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
+            class="flex-1 py-1.5 rounded-xs transition-all cursor-pointer {activeTab === 'basics' ? 'bg-white dark:bg-[#1f2633] text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
             onclick={() => activeTab = 'basics'}
           >
             Estructuras Básicas
           </button>
           <button 
             type="button"
-            class="flex-1 py-1.5 rounded-lg transition-all cursor-pointer {activeTab === 'calculus' ? 'bg-white dark:bg-[#1f2633] text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
+            class="flex-1 py-1.5 rounded-xs transition-all cursor-pointer {activeTab === 'calculus' ? 'bg-white dark:bg-[#1f2633] text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
             onclick={() => activeTab = 'calculus'}
           >
             Cálculo & Álgebra
           </button>
           <button 
             type="button"
-            class="flex-1 py-1.5 rounded-lg transition-all cursor-pointer {activeTab === 'symbols' ? 'bg-white dark:bg-[#1f2633] text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
+            class="flex-1 py-1.5 rounded-xs transition-all cursor-pointer {activeTab === 'symbols' ? 'bg-white dark:bg-[#1f2633] text-indigo-600 dark:text-indigo-400 shadow-xs font-semibold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'}"
             onclick={() => activeTab = 'symbols'}
           >
             Símbolos & Griego
@@ -183,11 +183,11 @@
 
         <!-- Contenido de las Pestañas -->
         {#if activeTab === 'basics'}
-          <div class="grid grid-cols-4 gap-2">
+          <div class="grid grid-cols-4 gap-1.5">
             {#each basicStructures as s}
               <button 
                 type="button"
-                class="px-2.5 py-2 rounded-xl bg-slate-50 hover:bg-indigo-50 dark:bg-[#1f2633] dark:hover:bg-indigo-500/20 border border-slate-200/80 dark:border-white/5 text-slate-700 dark:text-slate-200 hover:text-indigo-600 text-xs font-medium transition-all flex flex-col items-center cursor-pointer active:scale-95"
+                class="px-2 py-1.5 rounded-xs bg-slate-50 hover:bg-indigo-50 dark:bg-[#1f2633] dark:hover:bg-indigo-500/20 border border-slate-200/80 dark:border-white/5 text-slate-700 dark:text-slate-200 hover:text-indigo-600 text-xs font-medium transition-all flex flex-col items-center cursor-pointer active:scale-95"
                 onclick={() => insertFragment(s.tex)}
               >
                 <span class="font-bold text-xs">{s.desc}</span>
@@ -196,11 +196,11 @@
             {/each}
           </div>
         {:else if activeTab === 'calculus'}
-          <div class="grid grid-cols-4 gap-2">
+          <div class="grid grid-cols-4 gap-1.5">
             {#each calculusStructures as s}
               <button 
                 type="button"
-                class="px-2.5 py-2 rounded-xl bg-slate-50 hover:bg-indigo-50 dark:bg-[#1f2633] dark:hover:bg-indigo-500/20 border border-slate-200/80 dark:border-white/5 text-slate-700 dark:text-slate-200 hover:text-indigo-600 text-xs font-medium transition-all flex flex-col items-center cursor-pointer active:scale-95"
+                class="px-2 py-1.5 rounded-xs bg-slate-50 hover:bg-indigo-50 dark:bg-[#1f2633] dark:hover:bg-indigo-500/20 border border-slate-200/80 dark:border-white/5 text-slate-700 dark:text-slate-200 hover:text-indigo-600 text-xs font-medium transition-all flex flex-col items-center cursor-pointer active:scale-95"
                 onclick={() => insertFragment(s.tex)}
               >
                 <span class="font-bold text-xs">{s.desc}</span>
@@ -209,11 +209,11 @@
             {/each}
           </div>
         {:else}
-          <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-50 dark:bg-[#0d1117] rounded-xl border border-slate-200/80 dark:border-[#21262d]">
+          <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-50 dark:bg-[#0d1117] rounded-xs border border-slate-200/80 dark:border-[#21262d]">
             {#each symbols as s}
               <button 
                 type="button"
-                class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-indigo-50 dark:bg-[#161c28] dark:hover:bg-[#252f40] border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-200 text-xs hover:border-indigo-400 transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
+                class="px-2.5 py-1.5 rounded-xs bg-white hover:bg-indigo-50 dark:bg-[#161c28] dark:hover:bg-[#252f40] border border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-200 text-xs hover:border-indigo-400 transition-all cursor-pointer active:scale-95 flex items-center gap-1.5"
                 onclick={() => insertFragment(s.tex)}
                 title={s.name}
               >
@@ -226,17 +226,17 @@
       </div>
 
       <!-- Botones de Acción -->
-      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-[#21262d]">
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#21262d]">
         <button 
           type="button"
-          class="px-4 py-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-medium transition-colors cursor-pointer"
+          class="px-3.5 py-1.5 rounded-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs font-medium transition-colors cursor-pointer"
           onclick={() => isOpen = false}
         >
           Cancelar
         </button>
         <button 
           type="button"
-          class="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-semibold shadow-md hover:shadow-indigo-500/25 transition-all cursor-pointer"
+          class="flex items-center gap-1.5 px-4 py-2 rounded-xs bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
           onclick={handleSave}
         >
           <Check size={14} />

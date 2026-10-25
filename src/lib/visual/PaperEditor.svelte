@@ -1057,7 +1057,7 @@
   {#each pages as page, pageIndex (page.pageNumber)}
     <div 
       data-paper-page={pageIndex}
-      class="w-full max-w-[820px] min-h-[1154px] rounded-[3px] {activeTheme.sheetClass} px-14 py-16 flex flex-col relative transition-all duration-200 mb-12 shadow-2xl"
+      class="w-full max-w-[820px] min-h-[1154px] rounded-[2px] {activeTheme.sheetClass} px-14 py-16 flex flex-col relative transition-all duration-200 mb-12 shadow-2xl"
     >
       {#if showCropMarks}
         <div class="absolute top-5 left-5 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
@@ -1068,8 +1068,8 @@
 
       <!-- Running Header Superior de la Hoja -->
       <div class="flex items-center justify-between text-[11px] {activeTheme.mutedClass} uppercase tracking-widest font-mono pb-3 mb-6 border-b {activeTheme.borderClass}">
-        <span class="truncate max-w-sm">{title || 'Documento Técnico'}</span>
-        <span>{pageIndex === 0 ? `Layratex • A4 • ${activeTheme.name}` : `Hoja ${page.pageNumber} de ${pages.length}`}</span>
+        <span class="truncate max-w-sm font-medium">{title || 'Documento Sin Título'}</span>
+        <span class="text-[10px] opacity-60 font-mono">{pageIndex === 0 ? '' : `Hoja ${page.pageNumber} de ${pages.length}`}</span>
       </div>
 
       <!-- Título de la Hoja (sólo en la Página 1) -->
@@ -1094,7 +1094,7 @@
         {#each page.blocks as block (block.id)}
           {#if activeBlockId === block.id}
             <!-- MODO EDICIÓN EN VIVO: Campo autoexpandible con markdown crudo (# Titulo, $$formula$$, etc.) -->
-            <div class="relative w-full rounded-sm bg-indigo-500/5 ring-1 ring-indigo-500/30 p-2 transition-all">
+            <div class="relative w-full rounded-xs bg-indigo-500/5 ring-1 ring-indigo-500/30 p-2 transition-all">
               <textarea
                 bind:this={activeTextareaRef}
                 bind:value={blockDraftText}
@@ -1118,7 +1118,7 @@
               tabindex="0"
               onclick={() => startEditing(block)}
               onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startEditing(block); }}
-              class="group relative py-1 px-1.5 -mx-1.5 rounded-sm hover:ring-1 hover:ring-indigo-400/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-all cursor-text"
+              class="group relative py-1 px-1.5 -mx-1.5 rounded-xs hover:ring-1 hover:ring-indigo-400/30 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-all cursor-text"
               title="Haz clic para editar este bloque"
             >
               {#if block.type === 'h1'}
@@ -1134,15 +1134,15 @@
                   {@html renderInlineMath(block.content)}
                 </h4>
               {:else if block.type === 'callout'}
-                <div class="p-4 rounded-xl border-l-4 {activeTheme.calloutClass} text-sm my-2 italic">
+                <div class="p-4 rounded-xs border-l-4 {activeTheme.calloutClass} text-sm my-2 italic">
                   {@html renderInlineMath(block.content)}
                 </div>
               {:else if block.type === 'math'}
-                <div class="my-4 py-3 text-center text-lg rounded-xl transition-colors {activeTheme.hoverMathClass}">
+                <div class="my-4 py-3 text-center text-lg rounded-xs transition-colors {activeTheme.hoverMathClass}">
                   {@html renderKaTeXBlock(block.content)}
                 </div>
               {:else if block.type === 'table' && block.tableData}
-                <div class="my-4 overflow-x-auto rounded-xl border {activeTheme.borderClass}">
+                <div class="my-4 overflow-x-auto rounded-xs border {activeTheme.borderClass}">
                   <table class="w-full text-left text-xs border-collapse">
                     <thead class="bg-black/5 dark:bg-white/5 font-semibold {activeTheme.titleClass}">
                       <tr>
@@ -1204,9 +1204,9 @@
 
       <!-- Running Footer Inferior de cada Hoja -->
       <div class="pt-8 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
-        <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
-        <span class="font-bold tracking-wider">— Hoja {page.pageNumber} de {pages.length} —</span>
-        <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
+        <span class="text-[10px] font-mono opacity-50 truncate max-w-[200px]">{author || ''}</span>
+        <span class="font-bold tracking-wider font-mono text-[11px]">— {page.pageNumber} —</span>
+        <span class="text-[10px] font-mono opacity-50">{pages.length > 1 ? `${page.pageNumber}/${pages.length}` : ''}</span>
       </div>
     </div>
   {/each}
@@ -1214,10 +1214,10 @@
   <!-- Barra de Búsqueda y Reemplazo Global (siempre accesible) -->
   {#if showFindBar}
     <div class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] w-[min(680px,95vw)]">
-      <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#161b22] shadow-2xl p-2 backdrop-blur-sm">
+      <div class="flex flex-col gap-2 rounded-md border border-white/10 bg-[#161b22] shadow-2xl p-2 backdrop-blur-sm">
         <div class="flex items-center gap-2">
           <input
-            class="paper-find-input flex-1 px-2 py-1 rounded-lg bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
+            class="paper-find-input flex-1 px-2.5 py-1 rounded-xs bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
             placeholder="Buscar..."
             bind:value={findQuery}
             oninput={() => findMatches()}
@@ -1232,20 +1232,20 @@
               }
             }}
           />
-          <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center cursor-pointer" onclick={prevMatch} title="Anterior (Shift+Enter)"><ChevronLeft size={13} /></button>
-          <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center cursor-pointer" onclick={nextMatch} title="Siguiente (Enter)"><ChevronRight size={13} /></button>
+          <button type="button" class="p-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center cursor-pointer" onclick={prevMatch} title="Anterior (Shift+Enter)"><ChevronLeft size={13} /></button>
+          <button type="button" class="p-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-300 transition-colors flex items-center justify-center cursor-pointer" onclick={nextMatch} title="Siguiente (Enter)"><ChevronRight size={13} /></button>
           <span class="text-[10px] text-slate-400 font-mono min-w-[75px] text-center">{matches.length > 0 ? `${currentMatchIndex + 1}/${matches.length} (L.${currentMatchLine})` : (findQuery ? '0 / 0' : '—')}</span>
           <label class="flex items-center gap-1 text-[10px] text-slate-400 cursor-pointer">
             <input type="checkbox" bind:checked={matchCase} onchange={() => findMatches()} />
             Aa
           </label>
-          <button type="button" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] cursor-pointer" onclick={() => showReplace = !showReplace}>{showReplace ? 'Ocultar' : 'Reemplazar'}</button>
-          <button type="button" class="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center cursor-pointer" onclick={closeFindBar} title="Cerrar (Esc)"><X size={13} /></button>
+          <button type="button" class="px-2 py-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] cursor-pointer" onclick={() => showReplace = !showReplace}>{showReplace ? 'Ocultar' : 'Reemplazar'}</button>
+          <button type="button" class="p-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center cursor-pointer" onclick={closeFindBar} title="Cerrar (Esc)"><X size={13} /></button>
         </div>
         {#if showReplace}
           <div class="flex items-center gap-2">
             <input
-              class="flex-1 px-2 py-1 rounded-lg bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
+              class="flex-1 px-2.5 py-1 rounded-xs bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
               placeholder="Reemplazar con..."
               bind:value={replaceQuery}
               onkeydown={(e) => {
@@ -1259,8 +1259,8 @@
                 }
               }}
             />
-            <button type="button" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] cursor-pointer" onclick={replaceCurrent}>Reemplazar</button>
-            <button type="button" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] cursor-pointer" onclick={replaceAll}>Reemplazar todo</button>
+            <button type="button" class="px-2 py-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] cursor-pointer" onclick={replaceCurrent}>Reemplazar</button>
+            <button type="button" class="px-2 py-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] cursor-pointer" onclick={replaceAll}>Reemplazar todo</button>
           </div>
         {/if}
       </div>
@@ -1303,7 +1303,7 @@
           {:else if b.type === 'h3'}
             <h4 class="text-base font-medium pt-2 text-slate-900">{b.content}</h4>
           {:else if b.type === 'callout'}
-            <div class="p-4 rounded-xl bg-slate-50 border-l-4 border-indigo-500 text-slate-700 text-sm my-3 italic">
+            <div class="p-4 rounded-xs bg-slate-50 border-l-4 border-indigo-500 text-slate-700 text-sm my-3 italic">
               {@html renderInlineMath(b.content)}
             </div>
           {:else if b.type === 'math'}
@@ -1311,7 +1311,7 @@
               {@html renderKaTeXBlock(b.content)}
             </div>
           {:else if b.type === 'table' && b.tableData}
-            <div class="my-6 overflow-x-auto rounded-xl border border-slate-200">
+            <div class="my-6 overflow-x-auto rounded-xs border border-slate-200">
               <table class="w-full text-left text-xs border-collapse">
                 <thead class="bg-slate-50 font-semibold text-slate-900">
                   <tr>
@@ -1344,9 +1344,9 @@
       </div>
 
       <div class="pt-10 text-center text-xs text-slate-400 border-t border-slate-200 mt-auto flex items-center justify-between">
-        <span class="text-[10px] font-mono opacity-60">Layratex • A4</span>
-        <span class="font-bold tracking-wider">— {page.pageNumber} —</span>
-        <span class="text-[10px] font-mono opacity-60">210 × 297 mm</span>
+        <span class="text-[10px] font-mono opacity-50 truncate max-w-[200px]">{author || ''}</span>
+        <span class="font-bold tracking-wider font-mono text-[11px]">— {page.pageNumber} —</span>
+        <span class="text-[10px] font-mono opacity-50">{pages.length > 1 ? `${page.pageNumber}/${pages.length}` : ''}</span>
       </div>
     </div>
   {/each}

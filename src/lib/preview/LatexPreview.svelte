@@ -65,7 +65,7 @@
     if (parsedRows.length === 0) return '';
     const header = parsedRows[0];
     const dataRows = parsedRows.slice(1);
-    let html = '<div class="my-6 overflow-x-auto rounded-lg border border-white/10"><table class="w-full text-left text-xs border-collapse">';
+    let html = '<div class="my-6 overflow-x-auto rounded-xs border border-white/10"><table class="w-full text-left text-xs border-collapse">';
     html += '<thead class="bg-white/5 font-semibold"><tr>';
     for (const h of header) {
       html += `<th class="p-2.5 border-b border-white/10 text-white font-serif">${h}</th>`;
@@ -130,7 +130,7 @@
         return parseTabularToPreviewHtml(match);
       });
       processed = processed.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, (_, q) => {
-        return `<blockquote class="p-4 my-4 rounded-lg bg-white/5 border-l-4 border-[#30363d] text-slate-300 italic font-serif">${q.trim().replace(/\n/g, '<br/>')}</blockquote>`;
+        return `<blockquote class="p-4 my-4 rounded-xs bg-white/5 border-l-4 border-[#30363d] text-slate-300 italic font-serif">${q.trim().replace(/\n/g, '<br/>')}</blockquote>`;
       });
 
       // 5. Renderizar Secciones y Estructura
@@ -242,7 +242,7 @@
       bind:this={previewScrollContainer}
       onscroll={handlePreviewScroll}
     >
-      <div class="max-w-2xl mx-auto bg-[#161b22] border border-[#30363d] rounded-lg shadow-2xl p-8 sm:p-12 text-[#c9d1d9] min-h-[600px]">
+      <div class="max-w-2xl mx-auto bg-[#161b22] border border-[#30363d] rounded-[2px] shadow-2xl p-8 sm:p-12 text-[#c9d1d9] min-h-[600px]">
         {@html renderedHtml}
       </div>
     </div>
