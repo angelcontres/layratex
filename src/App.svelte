@@ -516,6 +516,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         visualContent = latexToVisual(documentContent);
         // Breve espera para que el DOM reactivo calcule las páginas maquetadas
         await new Promise(resolve => setTimeout(resolve, 80));
+      } else {
+        // Breve espera para asegurar que el DOM reactivo esté actualizado
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
 
       // 2. Obtener los elementos de página renderizados en el DOM
@@ -573,18 +576,16 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   async function handleCompile() {
     if (isCompiling) return;
 
+    // Sincronizar contenido visual a LaTeX si estamos en modo visual
     if (editorViewMode === 'visual') {
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
         author: documentAuthor,
         fontStyle: selectedFont
-      });
-      // En modo visual PaperCraft, exportar directamente con el motor autónomo sin dependencias externas
-      await handleAutonomousPdfExport();
-      return;
+      }, documentContent);
     }
 
-    // En modo código, verificar si existe compilador externo antes de invocar
+    // Iniciar compilación
     isCompiling = true;
     compilationError = false;
     showNotification('Generando PDF...', 'info');
@@ -621,7 +622,8 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           pdfBlobUrl = compilerService.createPdfBlobUrl(output.pdf_base64);
         }
 
-        const suggestedName = currentFileName.replace(/\.tex$/i, '') + '.pdf';
+        const rawBaseName = (documentTitle || currentFileName.replace(/\.tex$/i, '') || 'documento');
+        const suggestedName = rawBaseName.replace(/[/\\?%*:|"<>]/g, '_') + '.pdf';
         lastCompiledPdf = {
           path: output.pdf_path,
           name: suggestedName,
@@ -649,7 +651,8 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
   async function handleExportPdf(afterCompilation = false) {
     if (!lastCompiledPdf) {
-      showNotification('Primero debes compilar el documento (Ctrl+B).', 'info');
+      // Si aún no se ha compilado, compilar primero automáticamente
+      await handleCompile();
       return;
     }
 

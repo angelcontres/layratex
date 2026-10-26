@@ -524,6 +524,75 @@
   // Parseo estructurado en bloques interactivos Live Preview
   let liveBlocks = $derived.by(() => parseDocumentToLiveBlocks(content));
 
+  interface BlockNumberInfo {
+    secNumber?: string;
+    eqNumber?: number;
+  }
+
+  // Numeración canónica LaTeX para secciones (\section, \subsection, \subsubsection) y ecuaciones
+  let blockNumberMap = $derived.by(() => {
+    const map = new Map<string, BlockNumberInfo>();
+    let h1Count = 0;
+    let h2Count = 0;
+    let h3Count = 0;
+    let eqCount = 0;
+
+    for (const b of liveBlocks) {
+      if (b.type === 'h1') {
+        h1Count++;
+        h2Count = 0;
+        h3Count = 0;
+        map.set(b.id, { secNumber: `${h1Count}` });
+      } else if (b.type === 'h2') {
+        h2Count++;
+        h3Count = 0;
+        const prefix = h1Count > 0 ? `${h1Count}` : '1';
+        map.set(b.id, { secNumber: `${prefix}.${h2Count}` });
+      } else if (b.type === 'h3') {
+        h3Count++;
+        const prefix1 = h1Count > 0 ? `${h1Count}` : '1';
+        const prefix2 = h2Count > 0 ? `${h2Count}` : '1';
+        map.set(b.id, { secNumber: `${prefix1}.${prefix2}.${h3Count}` });
+      } else if (b.type === 'math') {
+        eqCount++;
+        map.set(b.id, { eqNumber: eqCount });
+      }
+    }
+    return map;
+  });
+
+  // Regla tipográfica canónica de LaTeX (\noindent en el primer párrafo tras un encabezado)
+  function isFirstParagraph(blockId: string): boolean {
+    const idx = liveBlocks.findIndex(b => b.id === blockId);
+    if (idx <= 0) return true;
+    for (let i = idx - 1; i >= 0; i--) {
+      const prev = liveBlocks[i];
+      if (prev.type === 'empty') continue;
+      if (prev.type === 'h1' || prev.type === 'h2' || prev.type === 'h3' || prev.type === 'divider') {
+        return true;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // Previene duplicar numeración si el usuario ya escribió "1. Introducción"
+  function getHeadingDisplay(b: LiveBlock): { number?: string; title: string } {
+    const info = blockNumberMap.get(b.id);
+    const rawContent = b.content.trim();
+    const existingNumMatch = rawContent.match(/^(\d+(?:\.\d+)*\.?)\s+(.*)/);
+    if (existingNumMatch) {
+      return {
+        number: existingNumMatch[1].replace(/\.$/, ''),
+        title: existingNumMatch[2]
+      };
+    }
+    return {
+      number: info?.secNumber,
+      title: rawContent
+    };
+  }
+
   // Estimación de altura en píxeles de cada bloque para paginación A4 precisa
   function estimateBlockHeight(b: LiveBlock): number {
     if (b.type === 'h1') return 72;
@@ -1074,7 +1143,7 @@
 
       <!-- Título de la Hoja (sólo en la Página 1) -->
       {#if pageIndex === 0}
-        <div class="mb-8 text-center space-y-2 border-b {activeTheme.borderClass} pb-6">
+        <div class="mb-10 text-center space-y-2">
           <input 
             type="text" 
             bind:value={title}
@@ -1090,7 +1159,7 @@
       {/if}
 
       <!-- Bloques Interactivos Live Preview de esta Hoja -->
-      <div class="flex-1 flex flex-col space-y-2 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
+      <div class="flex-1 flex flex-col space-y-1.5 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
         {#each page.blocks as block (block.id)}
           {#if activeBlockId === block.id}
             <!-- MODO EDICIÓN EN VIVO: Campo autoexpandible con markdown crudo (# Titulo, $$formula$$, etc.) -->
@@ -1111,7 +1180,7 @@
               </div>
             </div>
           {:else}
-            <!-- MODO PREVISUALIZACIÓN EN VIVO: Renderizado visual formateado (sin #, KaTeX renderizado, etc.) -->
+            <!-- MODO PREVISUALIZACIÓN EN VIVO: Renderizado visual formateado estilo LaTeX -->
             <div 
               id={block.id}
               role="button"
@@ -1122,40 +1191,59 @@
               title="Haz clic para editar este bloque"
             >
               {#if block.type === 'h1'}
-                <h2 class="text-2xl md:text-3xl font-bold tracking-tight {activeTheme.titleClass} border-b {activeTheme.borderClass} pb-2 pt-2">
-                  {@html renderInlineMath(block.content)}
+                {@const heading = getHeadingDisplay(block)}
+                <h2 class="text-2xl md:text-3xl font-bold tracking-tight {activeTheme.titleClass} pt-4 pb-1">
+                  {#if heading.number}
+                    <span class="mr-2 font-bold opacity-80">{heading.number}</span>
+                  {/if}
+                  {@html renderInlineMath(heading.title)}
                 </h2>
               {:else if block.type === 'h2'}
-                <h3 class="text-xl md:text-2xl font-bold tracking-tight {activeTheme.titleClass} pb-1 pt-2">
-                  {@html renderInlineMath(block.content)}
+                {@const heading = getHeadingDisplay(block)}
+                <h3 class="text-xl md:text-2xl font-bold tracking-tight {activeTheme.titleClass} pt-3 pb-1">
+                  {#if heading.number}
+                    <span class="mr-2 font-bold opacity-80">{heading.number}</span>
+                  {/if}
+                  {@html renderInlineMath(heading.title)}
                 </h3>
               {:else if block.type === 'h3'}
-                <h4 class="text-lg md:text-xl font-semibold tracking-tight {activeTheme.titleClass} pb-0.5 pt-1">
-                  {@html renderInlineMath(block.content)}
+                {@const heading = getHeadingDisplay(block)}
+                <h4 class="text-lg md:text-xl font-semibold tracking-tight {activeTheme.titleClass} pt-2 pb-0.5">
+                  {#if heading.number}
+                    <span class="mr-2 font-bold opacity-80">{heading.number}</span>
+                  {/if}
+                  {@html renderInlineMath(heading.title)}
                 </h4>
               {:else if block.type === 'callout'}
                 <div class="p-4 rounded-xs border-l-4 {activeTheme.calloutClass} text-sm my-2 italic">
                   {@html renderInlineMath(block.content)}
                 </div>
               {:else if block.type === 'math'}
-                <div class="my-4 py-3 text-center text-lg rounded-xs transition-colors {activeTheme.hoverMathClass}">
-                  {@html renderKaTeXBlock(block.content)}
+                <div class="my-4 py-2 relative flex items-center justify-center rounded-xs transition-colors {activeTheme.hoverMathClass}">
+                  <div class="text-center text-lg overflow-x-auto">
+                    {@html renderKaTeXBlock(block.content)}
+                  </div>
+                  {#if blockNumberMap.get(block.id)?.eqNumber}
+                    <span class="absolute right-3 text-sm opacity-60 font-mono select-none">
+                      ({blockNumberMap.get(block.id)?.eqNumber})
+                    </span>
+                  {/if}
                 </div>
               {:else if block.type === 'table' && block.tableData}
-                <div class="my-4 overflow-x-auto rounded-xs border {activeTheme.borderClass}">
-                  <table class="w-full text-left text-xs border-collapse">
-                    <thead class="bg-black/5 dark:bg-white/5 font-semibold {activeTheme.titleClass}">
-                      <tr>
+                <div class="my-4 overflow-x-auto flex justify-center">
+                  <table class="text-xs border-collapse">
+                    <thead class="font-bold {activeTheme.titleClass}">
+                      <tr class="border-t-2 border-b {activeTheme.borderClass}">
                         {#each block.tableData.headers as h}
-                          <th class="p-3 border-b {activeTheme.borderClass}">{@html renderInlineMath(h)}</th>
+                          <th class="p-3 text-center">{@html renderInlineMath(h)}</th>
                         {/each}
                       </tr>
                     </thead>
-                    <tbody>
-                      {#each block.tableData.rows as row, rIdx}
-                        <tr class="{rIdx % 2 === 1 ? 'bg-black/[0.02] dark:bg-white/[0.02]' : ''}">
+                    <tbody class="border-b-2 {activeTheme.borderClass}">
+                      {#each block.tableData.rows as row}
+                        <tr>
                           {#each row as cell}
-                            <td class="p-3 border-b {activeTheme.borderClass} border-dashed {activeTheme.textClass}">{@html renderInlineMath(cell)}</td>
+                            <td class="p-3 text-center {activeTheme.textClass}">{@html renderInlineMath(cell)}</td>
                           {/each}
                         </tr>
                       {/each}
@@ -1174,7 +1262,10 @@
               {:else if block.type === 'empty'}
                 <div class="h-6 w-full cursor-text hover:bg-black/[0.02] dark:hover:bg-white/[0.02] rounded-xs transition-colors"></div>
               {:else}
-                <p class="leading-[1.85] text-justify {activeTheme.textClass}">
+                <p 
+                  class="leading-[1.85] text-justify {activeTheme.textClass}"
+                  style="text-indent: {isFirstParagraph(block.id) ? '0' : '1.5em'};"
+                >
                   {@html renderInlineMath(block.content)}
                 </p>
               {/if}
@@ -1269,62 +1360,88 @@
 
 </div>
 
-<!-- Contenedor Oficial Autónomo para Exportación a PDF (Fondo blanco editorial puro y alta definición) -->
+<!-- Contenedor Oficial Autónomo para Exportación a PDF (Maquetación Canónica Idéntica a LaTeX article) -->
 <div id="layratex-pdf-render-target" class="fixed -left-[9999px] top-0 pointer-events-none opacity-0 select-none" aria-hidden="true">
   {#each pages as page, pageIndex}
     <div 
       data-paper-page={pageIndex}
-      class="w-[820px] min-h-[1154px] bg-white text-slate-900 px-16 py-20 flex flex-col relative"
+      class="w-[820px] min-h-[1160px] bg-white text-black px-[90px] pt-[85px] pb-[75px] flex flex-col relative box-border"
       style="font-family: {fontStyle === 'serif' ? '\'Computer Modern\', \'CMU Serif\', \'Latin Modern Roman\', \'KaTeX_Main\', serif' : '\'CMU Sans Serif\', -apple-system, sans-serif'};"
     >
-      <!-- Running Header Superior -->
-      <div class="flex items-center justify-between text-[11px] text-slate-400 uppercase tracking-widest font-mono pb-4 mb-8 border-b border-slate-200">
-        <span class="truncate max-w-sm">{title || 'Documento Técnico'}</span>
-        <span>Hoja {page.pageNumber} de {pages.length}</span>
-      </div>
-
+      <!-- Título Canónico LaTeX \maketitle (sólo en la Hoja 1) -->
       {#if pageIndex === 0}
-        <div class="mb-10 text-center space-y-2 border-b border-slate-200 pb-8">
-          <h1 class="text-3xl font-bold text-slate-900 tracking-tight">{title || 'Documento Sin Título'}</h1>
-          <div class="text-xs text-slate-500 flex items-center justify-center gap-2 pt-1">
-            <span>{author || 'Autor'}</span>
-            <span>•</span>
-            <span>{new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        <div class="mb-10 text-center">
+          <h1 class="text-[22pt] font-bold text-black tracking-tight leading-tight">
+            {title || 'Documento sin título'}
+          </h1>
+          {#if author}
+            <div class="text-[13pt] text-black mt-4 font-normal">
+              {author}
+            </div>
+          {/if}
+          <div class="text-[11pt] text-black/80 mt-2 font-normal">
+            {new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}
           </div>
         </div>
       {/if}
 
-      <div class="space-y-5 text-slate-800 text-[15px] leading-[1.85] flex-1">
+      <!-- Contenido Tipográfico Estilo LaTeX article -->
+      <div class="text-black text-[11pt] leading-[1.55] flex-1">
         {#each page.blocks as b}
           {#if b.type === 'h1'}
-            <h2 class="text-xl font-bold pt-5 pb-1 tracking-tight border-b border-slate-200 text-slate-900">{b.content}</h2>
+            {@const heading = getHeadingDisplay(b)}
+            <h2 class="text-[16pt] font-bold pt-6 pb-2 text-black leading-snug">
+              {#if heading.number}
+                <span class="mr-2 font-bold">{heading.number}</span>
+              {/if}
+              {heading.title}
+            </h2>
           {:else if b.type === 'h2'}
-            <h3 class="text-lg font-semibold pt-3 pb-0.5 tracking-tight text-slate-900">{b.content}</h3>
+            {@const heading = getHeadingDisplay(b)}
+            <h3 class="text-[13.5pt] font-bold pt-4 pb-1.5 text-black leading-snug">
+              {#if heading.number}
+                <span class="mr-2 font-bold">{heading.number}</span>
+              {/if}
+              {heading.title}
+            </h3>
           {:else if b.type === 'h3'}
-            <h4 class="text-base font-medium pt-2 text-slate-900">{b.content}</h4>
+            {@const heading = getHeadingDisplay(b)}
+            <h4 class="text-[11.5pt] font-bold pt-3 pb-1 text-black leading-snug">
+              {#if heading.number}
+                <span class="mr-2 font-bold">{heading.number}</span>
+              {/if}
+              {heading.title}
+            </h4>
           {:else if b.type === 'callout'}
-            <div class="p-4 rounded-xs bg-slate-50 border-l-4 border-indigo-500 text-slate-700 text-sm my-3 italic">
+            <blockquote class="my-4 mx-8 text-[10.5pt] italic text-black/90 text-justify">
               {@html renderInlineMath(b.content)}
-            </div>
+            </blockquote>
           {:else if b.type === 'math'}
-            <div class="my-5 py-3 text-center text-lg">
-              {@html renderKaTeXBlock(b.content)}
+            <div class="my-4 relative flex items-center justify-center">
+              <div class="text-center text-[12pt] overflow-x-auto">
+                {@html renderKaTeXBlock(b.content)}
+              </div>
+              {#if blockNumberMap.get(b.id)?.eqNumber}
+                <span class="absolute right-0 text-[11pt] text-black select-none font-serif">
+                  ({blockNumberMap.get(b.id)?.eqNumber})
+                </span>
+              {/if}
             </div>
           {:else if b.type === 'table' && b.tableData}
-            <div class="my-6 overflow-x-auto rounded-xs border border-slate-200">
-              <table class="w-full text-left text-xs border-collapse">
-                <thead class="bg-slate-50 font-semibold text-slate-900">
-                  <tr>
+            <div class="my-5 flex justify-center">
+              <table class="border-collapse text-[10.5pt] text-black">
+                <thead>
+                  <tr class="border-t-[1.5px] border-b-[0.8px] border-black">
                     {#each b.tableData.headers as h}
-                      <th class="p-3 border-b border-slate-200">{@html renderInlineMath(h)}</th>
+                      <th class="py-1.5 px-4 font-bold text-center">{@html renderInlineMath(h)}</th>
                     {/each}
                   </tr>
                 </thead>
-                <tbody>
-                  {#each b.tableData.rows as row, rIdx}
-                    <tr class="{rIdx % 2 === 1 ? 'bg-slate-50/50' : ''}">
+                <tbody class="border-b-[1.5px] border-black">
+                  {#each b.tableData.rows as row}
+                    <tr>
                       {#each row as cell}
-                        <td class="p-3 border-b border-slate-200 border-dashed text-slate-700">{@html renderInlineMath(cell)}</td>
+                        <td class="py-1 px-4 text-center">{@html renderInlineMath(cell)}</td>
                       {/each}
                     </tr>
                   {/each}
@@ -1332,21 +1449,33 @@
               </table>
             </div>
           {:else if b.type === 'list'}
-            <li class="ml-6 list-disc text-slate-800">{@html renderInlineMath(b.content)}</li>
+            {#if b.isOrdered}
+              <li class="ml-8 list-decimal text-black my-0.5 leading-[1.55]">
+                {@html renderInlineMath(b.content)}
+              </li>
+            {:else}
+              <li class="ml-8 list-disc text-black my-0.5 leading-[1.55]">
+                {@html renderInlineMath(b.content)}
+              </li>
+            {/if}
           {:else if b.type === 'divider'}
-            <hr class="border-t border-slate-200 my-6" />
+            <!-- Salto de página o separación sutil -->
           {:else if b.type === 'empty'}
-            <div class="h-3"></div>
+            <div class="h-2"></div>
           {:else}
-            <p class="leading-[1.85] text-justify text-slate-800">{@html renderInlineMath(b.content)}</p>
+            <p 
+              class="text-justify text-black"
+              style="text-indent: {isFirstParagraph(b.id) ? '0' : '1.5em'}; margin-bottom: 0.25em;"
+            >
+              {@html renderInlineMath(b.content)}
+            </p>
           {/if}
         {/each}
       </div>
 
-      <div class="pt-10 text-center text-xs text-slate-400 border-t border-slate-200 mt-auto flex items-center justify-between">
-        <span class="text-[10px] font-mono opacity-50 truncate max-w-[200px]">{author || ''}</span>
-        <span class="font-bold tracking-wider font-mono text-[11px]">— {page.pageNumber} —</span>
-        <span class="text-[10px] font-mono opacity-50">{pages.length > 1 ? `${page.pageNumber}/${pages.length}` : ''}</span>
+      <!-- Pie de Página Canónico LaTeX \pagestyle{plain} -->
+      <div class="pt-6 text-center text-[11pt] text-black mt-auto font-normal">
+        <span>{page.pageNumber}</span>
       </div>
     </div>
   {/each}
