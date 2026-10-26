@@ -508,7 +508,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (isCompiling) return;
     isCompiling = true;
     compilationError = false;
-    showNotification('Generando PDF con el Motor Autónomo de Layratex...', 'info');
+    showNotification('Generando PDF...', 'info');
 
     try {
       // 1. Si estamos en modo código, sincronizar con el modelo visual para que la hoja maquetada esté al día
@@ -539,7 +539,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       const result = await pdfExportService.exportFromDOM(pages, suggestedName);
 
       isCompiling = false;
-      compilationEngine = 'Motor Autónomo Layratex (Sin dependencias TeX)';
+      compilationEngine = 'Motor Autónomo Layratex';
       compilationTimeMs = result.durationMs;
 
       if (pdfBlobUrl) {
@@ -562,7 +562,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       } else {
         // Guardado completado o visualización lista
         showPdfSuccessModal = true;
-        showNotification(`PDF generado con éxito con Motor Autónomo (${result.durationMs} ms)`, 'success');
+        showNotification(`PDF generado con éxito (${result.durationMs} ms)`, 'success');
       }
       showErrorPanel = false;
       showErrorModal = false;
