@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-    "test": "npx tsx src/lib/services/latexLogParser.test.ts && npx tsx src/lib/editor/latexAutocomplete.test.ts && npx tsx src/lib/services/scrollSyncService.test.ts && npx tsx src/lib/visual/latexConverter.test.ts && npx tsx src/lib/services/preferencesService.test.ts",
+    "test": "npx tsx src/lib/services/latexLogParser.test.ts && npx tsx src/lib/editor/latexAutocomplete.test.ts && npx tsx src/lib/services/scrollSyncService.test.ts && npx tsx src/lib/visual/latexConverter.test.ts && npx tsx src/lib/services/preferencesService.test.ts && npx tsx src/lib/visual/typography.test.ts",
     "tauri": "tauri"
   },
   "devDependencies": {
@@ -40,6 +40,7 @@
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-fs": "^2.7.1",
+    "computer-modern": "^0.1.3",
     "html2canvas-pro": "^2.5.2",
     "jspdf": "^4.2.1",
     "katex": "^0.19.0"

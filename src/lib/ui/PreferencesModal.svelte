@@ -294,8 +294,8 @@
                   Ag
                 </div>
                 <div>
-                  <div class="font-semibold text-xs font-serif {isLight ? 'text-slate-800' : 'text-white'}">Serif Clásica</div>
-                  <div class="text-[10px] {isLight ? 'text-slate-500' : 'text-[#8b949e]'}">Charter, Georgia, Roman</div>
+                  <div class="font-semibold text-xs font-serif {isLight ? 'text-slate-800' : 'text-white'}">Computer Modern (LaTeX Original)</div>
+                  <div class="text-[10px] {isLight ? 'text-slate-500' : 'text-[#8b949e]'}">CMU Serif / Latin Modern Roman (Oficial TeX)</div>
                 </div>
               </button>
 
@@ -308,8 +308,8 @@
                   Ag
                 </div>
                 <div>
-                  <div class="font-semibold text-xs font-sans {isLight ? 'text-slate-800' : 'text-white'}">Sans Moderna</div>
-                  <div class="text-[10px] {isLight ? 'text-slate-500' : 'text-[#8b949e]'}">Inter, Segoe UI, System</div>
+                  <div class="font-semibold text-xs font-sans {isLight ? 'text-slate-800' : 'text-white'}">CMU Sans Serif (Moderna)</div>
+                  <div class="text-[10px] {isLight ? 'text-slate-500' : 'text-[#8b949e]'}">Computer Modern Sans, Inter</div>
                 </div>
               </button>
             </div>

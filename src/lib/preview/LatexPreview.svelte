@@ -242,7 +242,7 @@
       bind:this={previewScrollContainer}
       onscroll={handlePreviewScroll}
     >
-      <div class="max-w-2xl mx-auto bg-[#161b22] border border-[#30363d] rounded-[2px] shadow-2xl p-8 sm:p-12 text-[#c9d1d9] min-h-[600px]">
+      <div class="max-w-2xl mx-auto bg-[#161b22] border border-[#30363d] rounded-[2px] shadow-2xl p-8 sm:p-12 text-[#c9d1d9] min-h-[600px] font-paper-serif">
         {@html renderedHtml}
       </div>
     </div>

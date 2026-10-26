@@ -508,7 +508,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (isCompiling) return;
     isCompiling = true;
     compilationError = false;
-    showNotification('Generando PDF con el Motor Autónomo de Layratex...', 'info');
+    showNotification('Generando PDF...', 'info');
 
     try {
       // 1. Si estamos en modo código, sincronizar con el modelo visual para que la hoja maquetada esté al día
@@ -516,6 +516,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         visualContent = latexToVisual(documentContent);
         // Breve espera para que el DOM reactivo calcule las páginas maquetadas
         await new Promise(resolve => setTimeout(resolve, 80));
+      } else {
+        // Breve espera para asegurar que el DOM reactivo esté actualizado
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
 
       // 2. Obtener los elementos de página renderizados en el DOM
@@ -536,7 +539,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       const result = await pdfExportService.exportFromDOM(pages, suggestedName);
 
       isCompiling = false;
-      compilationEngine = 'Motor Autónomo Layratex (Sin dependencias TeX)';
+      compilationEngine = 'Motor Autónomo Layratex';
       compilationTimeMs = result.durationMs;
 
       if (pdfBlobUrl) {
@@ -559,7 +562,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       } else {
         // Guardado completado o visualización lista
         showPdfSuccessModal = true;
-        showNotification(`PDF generado con éxito con Motor Autónomo (${result.durationMs} ms)`, 'success');
+        showNotification(`PDF generado con éxito (${result.durationMs} ms)`, 'success');
       }
       showErrorPanel = false;
       showErrorModal = false;
@@ -573,18 +576,16 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   async function handleCompile() {
     if (isCompiling) return;
 
+    // Sincronizar contenido visual a LaTeX si estamos en modo visual
     if (editorViewMode === 'visual') {
       documentContent = visualToLatex(visualContent, {
         title: documentTitle,
         author: documentAuthor,
         fontStyle: selectedFont
-      });
-      // En modo visual PaperCraft, exportar directamente con el motor autónomo sin dependencias externas
-      await handleAutonomousPdfExport();
-      return;
+      }, documentContent);
     }
 
-    // En modo código, verificar si existe compilador externo antes de invocar
+    // Iniciar compilación
     isCompiling = true;
     compilationError = false;
     showNotification('Generando PDF...', 'info');
@@ -621,7 +622,8 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           pdfBlobUrl = compilerService.createPdfBlobUrl(output.pdf_base64);
         }
 
-        const suggestedName = currentFileName.replace(/\.tex$/i, '') + '.pdf';
+        const rawBaseName = (documentTitle || currentFileName.replace(/\.tex$/i, '') || 'documento');
+        const suggestedName = rawBaseName.replace(/[/\\?%*:|"<>]/g, '_') + '.pdf';
         lastCompiledPdf = {
           path: output.pdf_path,
           name: suggestedName,
@@ -649,7 +651,8 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
   async function handleExportPdf(afterCompilation = false) {
     if (!lastCompiledPdf) {
-      showNotification('Primero debes compilar el documento (Ctrl+B).', 'info');
+      // Si aún no se ha compilado, compilar primero automáticamente
+      await handleCompile();
       return;
     }
 
@@ -797,13 +800,13 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           </button>
         </div>
 
-        <!-- Selector de Tipografía -->
+        <!-- Selector de Tipografía TeX (TICKET-027) -->
         <button 
-          class="px-2 py-1 rounded-xs border border-white/10 hover:bg-white/5 text-slate-300 transition-colors cursor-pointer text-xs"
+          class="px-2 py-1 rounded-xs border border-white/10 hover:bg-white/5 text-slate-300 transition-colors cursor-pointer text-xs font-serif"
           onclick={() => selectedFont = selectedFont === 'serif' ? 'sans' : 'serif'}
-          title="Cambiar tipografía de la hoja"
+          title="Tipografía de la hoja: {selectedFont === 'serif' ? 'Computer Modern (LaTeX Original)' : 'CMU Sans Serif'}"
         >
-          {selectedFont === 'serif' ? 'Serif' : 'Sans'}
+          {selectedFont === 'serif' ? 'Computer Modern' : 'Sans Serif'}
         </button>
       </div>
     {/if}
