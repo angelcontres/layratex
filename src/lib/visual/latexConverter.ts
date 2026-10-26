@@ -81,7 +81,7 @@ export function visualToLatex(
     return stashBlock(`\n\\[\n${trimmed}\n\\]\n`);
   });
 
-  // 2. Convertir y proteger tablas Markdown a \begin{tabular}
+  // 2. Convertir y proteger tablas Markdown a formato canónico con booktabs (\toprule, \midrule, \bottomrule)
   body = body.replace(/((?:\|[^\n]+\|\r?\n?){2,})/g, (match) => {
     const rawLines = match.trim().split('\n').filter(l => l.includes('|'));
     if (rawLines.length < 2) return match;
@@ -91,19 +91,20 @@ export function visualToLatex(
     const isDivider = rawLines[1].replace(/[\s|:-]/g, '') === '';
     const dataStartIndex = isDivider ? 2 : 1;
     const colCount = headerRow.length;
-    const colSpec = '|' + Array(colCount).fill('c').join('|') + '|';
+    // En LaTeX booktabs profesional no se usan barras verticales '|'
+    const colSpec = Array(colCount).fill('c').join('');
 
-    let texTable = `\n\\begin{center}\n\\begin{tabular}{${colSpec}}\n\\hline\n`;
-    texTable += headerRow.map(h => `\\textbf{${h}}`).join(' & ') + ' \\\\ \\hline\n';
+    let texTable = `\n\\begin{table}[htbp]\n\\centering\n\\begin{tabular}{${colSpec}}\n\\toprule\n`;
+    texTable += headerRow.map(h => `\\textbf{${h}}`).join(' & ') + ' \\\\\n\\midrule\n';
 
     for (let i = dataStartIndex; i < rawLines.length; i++) {
       const row = parseRow(rawLines[i]);
       if (row.length === 0 || row.every(c => !c)) continue;
       while (row.length < colCount) row.push('');
-      texTable += row.join(' & ') + ' \\\\ \\hline\n';
+      texTable += row.join(' & ') + ' \\\\\n';
     }
 
-    texTable += `\\end{tabular}\n\\end{center}\n`;
+    texTable += `\\bottomrule\n\\end{tabular}\n\\end{table}\n`;
     return stashBlock(texTable);
   });
 
@@ -113,6 +114,17 @@ export function visualToLatex(
   // 4. Convertir y proteger imágenes Markdown ![caption](url) a figure
   body = body.replace(/!\[(.*?)\]\((.*?)\)/g, (_, caption, url) => {
     return stashBlock(`\n\\begin{figure}[htbp]\n\\centering\n\\includegraphics[width=0.8\\textwidth]{${url}}\n\\caption{${caption || 'Figura'}}\n\\end{figure}\n`);
+  });
+
+  // 5. Soporte canónico para entorno abstract / Resumen
+  body = body.replace(/(?:^>\s*\*\*(?:Resumen|Abstract)\*\*\s*\n|^#\s+(?:Resumen|Abstract)\s*\n|^##\s+(?:Resumen|Abstract)\s*\n)((?:^[^\n#]+\n?)+)/im, (_, content) => {
+    const cleanAbstract = content
+      .trim()
+      .split('\n')
+      .map((l: string) => l.replace(/^>\s?/, '').trim())
+      .filter(Boolean)
+      .join('\n');
+    return stashBlock(`\n\\begin{abstract}\n${cleanAbstract}\n\\end{abstract}\n`);
   });
 
   // Evitar duplicar el título si el texto visual inicia con un encabezado idéntico a metadata.title
@@ -169,6 +181,9 @@ export function visualToLatex(
   body = body.replace(/\*\*([^*]+)\*\*/g, '\\textbf{$1}');
   body = body.replace(/\*([^*]+)\*/g, '\\textit{$1}');
 
+  // 12. Microtipografía TeX: Comillas tipográficas dobles canónicas (``...'')
+  body = body.replace(/"([^"\n]+)"/g, "``$1''");
+
   // Restaurar bloques protegidos
   for (let i = stash.length - 1; i >= 0; i--) {
     body = body.replace(`ZXLAYRATEXSTASH${i}XZ`, stash[i]);
@@ -206,6 +221,8 @@ export function visualToLatex(
 \\usepackage[spanish]{babel}
 \\usepackage{amsmath,amssymb}
 \\usepackage{graphicx}
+\\usepackage{booktabs}
+\\usepackage{microtype}
 \\usepackage{geometry}
 \\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=3cm}
 \\usepackage{hyperref}
@@ -237,9 +254,15 @@ export function latexToVisual(latexCode: string): string {
   // Eliminar \maketitle
   body = body.replace(/\\maketitle/g, '');
 
-  // 1. Convertir tablas \begin{tabular} a Markdown
-  body = body.replace(/(?:\\begin\{center\}\s*)?\\begin\{tabular\}\{[^}]*\}[\s\S]*?\\end\{tabular\}(?:\s*\\end\{center\})?/g, (match) => {
+  // 1. Convertir tablas \begin{table} y \begin{tabular} a Markdown
+  body = body.replace(/(?:\\begin\{table\}(?:\[.*?\])?\s*(?:\\centering\s*)?)?(?:\\begin\{center\}\s*)?\\begin\{tabular\}\{[^}]*\}[\s\S]*?\\end\{tabular\}(?:\s*\\end\{center\})?(?:\s*\\end\{table\})?/g, (match) => {
     return parseTabularToMarkdown(match);
+  });
+
+  // 2. Convertir entorno abstract a nota de Resumen
+  body = body.replace(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/g, (_, absText) => {
+    const lines = absText.trim().split('\n').map((l: string) => `> ${l.trim()}`).join('\n');
+    return `\n> **Resumen**\n${lines}\n\n`;
   });
 
   // 2. Convertir bloques matemáticos en display a $$ ... $$
@@ -307,7 +330,10 @@ export function latexToVisual(latexCode: string): string {
   body = body.replace(/\\&/g, '&');
   body = body.replace(/\\_/g, '_');
 
-  // 12. Limpiar placeholders como \phantom{.}
+  // 12. Restaurar comillas tipográficas TeX (``...'' a "...")
+  body = body.replace(/``([^'\n]+)''/g, '"$1"');
+
+  // 13. Limpiar placeholders como \phantom{.}
   body = body.replace(/\\phantom\{\.\}/g, '');
 
   // Limpiar saltos de línea excesivos

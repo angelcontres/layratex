@@ -59,13 +59,16 @@ console.log('4. Probando tablas bidireccionales...');
 const visualText4 = `| Nombre | Rol | Edad |\n| :--- | :--- | :--- |\n| Carlos | Admin | 30 |\n| Laura | Editor | 25 |`;
 const latex4 = visualToLatex(visualText4, { title: 'Doc' });
 assert(latex4.includes('\\begin{tabular}'), 'Debe generar \\begin{tabular}');
+assert(latex4.includes('\\toprule'), 'Debe incluir \\toprule de booktabs');
+assert(latex4.includes('\\midrule'), 'Debe incluir \\midrule de booktabs');
+assert(latex4.includes('\\bottomrule'), 'Debe incluir \\bottomrule de booktabs');
 assert(latex4.includes('\\textbf{Nombre} & \\textbf{Rol} & \\textbf{Edad}'), 'Encabezados con \\textbf');
 assert(latex4.includes('Carlos & Admin & 30'), 'Filas de datos correctas');
 
 const back4 = latexToVisual(latex4);
 assert(back4.includes('| Nombre | Rol | Edad |'), 'Debe reconvertir encabezados de tabla');
 assert(back4.includes('| Carlos | Admin | 30 |'), 'Debe reconvertir datos de tabla');
-console.log('  ✓ Tablas bidireccionales validadas.');
+console.log('  ✓ Tablas bidireccionales con booktabs validadas.');
 
 // Prueba 5: Listas con viñetas, listas numeradas y notas agrupadas
 console.log('5. Probando listas con viñetas, numeradas y notas...');
@@ -84,8 +87,23 @@ assert(back5.includes('1. Paso 1'), 'Debe reconvertir lista numerada');
 assert(back5.includes('> Primera línea de nota\n> Segunda línea de nota'), 'Debe reconvertir nota agrupada');
 console.log('  ✓ Listas y notas agrupadas validadas.');
 
-// Prueba 6: Preservación de preámbulo existente
-console.log('6. Probando preservación de preámbulo con paquetes personalizados...');
+// Prueba 6: Microtipografía (comillas TeX) y entorno abstract
+console.log('6. Probando microtipografía (comillas TeX) y entorno abstract...');
+const visualText6 = `> **Resumen**\n> Este es el resumen del artículo científico.\n\nTexto con "comillas dobles" en el párrafo.`;
+const latex6 = visualToLatex(visualText6, { title: 'Paper Científico' });
+assert(latex6.includes('\\begin{abstract}'), 'Debe generar entorno \\begin{abstract}');
+assert(latex6.includes('Este es el resumen del artículo científico.'), 'Debe contener el texto del abstract');
+assert(latex6.includes("``comillas dobles''"), "Comillas rectas deben transformarse en comillas canónicas TeX ``...''");
+assert(latex6.includes('\\usepackage{microtype}'), 'Debe incluir microtype en el preámbulo');
+assert(latex6.includes('\\usepackage{booktabs}'), 'Debe incluir booktabs en el preámbulo');
+
+const back6 = latexToVisual(latex6);
+assert(back6.includes('> **Resumen**'), 'Debe reconvertir abstract a nota de Resumen');
+assert(back6.includes('"comillas dobles"'), 'Debe reconvertir comillas TeX a comillas legibles');
+console.log('  ✓ Microtipografía TeX y abstract validados.');
+
+// Prueba 7: Preservación de preámbulo existente
+console.log('7. Probando preservación de preámbulo con paquetes personalizados...');
 const customPreambleLatex = `\\documentclass[11pt,a4paper]{report}
 \\usepackage{tikz}
 \\usepackage{booktabs}

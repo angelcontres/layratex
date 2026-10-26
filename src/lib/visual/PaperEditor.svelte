@@ -647,7 +647,12 @@
       // La hoja 1 incluye el banner de título y autor (~150px), por lo que tiene ~720px útiles frente a ~870px en hojas posteriores
       const maxPageHeight = pageNum === 1 ? 720 : 870;
 
-      if (currentHeight + h > maxPageHeight && currentPageBlocks.length > 0) {
+      // REGLA EDITORIAL LATEX: Protección contra títulos huérfanos (orphan headings)
+      // Un encabezado (h1, h2, h3) nunca debe quedar al pie de una página sin al menos su primer párrafo
+      const isHeading = b.type === 'h1' || b.type === 'h2' || b.type === 'h3';
+      const effectiveHeight = isHeading ? h + 65 : h;
+
+      if (currentHeight + effectiveHeight > maxPageHeight && currentPageBlocks.length > 0) {
         result.push({ pageNumber: pageNum++, blocks: currentPageBlocks });
         currentPageBlocks = [b];
         currentHeight = h;
@@ -730,25 +735,42 @@
   }
 
   function renderInlineMath(text: string): string {
-    let rendered = text
-      .replace(/\$([^\$\n]+)\$/g, (_, math) => {
-        try {
-          return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
-        } catch {
-          return `$${math}$`;
-        }
-      })
+    // 1. Proteger fórmulas en línea antes de aplicar microtipografía
+    const mathTokens: string[] = [];
+    let processed = text.replace(/\$([^\$\n]+)\$/g, (_, math) => {
+      try {
+        const renderedMath = katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
+        const token = `__ZXKTX${mathTokens.length}XZ__`;
+        mathTokens.push(renderedMath);
+        return token;
+      } catch {
+        const token = `__ZXKTX${mathTokens.length}XZ__`;
+        mathTokens.push(`$${math}$`);
+        return token;
+      }
+    });
+
+    // 2. Microtipografía TeX: comillas tipográficas y guiones en-dash / em-dash
+    processed = processed
+      .replace(/"([^"\n]+)"/g, '“$1”')
+      .replace(/(\d+)\s*--\s*(\d+)/g, '$1–$2')
+      .replace(/\s+---\s+/g, ' — ')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
       .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded-sm bg-black/10 dark:bg-white/10 font-mono text-[13px]">$1</code>');
 
+    // 3. Restaurar KaTeX protegido
+    for (let i = 0; i < mathTokens.length; i++) {
+      processed = processed.replace(`__ZXKTX${i}XZ__`, mathTokens[i]);
+    }
+
     if (showFindBar && findQuery.trim()) {
       const q = findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const flags = matchCase ? 'g' : 'gi';
-      rendered = rendered.replace(new RegExp(`(?![^<]*>)(${q})`, flags), '<mark class="bg-amber-400/50 text-inherit rounded-[2px] px-0.5">$1</mark>');
+      processed = processed.replace(new RegExp(`(?![^<]*>)(${q})`, flags), '<mark class="bg-amber-400/50 text-inherit rounded-[2px] px-0.5">$1</mark>');
     }
 
-    return rendered;
+    return processed;
   }
 
   function renderKaTeXBlock(tex: string): string {
@@ -1215,9 +1237,18 @@
                   {@html renderInlineMath(heading.title)}
                 </h4>
               {:else if block.type === 'callout'}
-                <div class="p-4 rounded-xs border-l-4 {activeTheme.calloutClass} text-sm my-2 italic">
-                  {@html renderInlineMath(block.content)}
-                </div>
+                {#if block.content.trim().startsWith('**Resumen**') || block.content.trim().startsWith('**Abstract**')}
+                  <div class="my-6 mx-8 text-center border-y {activeTheme.borderClass} py-4">
+                    <span class="block font-bold text-sm tracking-wider mb-2 {activeTheme.titleClass}">Resumen</span>
+                    <p class="text-[13px] leading-[1.65] text-justify {activeTheme.textClass} italic" style="text-indent: 1.5em;">
+                      {@html renderInlineMath(block.content.replace(/^\*\*(?:Resumen|Abstract)\*\*\s*/i, ''))}
+                    </p>
+                  </div>
+                {:else}
+                  <div class="p-4 rounded-xs border-l-4 {activeTheme.calloutClass} text-sm my-2 italic">
+                    {@html renderInlineMath(block.content)}
+                  </div>
+                {/if}
               {:else if block.type === 'math'}
                 <div class="my-4 py-2 relative flex items-center justify-center rounded-xs transition-colors {activeTheme.hoverMathClass}">
                   <div class="text-center text-lg overflow-x-auto">
@@ -1366,7 +1397,7 @@
     <div 
       data-paper-page={pageIndex}
       class="w-[820px] min-h-[1160px] bg-white text-black px-[90px] pt-[85px] pb-[75px] flex flex-col relative box-border"
-      style="font-family: {fontStyle === 'serif' ? '\'Computer Modern\', \'CMU Serif\', \'Latin Modern Roman\', \'KaTeX_Main\', serif' : '\'CMU Sans Serif\', -apple-system, sans-serif'};"
+      style="font-family: {fontStyle === 'serif' ? '\'Computer Modern\', \'CMU Serif\', \'Latin Modern Roman\', \'KaTeX_Main\', serif' : '\'CMU Sans Serif\', -apple-system, sans-serif'}; hyphens: auto; -webkit-hyphens: auto;"
     >
       <!-- Título Canónico LaTeX \maketitle (sólo en la Hoja 1) -->
       {#if pageIndex === 0}
@@ -1413,9 +1444,18 @@
               {heading.title}
             </h4>
           {:else if b.type === 'callout'}
-            <blockquote class="my-4 mx-8 text-[10.5pt] italic text-black/90 text-justify">
-              {@html renderInlineMath(b.content)}
-            </blockquote>
+            {#if b.content.trim().startsWith('**Resumen**') || b.content.trim().startsWith('**Abstract**')}
+              <div class="my-6 mx-12 text-center">
+                <span class="block font-bold text-[10.5pt] mb-2 text-black">Resumen</span>
+                <p class="text-[9.5pt] leading-[1.5] text-justify text-black/90 italic" style="text-indent: 1.5em;">
+                  {@html renderInlineMath(b.content.replace(/^\*\*(?:Resumen|Abstract)\*\*\s*/i, ''))}
+                </p>
+              </div>
+            {:else}
+              <blockquote class="my-4 mx-8 text-[10.5pt] italic text-black/90 text-justify">
+                {@html renderInlineMath(b.content)}
+              </blockquote>
+            {/if}
           {:else if b.type === 'math'}
             <div class="my-4 relative flex items-center justify-center">
               <div class="text-center text-[12pt] overflow-x-auto">
