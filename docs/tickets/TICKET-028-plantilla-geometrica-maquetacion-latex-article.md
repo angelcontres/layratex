@@ -1,7 +1,7 @@
 # TICKET-028: Plantilla Geométrica y Reglas de Maquetación Clásica LaTeX (`\documentclass{article}`)
 
 - **Milestone:** Sprint 5 — Fidelidad Tipográfica y Estética Overleaf / LaTeX
-- **Estado:** 🟡 Pendiente
+- **Estado:** 🟢 Completado
 - **Prioridad:** Alta (P1)
 - **Tipo:** Editorial Layout & CSS Engine
 
@@ -31,7 +31,7 @@ Implementar las normas canónicas de diagramación editorial de la clase estánd
 ---
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] La hoja A4 replica visualmente la estructura, sangrías y densidad de texto de un PDF compilado en Overleaf con la clase `article`.
-* [ ] Los párrafos consecutivos usan sangría en su primera línea sin espacio vertical entre ellos.
-* [ ] El bloque de título y encabezado incluye formato académico completo (Título, Autor, Fecha y Abstract).
-* [ ] Las secciones principales y secundarias se numeran de manera jerárquica y coherente.
+* [x] La hoja A4 replica visualmente la estructura, sangrías y densidad de texto de un PDF compilado en Overleaf con la clase `article`.
+* [x] Los párrafos consecutivos usan sangría en su primera línea sin espacio vertical entre ellos.
+* [x] El bloque de título y encabezado incluye formato académico completo (Título, Autor, Fecha y Abstract).
+* [x] Las secciones principales y secundarias se numeran de manera jerárquica y coherente.

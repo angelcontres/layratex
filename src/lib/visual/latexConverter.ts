@@ -127,6 +127,20 @@ export function visualToLatex(
     return stashBlock(`\n\\begin{abstract}\n${cleanAbstract}\n\\end{abstract}\n`);
   });
 
+  // 6. Soporte para notas al pie de página (Footnotes: [^id], [^id]: texto, ^[texto])
+  const footnoteDefs = new Map<string, string>();
+  body = body.replace(/^\[\^([^\]]+)\]:\s*([^\n]+)$/gm, (_, id, text) => {
+    footnoteDefs.set(id, text.trim());
+    return '';
+  });
+  body = body.replace(/\[\^([^\]]+)\]/g, (match, id) => {
+    if (footnoteDefs.has(id)) {
+      return `\\footnote{${footnoteDefs.get(id)}}`;
+    }
+    return match;
+  });
+  body = body.replace(/\^\[([^\n\]]+)\]/g, '\\footnote{$1}');
+
   // Evitar duplicar el título si el texto visual inicia con un encabezado idéntico a metadata.title
   if (metadata.title) {
     const cleanTitle = metadata.title.trim();
@@ -134,15 +148,18 @@ export function visualToLatex(
     body = body.replace(titleRegex, '');
   }
 
-  // 5. Encabezados (# Título -> \section{Título})
+  // 7. Encabezados (#* Título -> \section*{Título}, # Título -> \section{Título})
+  body = body.replace(/^#\*\s+(.+)$/gm, '\n\\section*{$1}\n');
+  body = body.replace(/^##\*\s+(.+)$/gm, '\n\\subsection*{$1}\n');
+  body = body.replace(/^###\*\s+(.+)$/gm, '\n\\subsubsection*{$1}\n');
   body = body.replace(/^#\s+(.+)$/gm, '\n\\section{$1}\n');
   body = body.replace(/^##\s+(.+)$/gm, '\n\\subsection{$1}\n');
   body = body.replace(/^###\s+(.+)$/gm, '\n\\subsubsection{$1}\n');
 
-  // 6. Saltos de página / Divisores (--- -> \newpage)
+  // 8. Saltos de página / Divisores (--- -> \newpage)
   body = body.replace(/^---\s*$/gm, '\n\\newpage\n');
 
-  // 7. Notas / Callouts agrupados (> Nota -> \begin{quote} ... \end{quote})
+  // 9. Notas / Callouts agrupados (> Nota -> \begin{quote} ... \end{quote})
   body = body.replace(/((?:^>[^\n]*\n?)+)/gm, (match) => {
     const lines = match
       .split('\n')
@@ -178,8 +195,8 @@ export function visualToLatex(
   body = body.replace(/(?<!\\)_/g, '\\_');
 
   // 11. Formato de texto básico
-  body = body.replace(/\*\*([^*]+)\*\*/g, '\\textbf{$1}');
-  body = body.replace(/\*([^*]+)\*/g, '\\textit{$1}');
+  body = body.replace(/\*\*([^*\n]+)\*\*/g, '\\textbf{$1}');
+  body = body.replace(/(?<!\\)\*([^*\n]+)\*/g, '\\textit{$1}');
 
   // 12. Microtipografía TeX: Comillas tipográficas dobles canónicas (``...'')
   body = body.replace(/"([^"\n]+)"/g, "``$1''");
@@ -282,15 +299,21 @@ export function latexToVisual(latexCode: string): string {
     return `\n![](${url})\n`;
   });
 
-  // 5. Convertir encabezados (\section, \subsection, \subsubsection a #, ##, ###)
-  body = body.replace(/\\section\*?\{([^}]+)\}/g, '\n# $1\n');
-  body = body.replace(/\\subsection\*?\{([^}]+)\}/g, '\n## $1\n');
-  body = body.replace(/\\subsubsection\*?\{([^}]+)\}/g, '\n### $1\n');
+  // 5. Convertir encabezados (\section*, \subsection*, \subsubsection* a #*, ##*, ###*, y normales a #, ##, ###)
+  body = body.replace(/\\section\*\{([^}]+)\}/g, '\n#* $1\n');
+  body = body.replace(/\\subsection\*\{([^}]+)\}/g, '\n##* $1\n');
+  body = body.replace(/\\subsubsection\*\{([^}]+)\}/g, '\n###* $1\n');
+  body = body.replace(/\\section\{([^}]+)\}/g, '\n# $1\n');
+  body = body.replace(/\\subsection\{([^}]+)\}/g, '\n## $1\n');
+  body = body.replace(/\\subsubsection\{([^}]+)\}/g, '\n### $1\n');
 
-  // 6. Convertir saltos de página (\newpage, \clearpage -> ---)
+  // 6. Convertir notas al pie (\footnote{texto} a ^[ texto ])
+  body = body.replace(/\\footnote\{([^}]+)\}/g, '^[ $1 ]');
+
+  // 7. Convertir saltos de página (\newpage, \clearpage -> ---)
   body = body.replace(/\\(newpage|clearpage|pagebreak)\b/g, '\n---\n');
 
-  // 7. Convertir notas (\begin{quote} ... \end{quote} a > ...)
+  // 8. Convertir notas (\begin{quote} ... \end{quote} a > ...)
   body = body.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, (_, text) => {
     const lines = text.trim().split('\n').map((l: string) => `> ${l.trim()}`).join('\n');
     return `\n${lines}\n\n`;

@@ -539,20 +539,29 @@
 
     for (const b of liveBlocks) {
       if (b.type === 'h1') {
-        h1Count++;
-        h2Count = 0;
-        h3Count = 0;
-        map.set(b.id, { secNumber: `${h1Count}` });
+        const isStarred = b.content.trim().startsWith('*');
+        if (!isStarred) {
+          h1Count++;
+          h2Count = 0;
+          h3Count = 0;
+          map.set(b.id, { secNumber: `${h1Count}` });
+        }
       } else if (b.type === 'h2') {
-        h2Count++;
-        h3Count = 0;
-        const prefix = h1Count > 0 ? `${h1Count}` : '1';
-        map.set(b.id, { secNumber: `${prefix}.${h2Count}` });
+        const isStarred = b.content.trim().startsWith('*');
+        if (!isStarred) {
+          h2Count++;
+          h3Count = 0;
+          const prefix = h1Count > 0 ? `${h1Count}` : '1';
+          map.set(b.id, { secNumber: `${prefix}.${h2Count}` });
+        }
       } else if (b.type === 'h3') {
-        h3Count++;
-        const prefix1 = h1Count > 0 ? `${h1Count}` : '1';
-        const prefix2 = h2Count > 0 ? `${h2Count}` : '1';
-        map.set(b.id, { secNumber: `${prefix1}.${prefix2}.${h3Count}` });
+        const isStarred = b.content.trim().startsWith('*');
+        if (!isStarred) {
+          h3Count++;
+          const prefix1 = h1Count > 0 ? `${h1Count}` : '1';
+          const prefix2 = h2Count > 0 ? `${h2Count}` : '1';
+          map.set(b.id, { secNumber: `${prefix1}.${prefix2}.${h3Count}` });
+        }
       } else if (b.type === 'math') {
         eqCount++;
         map.set(b.id, { eqNumber: eqCount });
@@ -576,10 +585,17 @@
     return true;
   }
 
-  // Previene duplicar numeración si el usuario ya escribió "1. Introducción"
-  function getHeadingDisplay(b: LiveBlock): { number?: string; title: string } {
-    const info = blockNumberMap.get(b.id);
+  // Previene duplicar numeración y soporta secciones no numeradas (\section* con #*)
+  function getHeadingDisplay(b: LiveBlock): { number?: string; title: string; isStarred?: boolean } {
     const rawContent = b.content.trim();
+    if (rawContent.startsWith('*')) {
+      return {
+        number: undefined,
+        title: rawContent.substring(1).trim(),
+        isStarred: true
+      };
+    }
+    const info = blockNumberMap.get(b.id);
     const existingNumMatch = rawContent.match(/^(\d+(?:\.\d+)*\.?)\s+(.*)/);
     if (existingNumMatch) {
       return {
@@ -591,6 +607,48 @@
       number: info?.secNumber,
       title: rawContent
     };
+  }
+
+  export interface FootnoteItem {
+    index: number;
+    text: string;
+  }
+
+  function getPageFootnotes(pageBlocks: LiveBlock[]): FootnoteItem[] {
+    const list: FootnoteItem[] = [];
+    let count = 0;
+    const defs = new Map<string, string>();
+    for (const b of pageBlocks) {
+      const defMatches = b.rawText.matchAll(/^\[\^([^\]]+)\]:\s*([^\n]+)$/gm);
+      for (const m of defMatches) {
+        defs.set(m[1], m[2].trim());
+      }
+    }
+
+    for (const b of pageBlocks) {
+      if (/^\[\^[^\]]+\]:/.test(b.rawText)) continue;
+      // 1. \footnote{...}
+      const fnMatches = b.content.matchAll(/\\footnote\{([^}]+)\}/g);
+      for (const m of fnMatches) {
+        count++;
+        list.push({ index: count, text: m[1].trim() });
+      }
+      // 2. ^[...]
+      const inlineMatches = b.content.matchAll(/\^\[([^\n\]]+)\]/g);
+      for (const m of inlineMatches) {
+        count++;
+        list.push({ index: count, text: m[1].trim() });
+      }
+      // 3. [^id]
+      const refMatches = b.content.matchAll(/\[\^([^\]]+)\]/g);
+      for (const m of refMatches) {
+        if (defs.has(m[1])) {
+          count++;
+          list.push({ index: count, text: defs.get(m[1])! });
+        }
+      }
+    }
+    return list;
   }
 
   // Estimación de altura en píxeles de cada bloque para paginación A4 precisa
@@ -759,7 +817,22 @@
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
       .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded-sm bg-black/10 dark:bg-white/10 font-mono text-[13px]">$1</code>');
 
-    // 3. Restaurar KaTeX protegido
+    // 3. Notas al pie de página (Footnotes en el texto: superíndices visuales)
+    let footnoteCounter = 0;
+    processed = processed
+      .replace(/\\footnote\{([^}]+)\}/g, () => {
+        footnoteCounter++;
+        return `<sup class="font-mono text-[9px] font-bold text-indigo-500 dark:text-indigo-400 select-none px-0.5 cursor-help" title="Nota al pie">${footnoteCounter}</sup>`;
+      })
+      .replace(/\^\[([^\n\]]+)\]/g, () => {
+        footnoteCounter++;
+        return `<sup class="font-mono text-[9px] font-bold text-indigo-500 dark:text-indigo-400 select-none px-0.5 cursor-help" title="Nota al pie">${footnoteCounter}</sup>`;
+      })
+      .replace(/\[\^([^\]]+)\](?!\:)/g, (_, id) => {
+        return `<sup class="font-mono text-[9px] font-bold text-indigo-500 dark:text-indigo-400 select-none px-0.5 cursor-help" title="Nota al pie">${id}</sup>`;
+      });
+
+    // 4. Restaurar KaTeX protegido
     for (let i = 0; i < mathTokens.length; i++) {
       processed = processed.replace(`__ZXKTX${i}XZ__`, mathTokens[i]);
     }
@@ -1148,7 +1221,7 @@
   {#each pages as page, pageIndex (page.pageNumber)}
     <div 
       data-paper-page={pageIndex}
-      class="w-full max-w-[820px] min-h-[1154px] rounded-[2px] {activeTheme.sheetClass} px-14 py-16 flex flex-col relative transition-all duration-200 mb-12 shadow-2xl"
+      class="w-full max-w-[820px] min-h-[1160px] rounded-[2px] {activeTheme.sheetClass} px-[96px] pt-[92px] pb-[80px] flex flex-col relative transition-all duration-200 mb-12 shadow-2xl"
     >
       {#if showCropMarks}
         <div class="absolute top-5 left-5 w-3 h-3 border-t border-l {activeTheme.cropClass} pointer-events-none"></div>
@@ -1172,16 +1245,21 @@
             class="w-full text-2xl md:text-3xl font-bold {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} {activeTheme.titleClass} bg-transparent border-none outline-hidden focus:ring-0 text-center tracking-tight"
             placeholder="Título del Documento"
           />
-          <div class="text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} flex items-center justify-center gap-2 pt-1">
-            <span>{author || 'Autor'}</span>
-            <span>•</span>
-            <span>{new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          {#if author}
+            <div class="text-xs md:text-sm {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} space-y-0.5 pt-1">
+              {#each author.split(/\\\\|\n/) as line}
+                <div>{line.trim()}</div>
+              {/each}
+            </div>
+          {/if}
+          <div class="text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} pt-1 opacity-80">
+            {new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}
           </div>
         </div>
       {/if}
 
       <!-- Bloques Interactivos Live Preview de esta Hoja -->
-      <div class="flex-1 flex flex-col space-y-1.5 {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
+      <div class="flex-1 flex flex-col {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'}">
         {#each page.blocks as block (block.id)}
           {#if activeBlockId === block.id}
             <!-- MODO EDICIÓN EN VIVO: Campo autoexpandible con markdown crudo (# Titulo, $$formula$$, etc.) -->
@@ -1293,12 +1371,14 @@
               {:else if block.type === 'empty'}
                 <div class="h-6 w-full cursor-text hover:bg-black/[0.02] dark:hover:bg-white/[0.02] rounded-xs transition-colors"></div>
               {:else}
-                <p 
-                  class="leading-[1.85] text-justify {activeTheme.textClass}"
-                  style="text-indent: {isFirstParagraph(block.id) ? '0' : '1.5em'};"
-                >
-                  {@html renderInlineMath(block.content)}
-                </p>
+                {#if !block.content.startsWith('[^') || !block.content.includes(']:')}
+                  <p 
+                    class="leading-[1.65] text-justify {activeTheme.textClass}"
+                    style="text-indent: {isFirstParagraph(block.id) ? '0' : '1.5em'}; margin-bottom: 0;"
+                  >
+                    {@html renderInlineMath(block.content)}
+                  </p>
+                {/if}
               {/if}
 
               <!-- Indicador sutil al pasar el mouse por encima -->
@@ -1324,8 +1404,24 @@
         {/if}
       </div>
 
+      <!-- Notas al Pie de Página Canónicas LaTeX (\footnoterule de 2in / 0.4pt) -->
+      {#if getPageFootnotes(page.blocks).length > 0}
+        {@const footnotes = getPageFootnotes(page.blocks)}
+        <div class="mt-auto pt-4 pb-1">
+          <div class="border-t-[0.4pt] border-black/40 dark:border-white/40 w-48 mb-2"></div>
+          <div class="space-y-1 text-[10px] leading-snug {activeTheme.mutedClass}">
+            {#each footnotes as fn}
+              <div class="flex items-start gap-1">
+                <sup class="font-mono text-[9px] font-bold select-none">{fn.index}</sup>
+                <span>{@html renderInlineMath(fn.text)}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
       <!-- Running Footer Inferior de cada Hoja -->
-      <div class="pt-8 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
+      <div class="pt-6 text-center text-xs {activeTheme.mutedClass} {fontStyle === 'serif' ? 'font-paper-serif' : 'font-paper-sans'} border-t {activeTheme.borderClass} mt-auto flex items-center justify-between">
         <span class="text-[10px] font-mono opacity-50 truncate max-w-[200px]">{author || ''}</span>
         <span class="font-bold tracking-wider font-mono text-[11px]">— {page.pageNumber} —</span>
         <span class="text-[10px] font-mono opacity-50">{pages.length > 1 ? `${page.pageNumber}/${pages.length}` : ''}</span>
@@ -1396,7 +1492,7 @@
   {#each pages as page, pageIndex}
     <div 
       data-paper-page={pageIndex}
-      class="w-[820px] min-h-[1160px] bg-white text-black px-[90px] pt-[85px] pb-[75px] flex flex-col relative box-border"
+      class="w-[820px] min-h-[1160px] bg-white text-black px-[96px] pt-[92px] pb-[80px] flex flex-col relative box-border"
       style="font-family: {fontStyle === 'serif' ? '\'Computer Modern\', \'CMU Serif\', \'Latin Modern Roman\', \'KaTeX_Main\', serif' : '\'CMU Sans Serif\', -apple-system, sans-serif'}; hyphens: auto; -webkit-hyphens: auto;"
     >
       <!-- Título Canónico LaTeX \maketitle (sólo en la Hoja 1) -->
@@ -1406,8 +1502,10 @@
             {title || 'Documento sin título'}
           </h1>
           {#if author}
-            <div class="text-[13pt] text-black mt-4 font-normal">
-              {author}
+            <div class="text-[12pt] text-black mt-4 font-normal space-y-0.5">
+              {#each author.split(/\\\\|\n/) as line}
+                <div>{line.trim()}</div>
+              {/each}
             </div>
           {/if}
           <div class="text-[11pt] text-black/80 mt-2 font-normal">
@@ -1503,15 +1601,33 @@
           {:else if b.type === 'empty'}
             <div class="h-2"></div>
           {:else}
-            <p 
-              class="text-justify text-black"
-              style="text-indent: {isFirstParagraph(b.id) ? '0' : '1.5em'}; margin-bottom: 0.25em;"
-            >
-              {@html renderInlineMath(b.content)}
-            </p>
+            {#if !b.content.startsWith('[^') || !b.content.includes(']:')}
+              <p 
+                class="text-justify text-black text-[11pt] leading-[1.55]"
+                style="text-indent: {isFirstParagraph(b.id) ? '0' : '1.5em'}; margin-bottom: 0;"
+              >
+                {@html renderInlineMath(b.content)}
+              </p>
+            {/if}
           {/if}
         {/each}
       </div>
+
+      <!-- Notas al Pie de Página Canónicas LaTeX (\footnoterule de 2in / 0.4pt) -->
+      {#if getPageFootnotes(page.blocks).length > 0}
+        {@const footnotes = getPageFootnotes(page.blocks)}
+        <div class="mt-auto pt-4 pb-1">
+          <div class="border-t-[0.4pt] border-black w-48 mb-2"></div>
+          <div class="space-y-1 text-[9pt] leading-tight text-black/85 font-serif">
+            {#each footnotes as fn}
+              <div class="flex items-start gap-1">
+                <sup class="font-mono text-[7.5pt] font-bold select-none">{fn.index}</sup>
+                <span>{@html renderInlineMath(fn.text)}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
 
       <!-- Pie de Página Canónico LaTeX \pagestyle{plain} -->
       <div class="pt-6 text-center text-[11pt] text-black mt-auto font-normal">
