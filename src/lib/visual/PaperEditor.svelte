@@ -1275,7 +1275,7 @@
     <div 
       data-paper-page={pageIndex}
       class="w-[820px] min-h-[1154px] bg-white text-slate-900 px-16 py-20 flex flex-col relative"
-      style="font-family: {fontStyle === 'serif' ? 'serif' : 'sans-serif'};"
+      style="font-family: {fontStyle === 'serif' ? '\'Computer Modern\', \'CMU Serif\', \'Latin Modern Roman\', \'KaTeX_Main\', serif' : '\'CMU Sans Serif\', -apple-system, sans-serif'};"
     >
       <!-- Running Header Superior -->
       <div class="flex items-center justify-between text-[11px] text-slate-400 uppercase tracking-widest font-mono pb-4 mb-8 border-b border-slate-200">

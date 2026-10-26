@@ -89,6 +89,7 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 | [TICKET-022](./TICKET-022-autocompletado-snippets-codemirror.md) | Autocompletado Inteligente y Snippets para LaTeX en CodeMirror 6 | 🟢 Completado | Alta (P1) | 5 SP |
 | [TICKET-023](./TICKET-023-sincronizacion-scroll-sync.md) | Sincronización Proporcional de Scroll Bidireccional (Scroll Sync) | 🟢 Completado | Media-Alta (P2) | 5 SP |
 | [TICKET-024](./TICKET-024-busqueda-reemplazo-editor.md) | Panel de Búsqueda y Reemplazo Integrado en el Editor (`Ctrl+F` / `Ctrl+H`) | 🟢 Completado | Media (P2) | 3 SP |
+| [TICKET-027](./TICKET-027-integracion-fuente-oficial-computer-modern-cmu.md) | Integración de la Familia Tipográfica Oficial TeX (Computer Modern / CMU Serif) | 🟢 Completado | Alta (P1) | 3 SP |
 
 ---
 

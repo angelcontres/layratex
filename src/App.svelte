@@ -797,13 +797,13 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           </button>
         </div>
 
-        <!-- Selector de Tipografía -->
+        <!-- Selector de Tipografía TeX (TICKET-027) -->
         <button 
-          class="px-2 py-1 rounded-xs border border-white/10 hover:bg-white/5 text-slate-300 transition-colors cursor-pointer text-xs"
+          class="px-2 py-1 rounded-xs border border-white/10 hover:bg-white/5 text-slate-300 transition-colors cursor-pointer text-xs font-serif"
           onclick={() => selectedFont = selectedFont === 'serif' ? 'sans' : 'serif'}
-          title="Cambiar tipografía de la hoja"
+          title="Tipografía de la hoja: {selectedFont === 'serif' ? 'Computer Modern (LaTeX Original)' : 'CMU Sans Serif'}"
         >
-          {selectedFont === 'serif' ? 'Serif' : 'Sans'}
+          {selectedFont === 'serif' ? 'Computer Modern' : 'Sans Serif'}
         </button>
       </div>
     {/if}

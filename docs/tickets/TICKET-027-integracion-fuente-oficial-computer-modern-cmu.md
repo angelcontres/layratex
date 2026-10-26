@@ -1,7 +1,7 @@
 # TICKET-027: Integración de la Familia Tipográfica Oficial TeX (Computer Modern / CMU Serif)
 
 - **Milestone:** Sprint 5 — Fidelidad Tipográfica y Estética Overleaf / LaTeX
-- **Estado:** 🟡 Pendiente
+- **Estado:** 🟢 Completado
 - **Prioridad:** Alta (P1)
 - **Tipo:** UI/UX & Typography
 
@@ -30,7 +30,7 @@ El objetivo es lograr que tanto la hoja A4 interactiva como el texto redactado y
 ---
 
 ## 3. Criterios de Aceptación (Definition of Done)
-* [ ] La hoja de redacción A4 muestra todo el texto y encabezados con la fuente clásica Computer Modern / Latin Modern Roman.
-* [ ] Las ecuaciones matemáticas KaTeX se integran de manera fluida y uniforme con el texto circundante sin desfases visuales de fuente.
-* [ ] La fuente se renderiza de forma nítida y fiel tanto en pantallas de alta densidad (Retina / 4K) como en exportación a PDF.
-* [ ] Funciona de forma 100% offline sin realizar peticiones de red a servidores externos.
+* [x] La hoja de redacción A4 muestra todo el texto y encabezados con la fuente clásica Computer Modern / Latin Modern Roman.
+* [x] Las ecuaciones matemáticas KaTeX se integran de manera fluida y uniforme con el texto circundante sin desfases visuales de fuente.
+* [x] La fuente se renderiza de forma nítida y fiel tanto en pantallas de alta densidad (Retina / 4K) como en exportación a PDF.
+* [x] Funciona de forma 100% offline sin realizar peticiones de red a servidores externos.
