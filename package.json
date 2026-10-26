@@ -1,7 +1,7 @@
 {
   "name": "layratex",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Layratex — Local-First P2P Hybrid LaTeX Editor",
   "license": "MIT",
   "type": "module",

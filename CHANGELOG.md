@@ -6,6 +6,21 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [v0.2.0] - 2026-10-26
+
+### ✨ Novedades
+
+* Rediseño de la interfaz con el espacio de trabajo PaperCraft.
+* Vista de edición visual y exportación autónoma de documentos a PDF.
+* Búsqueda y reemplazo integrados en el editor.
+* Sincronización proporcional del desplazamiento entre el código y la vista previa.
+* Autocompletado, cierre automático de entornos y snippets de LaTeX.
+* Integración de la familia tipográfica Computer Modern / CMU Serif.
+
+### 🔧 Distribución
+
+* El build de macOS usa firma ad-hoc sin certificado Apple. macOS puede mostrar advertencias al abrir la aplicación descargada.
+
 ## [v0.1.0] - 2026-10-23
 
 ### 🚀 Release Inicial — MVP (Minimum Viable Product)
@@ -41,4 +56,5 @@ Primera versión pública de **Layratex**, el editor de documentos técnicos y m
     * **Windows:** `.exe` (NSIS) y `.msi`.
     * **macOS:** `.dmg` binario universal (Apple Silicon ARM64 + Intel x86_64).
 
+[v0.2.0]: https://github.com/angelcontres/layratex/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/angelcontres/layratex/releases/tag/v0.1.0

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/angelcontres/layratex/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/release-v0.1.0-blue.svg" alt="Release v0.1.0" /></a>
+  <a href="https://github.com/angelcontres/layratex/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-blue.svg" alt="Release v0.2.0" /></a>
   <a href="https://tauri.app/"><img src="https://img.shields.io/badge/Tauri-2.0-orange.svg" alt="Tauri 2.0" /></a>
   <a href="https://svelte.dev/"><img src="https://img.shields.io/badge/Svelte-5-red.svg" alt="Svelte 5" /></a>
   <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.90+-brown.svg" alt="Rust" /></a>
@@ -18,7 +18,7 @@
 
 ---
 
-## ⚡ Novedades de la Versión v0.1.0 (MVP)
+## ⚡ Novedades de la Versión v0.2.0
 
 * **Rendimiento Nativo Extremo:** Desarrollado sobre **Tauri 2.0 (Rust)** y **Svelte 5 + Vite**, garantizando tiempos de inicio inmediatos y bajo consumo de memoria RAM (< 80 MB).
 * **Renderizado Matemático en Tiempo Real (< 10 ms):** Motor reactivo basado en **KaTeX** que sincroniza fórmulas matemáticas instantáneamente mientras redactas.
@@ -27,20 +27,25 @@
 * **Compilación a PDF Nativo:** Detección automática en Rust de motores instalados (`tectonic`, `pdflatex`, `latexmk`, `xelatex`) con exportación directa y atajo `Ctrl+B`.
 * **Panel de Diagnóstico y Errores:** Parseo inteligente del log del compilador con salto directo a la línea afectada al hacer clic en el error.
 
+* **PaperCraft:** rediseño del espacio de trabajo y edición visual con exportación a PDF.
+* **Edición más ágil:** búsqueda y reemplazo, autocompletado, cierre automático de entornos y snippets.
+* **Vista previa sincronizada:** desplazamiento proporcional entre código y documento renderizado.
+* **Tipografía:** familia Computer Modern / CMU Serif.
+
 ---
 
 ## 📦 Descargas (GitHub Releases)
 
-Descarga el instalador listo para usar correspondiente a tu sistema operativo desde la [Página de Releases de Layratex v0.1.0](https://github.com/angelcontres/layratex/releases/tag/v0.1.0):
+Descarga el instalador listo para usar correspondiente a tu sistema operativo desde la [Página de Releases de Layratex v0.2.0](https://github.com/angelcontres/layratex/releases/tag/v0.2.0):
 
 | Plataforma | Paquete / Formato | Enlace de Descarga Directa |
 | :--- | :--- | :--- |
-| **Linux (Universal)** | `.AppImage` | [Descargar `.AppImage`](https://github.com/angelcontres/layratex/releases/download/v0.1.0/layratex_0.1.0_amd64.AppImage) |
-| **Linux (Debian / Ubuntu)** | `.deb` | [Descargar `.deb`](https://github.com/angelcontres/layratex/releases/download/v0.1.0/layratex_0.1.0_amd64.deb) |
-| **Linux (Fedora / RHEL)** | `.rpm` | [Descargar `.rpm`](https://github.com/angelcontres/layratex/releases/download/v0.1.0/layratex-0.1.0-1.x86_64.rpm) |
-| **Windows (Instalador)** | `.exe` (NSIS) | [Descargar `.exe`](https://github.com/angelcontres/layratex/releases/download/v0.1.0/layratex_0.1.0_x64-setup.exe) |
-| **Windows (MSI)** | `.msi` | [Descargar `.msi`](https://github.com/angelcontres/layratex/releases/download/v0.1.0/layratex_0.1.0_x64_en-US.msi) |
-| **macOS (Universal)** | `.dmg` (Apple Silicon & Intel) | [Descargar `.dmg`](https://github.com/angelcontres/layratex/releases/download/v0.1.0/layratex_0.1.0_universal.dmg) |
+| **Linux (Universal)** | `.AppImage` | [Descargar `.AppImage`](https://github.com/angelcontres/layratex/releases/download/v0.2.0/layratex_0.2.0_amd64.AppImage) |
+| **Linux (Debian / Ubuntu)** | `.deb` | [Descargar `.deb`](https://github.com/angelcontres/layratex/releases/download/v0.2.0/layratex_0.2.0_amd64.deb) |
+| **Linux (Fedora / RHEL)** | `.rpm` | [Descargar `.rpm`](https://github.com/angelcontres/layratex/releases/download/v0.2.0/layratex-0.2.0-1.x86_64.rpm) |
+| **Windows (Instalador)** | `.exe` (NSIS) | [Descargar `.exe`](https://github.com/angelcontres/layratex/releases/download/v0.2.0/layratex_0.2.0_x64-setup.exe) |
+| **Windows (MSI)** | `.msi` | [Descargar `.msi`](https://github.com/angelcontres/layratex/releases/download/v0.2.0/layratex_0.2.0_x64_en-US.msi) |
+| **macOS (Universal)** | `.dmg` (Apple Silicon & Intel) | [Descargar `.dmg`](https://github.com/angelcontres/layratex/releases/download/v0.2.0/layratex_0.2.0_universal.dmg) |
 
 ---
 
@@ -49,31 +54,31 @@ Descarga el instalador listo para usar correspondiente a tu sistema operativo de
 Instala y ejecuta Layratex en tu máquina en **3 sencillos pasos**:
 
 ### 🐧 Linux (AppImage)
-1. **Descarga** el archivo `layratex_0.1.0_amd64.AppImage`.
+1. **Descarga** el archivo `layratex_0.2.0_amd64.AppImage`.
 2. **Otorga permisos de ejecución** desde terminal:
    ```bash
-   chmod +x layratex_0.1.0_amd64.AppImage
+   chmod +x layratex_0.2.0_amd64.AppImage
    ```
 3. **Ejecuta** el archivo:
    ```bash
-   ./layratex_0.1.0_amd64.AppImage
+   ./layratex_0.2.0_amd64.AppImage
    ```
    *(O haz doble clic sobre el archivo en tu explorador de archivos).*
 
-> **Para `.deb` (Ubuntu/Debian):** `sudo dpkg -i layratex_0.1.0_amd64.deb`  
-> **Para `.rpm` (Fedora/RHEL):** `sudo rpm -i layratex-0.1.0-1.x86_64.rpm`
+> **Para `.deb` (Ubuntu/Debian):** `sudo dpkg -i layratex_0.2.0_amd64.deb`
+> **Para `.rpm` (Fedora/RHEL):** `sudo rpm -i layratex-0.2.0-1.x86_64.rpm`
 
 ---
 
 ### 🪟 Windows
-1. **Descarga** el instalador `layratex_0.1.0_x64-setup.exe` (o el paquete `.msi`).
+1. **Descarga** el instalador `layratex_0.2.0_x64-setup.exe` (o el paquete `.msi`).
 2. **Ejecuta el archivo** descargado y sigue el asistente de instalación.
 3. **Abre Layratex** desde el menú Inicio o el acceso directo en el Escritorio.
 
 ---
 
 ### 🍏 macOS
-1. **Descarga** la imagen de disco `layratex_0.1.0_universal.dmg`.
+1. **Descarga** la imagen de disco `layratex_0.2.0_universal.dmg`.
 2. **Abre el `.dmg`** y arrastra el ícono de **Layratex** hacia la carpeta **Aplicaciones**.
 3. **Abre Layratex** desde tu carpeta de Aplicaciones o Spotlight.
 
