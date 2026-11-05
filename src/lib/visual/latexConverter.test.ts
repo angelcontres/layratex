@@ -77,7 +77,6 @@ const latex5 = visualToLatex(visualText5, { title: 'Doc' });
 assert(latex5.includes('\\begin{itemize}'), 'Debe generar \\begin{itemize}');
 assert(latex5.includes('\\begin{enumerate}'), 'Debe generar \\begin{enumerate}');
 assert(latex5.includes('\\begin{quote}'), 'Debe generar \\begin{quote}');
-// Asegurar que solo hay UN bloque de quote y no dos
 const quoteCount = (latex5.match(/\\begin\{quote\}/g) || []).length;
 assert(quoteCount === 1, `Debe haber 1 único quote agrupado, se encontraron ${quoteCount}`);
 
@@ -124,5 +123,16 @@ assert(updatedLatex.includes('\\title{Mi Tesis Actualizada}'), 'Debe actualizar 
 assert(updatedLatex.includes('\\author{Roberto G.}'), 'Debe actualizar el autor');
 assert(updatedLatex.includes('Nuevo texto redactado en la hoja'), 'Debe inyectar el nuevo cuerpo');
 console.log('  ✓ Preservación de preámbulo validada.');
+
+// Prueba 8: Entornos académicos (Teorema, Definición, Demostración)
+console.log('8. Probando entornos académicos AMS (theorem, definition, proof)...');
+const visualText8 = `> **Teorema:** Todo espacio compacto es acotado.\n\n> **Demostración:** Se concluye por recubrimientos finitos.`;
+const latex8 = visualToLatex(visualText8, { title: 'Topología' });
+assert(latex8.includes('\\begin{theorem}'), 'Debe generar \\begin{theorem}');
+assert(latex8.includes('\\begin{proof}'), 'Debe generar \\begin{proof}');
+const back8 = latexToVisual(latex8);
+assert(back8.includes('> **Teorema:**'), 'Debe reconvertir \\begin{theorem}');
+assert(back8.includes('> **Demostración:**'), 'Debe reconvertir \\begin{proof}');
+console.log('  ✓ Entornos académicos AMS validados.');
 
 console.log('\n🎉 ¡TODAS LAS PRUEBAS DE CONVERSIÓN BIDIRECCIONAL PASARON CON ÉXITO!\n');

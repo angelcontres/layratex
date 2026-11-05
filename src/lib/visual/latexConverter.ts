@@ -1,6 +1,6 @@
 /**
- * Convertidor bidireccional entre la representación amigable de PaperCraft (Notion-like)
- * y el código LaTeX estándar compilable (.tex).
+ * Convertidor bidireccional entre la representación amigable de PaperCraft
+ * y el código LaTeX estándar compilable (.tex) con estética académica completa.
  */
 
 export interface VisualDocMetadata {
@@ -74,7 +74,6 @@ export function visualToLatex(
   // 1. Proteger bloques matemáticos en display ($$ ... $$)
   body = body.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
     const trimmed = math.trim();
-    // Si ya es un entorno AMS (align, gather, etc.), no envolverlo en \[ ... \]
     if (/^\\begin\{(equation\*?|align\*?|gather\*?|multline\*?)\}/.test(trimmed)) {
       return stashBlock(`\n${trimmed}\n`);
     }
@@ -91,7 +90,6 @@ export function visualToLatex(
     const isDivider = rawLines[1].replace(/[\s|:-]/g, '') === '';
     const dataStartIndex = isDivider ? 2 : 1;
     const colCount = headerRow.length;
-    // En LaTeX booktabs profesional no se usan barras verticales '|'
     const colSpec = Array(colCount).fill('c').join('');
 
     let texTable = `\n\\begin{table}[htbp]\n\\centering\n\\begin{tabular}{${colSpec}}\n\\toprule\n`;
@@ -127,6 +125,33 @@ export function visualToLatex(
     return stashBlock(`\n\\begin{abstract}\n${cleanAbstract}\n\\end{abstract}\n`);
   });
 
+  // 5b. Soporte canónico para entornos matemáticos AMS: Teorema, Definición, Lema, Demostración
+  body = body.replace(/((?:^>\s*[^\n]+\n?)+)/gm, (match) => {
+    const cleanLines = match
+      .trim()
+      .split('\n')
+      .map(l => l.replace(/^>\s?/, '').trim());
+    const joined = cleanLines.join('\n');
+
+    const thmMatch = joined.match(/^\*\*(Teorema|Theorem):?\*\*:?\s*([\s\S]*)/i);
+    if (thmMatch) {
+      return stashBlock(`\n\\begin{theorem}\n${thmMatch[2].trim()}\n\\end{theorem}\n`);
+    }
+    const defMatch = joined.match(/^\*\*(Definición|Definicion|Definition):?\*\*:?\s*([\s\S]*)/i);
+    if (defMatch) {
+      return stashBlock(`\n\\begin{definition}\n${defMatch[2].trim()}\n\\end{definition}\n`);
+    }
+    const lemMatch = joined.match(/^\*\*(Lema|Lemma):?\*\*:?\s*([\s\S]*)/i);
+    if (lemMatch) {
+      return stashBlock(`\n\\begin{lemma}\n${lemMatch[2].trim()}\n\\end{lemma}\n`);
+    }
+    const proofMatch = joined.match(/^\*\*(Demostración|Demostracion|Proof):?\*\*:?\s*([\s\S]*)/i);
+    if (proofMatch) {
+      return stashBlock(`\n\\begin{proof}\n${proofMatch[2].trim()}\n\\end{proof}\n`);
+    }
+    return match;
+  });
+
   // Evitar duplicar el título si el texto visual inicia con un encabezado idéntico a metadata.title
   if (metadata.title) {
     const cleanTitle = metadata.title.trim();
@@ -134,15 +159,15 @@ export function visualToLatex(
     body = body.replace(titleRegex, '');
   }
 
-  // 5. Encabezados (# Título -> \section{Título})
+  // 6. Encabezados (# Título -> \section{Título})
   body = body.replace(/^#\s+(.+)$/gm, '\n\\section{$1}\n');
   body = body.replace(/^##\s+(.+)$/gm, '\n\\subsection{$1}\n');
   body = body.replace(/^###\s+(.+)$/gm, '\n\\subsubsection{$1}\n');
 
-  // 6. Saltos de página / Divisores (--- -> \newpage)
+  // 7. Saltos de página / Divisores (--- -> \newpage)
   body = body.replace(/^---\s*$/gm, '\n\\newpage\n');
 
-  // 7. Notas / Callouts agrupados (> Nota -> \begin{quote} ... \end{quote})
+  // 8. Notas / Callouts agrupados (> Nota -> \begin{quote} ... \end{quote})
   body = body.replace(/((?:^>[^\n]*\n?)+)/gm, (match) => {
     const lines = match
       .split('\n')
@@ -152,7 +177,7 @@ export function visualToLatex(
     return `\n\\begin{quote}\n${lines}\n\\end{quote}\n`;
   });
 
-  // 8. Listas con viñetas (* o - -> \begin{itemize})
+  // 9. Listas con viñetas (* o - -> \begin{itemize})
   body = body.replace(/((?:^[*-]\s+[^\n]+\n?)+)/gm, (match) => {
     const items = match
       .trim()
@@ -162,7 +187,7 @@ export function visualToLatex(
     return `\n\\begin{itemize}\n${items}\n\\end{itemize}\n`;
   });
 
-  // 9. Listas numeradas (1. 2. -> \begin{enumerate})
+  // 10. Listas numeradas (1. 2. -> \begin{enumerate})
   body = body.replace(/((?:^\d+\.\s+[^\n]+\n?)+)/gm, (match) => {
     const items = match
       .trim()
@@ -172,16 +197,16 @@ export function visualToLatex(
     return `\n\\begin{enumerate}\n${items}\n\\end{enumerate}\n`;
   });
 
-  // 10. Escapar caracteres especiales reservados de LaTeX fuera de bloques matemáticos
+  // 11. Escapar caracteres especiales reservados de LaTeX fuera de bloques matemáticos
   body = body.replace(/(?<!\\)%/g, '\\%');
   body = body.replace(/(?<!\\)&/g, '\\&');
   body = body.replace(/(?<!\\)_/g, '\\_');
 
-  // 11. Formato de texto básico
+  // 12. Formato de texto básico
   body = body.replace(/\*\*([^*]+)\*\*/g, '\\textbf{$1}');
   body = body.replace(/\*([^*]+)\*/g, '\\textit{$1}');
 
-  // 12. Microtipografía TeX: Comillas tipográficas dobles canónicas (``...'')
+  // 13. Microtipografía TeX: Comillas tipográficas dobles canónicas (``...'')
   body = body.replace(/"([^"\n]+)"/g, "``$1''");
 
   // Restaurar bloques protegidos
@@ -211,7 +236,7 @@ export function visualToLatex(
     }
   }
 
-  // Preámbulo estándar limpio por defecto
+  // Preámbulo estándar limpio por defecto con soporte completo de amsthm y microtype
   const fontPackage = metadata.fontStyle === 'sans' 
     ? '\\renewcommand{\\familydefault}{\\sfdefault}\n' 
     : '';
@@ -219,7 +244,7 @@ export function visualToLatex(
   return `\\documentclass[12pt,a4paper]{article}
 \\usepackage[utf8]{inputenc}
 \\usepackage[spanish]{babel}
-\\usepackage{amsmath,amssymb}
+\\usepackage{amsmath,amssymb,amsthm}
 \\usepackage{graphicx}
 \\usepackage{booktabs}
 \\usepackage{microtype}
@@ -227,6 +252,9 @@ export function visualToLatex(
 \\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=3cm}
 \\usepackage{hyperref}
 \\usepackage{xcolor}
+\\newtheorem{theorem}{Teorema}
+\\newtheorem{definition}{Definición}
+\\newtheorem{lemma}{Lema}
 ${fontPackage}\\title{${metadata.title || 'Documento sin título'}}
 \\author{${metadata.author || 'Usuario'}}
 \\date{\\today}
@@ -244,7 +272,6 @@ ${body || '\\phantom{.}'}
  * Convierte un documento LaTeX existente en texto visual amigable para el lienzo PaperCraft.
  */
 export function latexToVisual(latexCode: string): string {
-  // Extraer el cuerpo de \begin{document} ... \end{document}
   let body = latexCode;
   const matchDoc = latexCode.match(/\\begin\{document\}([\s\S]*?)\\end\{document\}/);
   if (matchDoc) {
@@ -255,7 +282,7 @@ export function latexToVisual(latexCode: string): string {
   body = body.replace(/\\maketitle/g, '');
 
   // 1. Convertir tablas \begin{table} y \begin{tabular} a Markdown
-  body = body.replace(/(?:\\begin\{table\}(?:\[.*?\])?\s*(?:\\centering\s*)?)?(?:\\begin\{center\}\s*)?\\begin\{tabular\}\{[^}]*\}[\s\S]*?\\end\{tabular\}(?:\s*\\end\{center\})?(?:\s*\\end\{table\})?/g, (match) => {
+  body = body.replace(/(?:\\begin\{table\}(?:\[.*?\])?\s*(?:\\centering\s*)?(?:\\caption\{[^}]*\}\s*)?)?(?:\\begin\{center\}\s*)?\\begin\{tabular\}\{[^}]*\}[\s\S]*?\\end\{tabular\}(?:\s*\\caption\{[^}]*\})?(?:\s*\\end\{center\})?(?:\s*\\end\{table\})?/g, (match) => {
     return parseTabularToMarkdown(match);
   });
 
@@ -265,16 +292,30 @@ export function latexToVisual(latexCode: string): string {
     return `\n> **Resumen**\n${lines}\n\n`;
   });
 
-  // 2. Convertir bloques matemáticos en display a $$ ... $$
+  // 2b. Convertir entornos académicos AMS (theorem, definition, lemma, proof)
+  body = body.replace(/\\begin\{theorem\}([\s\S]*?)\\end\{theorem\}/g, (_, text) => {
+    return `\n> **Teorema:** ${text.trim().replace(/\n+/g, ' ')}\n\n`;
+  });
+  body = body.replace(/\\begin\{definition\}([\s\S]*?)\\end\{definition\}/g, (_, text) => {
+    return `\n> **Definición:** ${text.trim().replace(/\n+/g, ' ')}\n\n`;
+  });
+  body = body.replace(/\\begin\{lemma\}([\s\S]*?)\\end\{lemma\}/g, (_, text) => {
+    return `\n> **Lema:** ${text.trim().replace(/\n+/g, ' ')}\n\n`;
+  });
+  body = body.replace(/\\begin\{proof\}([\s\S]*?)\\end\{proof\}/g, (_, text) => {
+    return `\n> **Demostración:** ${text.trim().replace(/\n+/g, ' ')}\n\n`;
+  });
+
+  // 3. Convertir bloques matemáticos en display a $$ ... $$
   body = body.replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => `\n$$\n${math.trim()}\n$$\n`);
   body = body.replace(/\\begin\{(equation\*?|align\*?|gather\*?|multline\*?)\}([\s\S]*?)\\end\{\1\}/g, (fullMatch) => {
     return `\n$$\n${fullMatch.trim()}\n$$\n`;
   });
 
-  // 3. Convertir fórmulas inline \( ... \) a $ ... $
+  // 4. Convertir fórmulas inline \( ... \) a $ ... $
   body = body.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => `$${math.trim()}$`);
 
-  // 4. Convertir figuras e imágenes a Markdown ![caption](url)
+  // 5. Convertir figuras e imágenes a Markdown ![caption](url)
   body = body.replace(/\\begin\{figure\}[\s\S]*?\\includegraphics(?:\[.*?\])?\{([^}]+)\}[\s\S]*?\\caption\{([^}]+)\}[\s\S]*?\\end\{figure\}/g, (_, url, caption) => {
     return `\n![${caption}](${url})\n`;
   });
@@ -282,21 +323,21 @@ export function latexToVisual(latexCode: string): string {
     return `\n![](${url})\n`;
   });
 
-  // 5. Convertir encabezados (\section, \subsection, \subsubsection a #, ##, ###)
+  // 6. Convertir encabezados (\section, \subsection, \subsubsection a #, ##, ###)
   body = body.replace(/\\section\*?\{([^}]+)\}/g, '\n# $1\n');
   body = body.replace(/\\subsection\*?\{([^}]+)\}/g, '\n## $1\n');
   body = body.replace(/\\subsubsection\*?\{([^}]+)\}/g, '\n### $1\n');
 
-  // 6. Convertir saltos de página (\newpage, \clearpage -> ---)
+  // 7. Convertir saltos de página (\newpage, \clearpage -> ---)
   body = body.replace(/\\(newpage|clearpage|pagebreak)\b/g, '\n---\n');
 
-  // 7. Convertir notas (\begin{quote} ... \end{quote} a > ...)
+  // 8. Convertir notas (\begin{quote} ... \end{quote} a > ...)
   body = body.replace(/\\begin\{quote\}([\s\S]*?)\\end\{quote\}/g, (_, text) => {
     const lines = text.trim().split('\n').map((l: string) => `> ${l.trim()}`).join('\n');
     return `\n${lines}\n\n`;
   });
 
-  // 8. Convertir listas con viñetas (\begin{itemize} -> * ...)
+  // 9. Convertir listas con viñetas (\begin{itemize} -> * ...)
   body = body.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (_, listContent: string) => {
     const items = listContent
       .trim()
@@ -307,7 +348,7 @@ export function latexToVisual(latexCode: string): string {
     return `\n${items}\n\n`;
   });
 
-  // 9. Convertir listas numeradas (\begin{enumerate} -> 1. ...)
+  // 10. Convertir listas numeradas (\begin{enumerate} -> 1. ...)
   body = body.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (_, listContent: string) => {
     let counter = 1;
     const items = listContent
@@ -319,21 +360,21 @@ export function latexToVisual(latexCode: string): string {
     return `\n${items}\n\n`;
   });
 
-  // 10. Convertir formato de texto
+  // 11. Convertir formato de texto
   body = body.replace(/\\textbf\{([^}]+)\}/g, '**$1**');
   body = body.replace(/\\textit\{([^}]+)\}/g, '*$1*');
   body = body.replace(/\\emph\{([^}]+)\}/g, '*$1*');
   body = body.replace(/\\underline\{([^}]+)\}/g, '$1');
 
-  // 11. Restaurar caracteres reservados escapados
+  // 12. Restaurar caracteres reservados escapados
   body = body.replace(/\\%/g, '%');
   body = body.replace(/\\&/g, '&');
   body = body.replace(/\\_/g, '_');
 
-  // 12. Restaurar comillas tipográficas TeX (``...'' a "...")
+  // 13. Restaurar comillas tipográficas TeX (``...'' a "...")
   body = body.replace(/``([^'\n]+)''/g, '"$1"');
 
-  // 13. Limpiar placeholders como \phantom{.}
+  // 14. Limpiar placeholders como \phantom{.}
   body = body.replace(/\\phantom\{\.\}/g, '');
 
   // Limpiar saltos de línea excesivos

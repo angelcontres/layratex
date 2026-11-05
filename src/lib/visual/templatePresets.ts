@@ -4,158 +4,175 @@ export interface DocumentTemplate {
   description: string;
   icon: string;
   defaultTitle: string;
+  defaultAuthor?: string;
   latexPreamble: string;
   initialContent: string;
 }
 
 export const TEMPLATE_PRESETS: DocumentTemplate[] = [
   {
+    id: 'scientific_paper',
+    name: 'Artículo Científico (Estándar LaTeX article)',
+    description: 'Estructura canónica con Resumen (Abstract), Teoremas, Demostraciones, Ecuaciones y Tablas Booktabs.',
+    icon: 'BookOpen',
+    defaultTitle: 'Análisis Asintótico de Sistemas Dinámicos No Lineales',
+    defaultAuthor: 'Departamento de Matemática Aplicada e Ingeniería',
+    latexPreamble: `\\documentclass[12pt,a4paper]{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage[spanish]{babel}
+\\usepackage{amsmath,amssymb,amsthm}
+\\usepackage{booktabs}
+\\usepackage{microtype}
+\\usepackage{geometry}
+\\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=3cm}
+\\newtheorem{theorem}{Teorema}
+\\newtheorem{definition}{Definición}
+\\newtheorem{lemma}{Lema}
+`,
+    initialContent: `> **Resumen**
+> En este artículo se estudia la estabilidad global de sistemas diferenciales acoplados mediante funcionales de Lyapunov. Se establecen condiciones necesarias y suficientes para la convergencia exponencial y se validan los resultados mediante simulaciones numéricas de alta precisión.
+
+# Introducción
+
+El estudio de la estabilidad en ecuaciones diferenciales ordinarias y en derivadas parciales constituye uno de los pilares del análisis matemático moderno. Desde la formulación clásica de Poincaré y Lyapunov, la caracterización del comportamiento asintótico ha permitido modelar fenómenos físicos complejos.
+
+En las secciones siguientes se formalizan las definiciones fundamentales y se demuestra el resultado principal de acotación espectral.
+
+# Marco Teórico y Resultados Principales
+
+> **Definición:** Un punto de equilibrio $x^* \\in \\mathbb{R}^n$ del sistema autónomo $\\dot{x} = f(x)$ se denomina *globalmente asintóticamente estable* si es estable en el sentido de Lyapunov y $\\lim_{t \\to \\infty} \\|x(t) - x^*\\| = 0$ para toda condición inicial $x(0) \\in \\mathbb{R}^n$.
+
+Consideremos la energía total asociada al operador diferencial mediante la identidad variacional:
+
+$$
+\\mathcal{E}(u) = \\frac{1}{2} \\int_{\\Omega} |\\nabla u(x)|^2\\, dx + \\int_{\\Omega} V(x)|u(x)|^2\\, dx
+$$
+
+> **Teorema:** Si existe una función continuamente diferenciable $V: \\mathbb{R}^n \\to \\mathbb{R}_{\\ge 0}$ radialmente no acotada tal que $\\nabla V(x) \\cdot f(x) \\le -\\alpha \\|x\\|^2$ para alguna constante $\\alpha > 0$, entonces el origen es exponencialmente estable.
+
+> **Demostración:** Derivando $V(x(t))$ respecto al tiempo a lo largo de las trayectorias del sistema e integrando mediante el lema de Grönwall se obtiene directamente la cota exponencial $\|x(t)\| \\le C e^{-\\alpha t/2} \|x(0)\|$.
+
+# Resultados Numéricos
+
+| Método de Integración | Orden $p$ | Error Relativo $L_2$ | Tiempo CPU (ms) |
+| :--- | :--- | :--- | :--- |
+| Euler Implícito | 1 | $4.12 \\times 10^{-2}$ | 1.8 |
+| Runge–Kutta Clásico (RK4) | 4 | $1.05 \\times 10^{-6}$ | 4.2 |
+| Gauss–Legendre Simpléctico | 6 | $8.30 \\times 10^{-11}$ | 7.9 |
+
+# Conclusiones
+
+Los resultados teóricos y experimentales confirman que los integradores simplécticos de alto orden preservan los invariantes geométricos del sistema con un costo computacional reducido.`
+  },
+  {
     id: 'school_homework',
-    name: 'Tarea Escolar / Universitaria',
-    description: 'Estructura ideal para deberes, informes de clase y entregas académicas.',
+    name: 'Informe / Tarea Universitaria',
+    description: 'Estructura ideal para informes de laboratorio, entregas académicas y proyectos de curso.',
     icon: 'GraduationCap',
-    defaultTitle: 'Tarea de Ciencias — Velocidad de Reacción',
+    defaultTitle: 'Informe de Laboratorio — Cinética y Velocidad de Reacción',
+    defaultAuthor: 'Facultad de Ciencias e Ingeniería',
     latexPreamble: `\\documentclass[12pt,a4paper]{article}
 \\usepackage[utf8]{inputenc}
 \\usepackage[spanish]{babel}
 \\usepackage{amsmath,amssymb}
+\\usepackage{booktabs}
 \\usepackage{geometry}
 \\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=3cm}
-\\usepackage{xcolor}
-\\usepackage{tcolorbox}
 `,
-    initialContent: `# Introducción
+    initialContent: `> **Resumen**
+> Este informe presenta las mediciones experimentales de la velocidad de reacción química en soluciones acuosas bajo diferentes regímenes térmicos, verificando el modelo exponencial de Arrhenius.
 
-Este documento presenta los resultados del experimento escolar realizado durante la semana pasada. Se evaluó la velocidad de reacción química en soluciones acuosas bajo diferentes temperaturas.
+# Introducción
+
+Durante la sesión experimental se evaluó el efecto de la temperatura sobre la constante cinética $k$ de una reacción de segundo orden. La precisión en el control isotérmico resulta indispensable para reducir la incertidumbre sistemática.
 
 ## Fundamento Teórico
 
-La cinética química estudia la rapidez con que los reactivos se transforman en productos a lo largo del tiempo.
+La ley de velocidad diferencial y la ecuación de Arrhenius relacionan la constante específica de velocidad con la energía de activación $E_a$:
 
 $$
-v = -\\frac{\\Delta [A]}{\\Delta t} = \\frac{\\Delta [B]}{\\Delta t}
+v = -\\frac{d[A]}{dt} = k[A][B], \\qquad k(T) = A \\exp\\left(-\\frac{E_a}{RT}\\right)
 $$
 
-Donde $[A]$ representa la concentración molar del reactivo y $t$ el tiempo transcurrido en segundos.
+Donde $R = 8.314\\text{ J}\\cdot\\text{mol}^{-1}\\cdot\\text{K}^{-1}$ es la constante universal de los gases ideales y $T$ la temperatura absoluta en kelvin.
 
-> **Nota Importante:** Todos los instrumentos fueron calibrados a una temperatura ambiente de $20^\\circ\\text{C}$ antes de iniciar las mediciones.
+# Datos Experimentales
 
-## Resultados Obtenidos
+| Ensayo | Temperatura ($^\\circ\\text{C}$) | Concentración $[A]_0$ (M) | Constante $k$ ($\\text{M}^{-1}\\text{s}^{-1}$) |
+| :--- | :--- | :--- | :--- |
+| Prueba 1 | 20.0 | 0.100 | $1.42 \\times 10^{-3}$ |
+| Prueba 2 | 30.0 | 0.100 | $2.89 \\times 10^{-3}$ |
+| Prueba 3 | 40.0 | 0.100 | $5.64 \\times 10^{-3}$ |
 
-Se registraron tres pruebas consecutivas para garantizar la reproducibilidad de los datos obtenidos en el laboratorio.
+# Conclusiones
 
-## Conclusión
-
-El incremento de temperatura aumenta la energía cinética de las moléculas, favoreciendo colisiones efectivas y acelerando la velocidad de reacción.`
-  },
-  {
-    id: 'office_report',
-    name: 'Informe de Oficina / Reporte',
-    description: 'Documento ejecutivo profesional con resumen, objetivos y recomendaciones.',
-    icon: 'Briefcase',
-    defaultTitle: 'Informe Mensual de Rendimiento Operativo',
-    latexPreamble: `\\documentclass[11pt,a4paper]{article}
-\\usepackage[utf8]{inputenc}
-\\usepackage[spanish]{babel}
-\\usepackage{amsmath}
-\\usepackage{geometry}
-\\geometry{top=2cm, bottom=2cm, left=2.5cm, right=2.5cm}
-\\usepackage{xcolor}
-\\usepackage{tcolorbox}
-`,
-    initialContent: `# Resumen Ejecutivo
-
-El presente informe detalla las métricas clave de desempeño operacional durante el último trimestre, destacando un incremento del 24% en la eficiencia de entregas de proyectos.
-
-## Objetivos Principales
-
-* Optimizar los tiempos de respuesta al cliente.
-* Automatizar la generación de reportes técnicos internos.
-* Reducir costos operativos en infraestructura descentralizada.
-
-## Análisis Financiero
-
-El ahorro operativo neto generado por la adopción de herramientas locales sin dependencias de nube se calcula mediante la relación:
-
-$$
-\\text{Ahorro Total} = \\sum_{i=1}^{n} (\\text{Costo Nube}_i - \\text{Costo Local}_i)
-$$
-
-> **Recomendación Estratégica:** Continuar la transición hacia flujos de trabajo Local-First para garantizar privacidad y cero costos mensuales recurrentes.
-
-## Próximos Pasos
-
-Se convocará a una reunión de seguimiento el próximo lunes para definir las asignaciones operativas del equipo.`
+El incremento de $10^\\circ\\text{C}$ prácticamente duplica la velocidad de reacción, en estrecha concordancia con la predicción teórica.`
   },
   {
     id: 'math_sheet',
-    name: 'Hoja de Ejercicios Matemáticos',
-    description: 'Plantilla clara para resolución de ecuaciones, integrales y problemas.',
+    name: 'Taller de Matemáticas y Teoremas',
+    description: 'Plantilla con definiciones, lemas, ecuaciones numeradas y demostraciones formales.',
     icon: 'Calculator',
-    defaultTitle: 'Taller de Cálculo Integral y Diferencial',
+    defaultTitle: 'Taller de Análisis Real y Cálculo Vectorial',
+    defaultAuthor: 'Curso de Matemáticas Superiores',
     latexPreamble: `\\documentclass[12pt,a4paper]{article}
 \\usepackage[utf8]{inputenc}
 \\usepackage[spanish]{babel}
-\\usepackage{amsmath,amssymb}
+\\usepackage{amsmath,amssymb,amsthm}
 \\usepackage{geometry}
 \\geometry{margin=2.5cm}
 `,
-    initialContent: `# Taller Práctico de Cálculo
+    initialContent: `# Integrales Impropias y Convergencia
 
-**Estudiante:** Angel Contreras  
-**Curso:** Cálculo Avanzado  
-**Fecha:** \\today
+## Problema 1: Integral Gaussiana
 
-## Ejercicio 1: Integral Definida
-
-Calcular la integral gaussiana fundamental en todo el dominio real:
+Determine el valor exacto de la integral impropia de Poisson sobre toda la recta real:
 
 $$
-I = \\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+I = \\int_{-\\infty}^{\\infty} e^{-x^2}\\, dx = \\sqrt{\\pi}
 $$
 
-**Procedimiento:** Elevando al cuadrado y cambiando a coordenadas polares se obtiene el volumen del paraboloide de revolución.
+> **Lema:** Para todo $R > 0$, sea $D_R = \\{(x,y) \\in \\mathbb{R}^2 : x^2 + y^2 \\le R^2\\}$ y $Q_R = [-R, R]^2$. Entonces la integral doble de $e^{-(x^2+y^2)}$ sobre $Q_R$ está acotada entre las integrales sobre $D_R$ y $D_{\\sqrt{2}R}$.
 
-## Ejercicio 2: Ecuación Diferencial
+> **Demostración:** Pasando a coordenadas polares $x = r\\cos\\theta$, $y = r\\sin\\theta$ con jacobiano $r$, se calcula $\\int_0^{2\\pi}\\int_0^R e^{-r^2}r\\,dr\\,d\\theta = \\pi(1 - e^{-R^2})$. Tomando el límite $R \\to \\infty$ se obtiene $I^2 = \\pi$.
 
-Resolver la ecuación diferencial homogénea de primer orden:
+# Teorema de Stokes Generalizado
+
+## Problema 2: Circulación de un Campo Vectorial
+
+Verifique la identidad fundamental de la geometría diferencial para una variedad orientada $M$ con frontera $\\partial M$:
 
 $$
-\\frac{dy}{dx} + P(x)y = 0 \\implies y(x) = C e^{-\\int P(x)dx}
-$$
-
-> **Recordatorio:** No olvidar verificar la constante de integración con las condiciones iniciales dadas.`
+\\int_{M} d\\omega = \\oint_{\\partial M} \\omega
+$$`
   },
   {
     id: 'formal_letter',
-    name: 'Carta Formal / Solicitud',
-    description: 'Formato limpio y formal para comunicaciones institucionales o solicitudes.',
+    name: 'Carta / Memorando Académico en LaTeX',
+    description: 'Formato formal en tipografía Computer Modern para comunicaciones académicas o institucionales.',
     icon: 'Mail',
-    defaultTitle: 'Carta Formal de Solicitud Institucional',
-    latexPreamble: `\\documentclass[11pt,a4paper]{article}
+    defaultTitle: 'Solicitud Académica Institucional',
+    defaultAuthor: 'Comité Académico de Investigación',
+    latexPreamble: `\\documentclass[12pt,a4paper]{article}
 \\usepackage[utf8]{inputenc}
 \\usepackage[spanish]{babel}
 \\usepackage{geometry}
 \\geometry{margin=3cm}
 `,
-    initialContent: `# Carta Formal
+    initialContent: `# Comunicación Oficial
 
-**Fecha:** 23 de octubre de 2026  
-**Para:** Dirección del Departamento Académico  
-**De:** Representante Estudiantil  
-**Asunto:** Solicitud de ampliación de horario de laboratorios
+* **Para:** Dirección del Comité Editorial y de Investigación
+* **De:** Equipo de Investigación Científica
+* **Asunto:** Entrega de manuscrito en formato LaTeX y Microsoft Word (.docx)
 
-Estimada Dirección:
+Estimado Comité Editorial:
 
-Por medio de la presente, me dirijo a usted con el debido respeto para solicitar formalmente la extensión del horario de atención en los laboratorios de cómputo e ingeniería durante el período de exámenes finales.
+Por medio de la presente hacemos entrega formal del manuscrito técnico preparado en **Layratex**, cumpliendo con los estándares tipográficos de *Computer Modern*, numeración canónica de secciones y ecuaciones, así como tablas en formato \`booktabs\`.
 
-Esta iniciativa beneficiará a más de 120 estudiantes que requieren acceso a software técnico y herramientas de compilación para sus proyectos de graduación.
-
-Agradeciendo de antemano su amable atención a la presente solicitud, quedo a su disposición para cualquier consulta.
+Adjuntamos tanto la versión compilada en **PDF** para imprenta como el archivo editable en **Microsoft Word (.docx)** con ecuaciones nativas *Office Math* para el proceso de revisión por pares.
 
 Atentamente,
 
-**Equipo de Estudiantes**  
-Facultad de Ingeniería`
+**Coordinación de Investigación**`
   }
 ];
