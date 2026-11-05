@@ -167,8 +167,8 @@
 
 {#if isOpen && filteredItems.length > 0}
   <div 
-    class="fixed z-50 bg-white/98 dark:bg-[#161c28]/98 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 rounded-md shadow-2xl overflow-hidden w-88 text-slate-900 dark:text-[#c9d1d9] p-1.5 animate-in fade-in zoom-in-95 duration-100"
-    style={x !== null && y !== null ? `left: ${x}px; top: ${y}px; max-height: 390px; overflow-y: auto;` : 'bottom: 2rem; left: 50%; transform: translateX(-50%); max-height: 390px; overflow-y: auto;'}
+    class="fixed z-50 bg-white/98 dark:bg-[#161c28]/98 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 rounded-md shadow-2xl overflow-hidden w-88 max-w-[calc(100vw-32px)] text-slate-900 dark:text-[#c9d1d9] p-1.5 animate-in fade-in zoom-in-95 duration-100"
+    style={x !== null && y !== null ? `left: ${Math.min(Math.max(16, x), (typeof window !== 'undefined' ? window.innerWidth : 1200) - 360)}px; top: ${Math.min(Math.max(60, y), (typeof window !== 'undefined' ? window.innerHeight : 800) - 400)}px; max-height: min(380px, calc(100vh - 80px)); overflow-y: auto;` : 'bottom: 2rem; left: 50%; transform: translateX(-50%); max-height: min(380px, calc(100vh - 80px)); overflow-y: auto;'}
   >
     <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 dark:text-[#8b949e] uppercase tracking-wider flex items-center justify-between">
       <span>Entornos y Comandos LaTeX</span>

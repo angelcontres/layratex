@@ -98,7 +98,7 @@
 
 {#if isOpen}
   <div class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
-    <div class="bg-white dark:bg-[#161c28] border border-slate-200/80 dark:border-white/10 rounded-md shadow-2xl max-w-xl w-full p-6 text-slate-900 dark:text-[#c9d1d9] space-y-4 animate-in zoom-in-95 duration-150">
+    <div class="bg-white dark:bg-[#161c28] border border-slate-200/80 dark:border-white/10 rounded-md shadow-2xl max-w-xl w-full p-6 text-slate-900 dark:text-[#c9d1d9] space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
       
       <!-- Encabezado del modal -->
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-[#21262d] pb-3">

@@ -25,7 +25,7 @@
 
 {#if isOpen}
   <div class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100">
-    <div class="bg-white dark:bg-[#161a24] border border-slate-200 dark:border-white/10 rounded-md shadow-2xl max-w-lg w-full p-6 text-slate-900 dark:text-slate-100 space-y-5 animate-in zoom-in-95 duration-100">
+    <div class="bg-white dark:bg-[#161a24] border border-slate-200 dark:border-white/10 rounded-md shadow-2xl max-w-lg w-full p-6 text-slate-900 dark:text-slate-100 space-y-5 animate-in zoom-in-95 duration-100 max-h-[90vh] overflow-y-auto">
       
       <!-- Encabezado -->
       <div class="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">

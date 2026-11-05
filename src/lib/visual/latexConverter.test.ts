@@ -1,4 +1,11 @@
-import { visualToLatex, latexToVisual } from './latexConverter';
+import {
+  visualToLatex,
+  latexToVisual,
+  extractLatexMetadata,
+  resolveLatexInputsInMemory,
+  splitLatexIntoModularProject,
+  syncAssembledLatexToExistingProject
+} from './latexConverter';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -134,5 +141,123 @@ const back8 = latexToVisual(latex8);
 assert(back8.includes('> **Teorema:**'), 'Debe reconvertir \\begin{theorem}');
 assert(back8.includes('> **Demostración:**'), 'Debe reconvertir \\begin{proof}');
 console.log('  ✓ Entornos académicos AMS validados.');
+
+// Prueba 9: Apertura de archivos .tex reales (metadatos con llaves anidadas, comentarios %, \label)
+console.log('9. Probando apertura de .tex externo (extractLatexMetadata, comentarios % y \\label)...');
+const externalTex = `\\documentclass[12pt]{article}
+\\usepackage{amsmath}
+\\title{Análisis de \\textbf{Ecuaciones} en $\\mathbb{R}^n$}
+\\author{Dra. Elena Gómez \\and Dr. Marco Polo\\thanks{Universidad Nacional}}
+\\begin{document}
+\\maketitle
+% Comentario de línea completa que no debe filtrarse a la hoja visual
+\\section{Introducción}\\label{sec:intro}
+El rendimiento creció un 95\\% este año. % comentario al final de línea
+\\end{document}`;
+
+const meta9 = extractLatexMetadata(externalTex);
+assert(meta9.title === 'Análisis de Ecuaciones en $\\mathbb{R}^n$', `Título extraído inesperado: ${meta9.title}`);
+assert(meta9.author === 'Dra. Elena Gómez · Dr. Marco Polo', `Autor extraído inesperado: ${meta9.author}`);
+
+const visual9 = latexToVisual(externalTex);
+assert(!visual9.includes('Comentario de línea'), 'Los comentarios % no deben aparecer en el documento visual');
+assert(!visual9.includes('comentario al final'), 'Los comentarios inline % deben eliminarse');
+assert(!visual9.includes('\\label{sec:intro}'), 'Las etiquetas \\label deben limpiarse en modo visual');
+assert(visual9.includes('95%'), 'El porcentaje escapado \\% sí debe preservarse como 95%');
+console.log('  ✓ Apertura de .tex externo con llaves anidadas y comentarios validada.');
+
+// Prueba 10: Proyectos Multi-Carpeta (\input, \include y splitLatexIntoModularProject) en los 3 modos
+console.log('10. Probando división modular por carpetas (secciones/) y resolución de \\input en los 3 modos...');
+const fullPaper = visualToLatex(
+  `> **Resumen**\n> Resumen del proyecto modular.\n\n# Introducción\nTexto de la primera sección con $E = mc^2$.\n\n# Metodología Experimental\nSegunda sección con **teoremas** y tablas.`,
+  { title: 'Proyecto Modular LaTeX', author: 'Equipo Layratex' }
+);
+
+const splitResult = splitLatexIntoModularProject(fullPaper, 'secciones');
+assert(splitResult.mainTex.includes('\\input{secciones/01-introduccion}'), 'main.tex debe incluir \\input{secciones/01-introduccion}');
+assert(splitResult.mainTex.includes('\\input{secciones/02-metodologia-experimental}'), 'main.tex debe incluir \\input{secciones/02-metodologia-experimental}');
+assert(splitResult.subfiles.length === 2, `Deben generarse 2 subarchivos en secciones/, se generaron ${splitResult.subfiles.length}`);
+assert(splitResult.bibContent.includes('@article{knuth1984'), 'Debe incluir plantilla BibTeX en referencias.bib');
+
+// Construir mapa de archivos como lo entrega open_latex_project / createModularProjectStructure
+const projectMap: Record<string, string> = { 'main.tex': splitResult.mainTex };
+for (const sf of splitResult.subfiles) {
+  projectMap[sf.relative_path] = sf.content;
+}
+
+const resolvedFromInputs = resolveLatexInputsInMemory(splitResult.mainTex, projectMap);
+assert(resolvedFromInputs.includes('\\section{Introducción}'), 'El resolver debe ensamblar la sección 1 desde secciones/01-introduccion.tex');
+assert(resolvedFromInputs.includes('\\section{Metodología Experimental}'), 'El resolver debe ensamblar la sección 2 desde secciones/02-metodologia-experimental.tex');
+
+const visualFromModular = latexToVisual(resolvedFromInputs);
+assert(visualFromModular.includes('# Introducción'), 'Modo Hoja Visual debe mostrar # Introducción del proyecto modular');
+assert(visualFromModular.includes('# Metodología Experimental'), 'Modo Hoja Visual debe mostrar # Metodología Experimental del proyecto modular');
+console.log('  ✓ Proyectos Multi-Carpeta (main.tex + secciones/ + build/) validados en los 3 modos.');
+
+// Prueba 11: Guardado Quirúrgico (syncAssembledLatexToExistingProject) respetando carpetas originales (ej. chapters/)
+console.log('11. Probando guardado quirúrgico sobre proyectos existentes con rutas personalizadas (chapters/)...');
+const customMainTex = `\\documentclass[12pt]{article}
+\\usepackage{amsmath}
+\\title{Tesis Doctoral Original}
+\\author{Dra. Sofía Vargas}
+\\begin{document}
+\\maketitle
+
+\\input{chapters/01_intro}
+\\input{chapters/02_methods}
+
+\\bibliographystyle{plain}
+\\bibliography{referencias}
+\\end{document}`;
+
+const customMap: Record<string, string> = {
+  'main.tex': customMainTex,
+  'chapters/01_intro.tex': '\\section{Introducción}\nTexto original de introducción.\n',
+  'chapters/02_methods.tex': '\\section{Métodos}\nTexto original de métodos.\n'
+};
+
+// Simulamos edición en el Modo Hoja Visual del documento ensamblado (cambiando contenido + agregando una 3ra sección)
+const editedVisual = `# Introducción\nTexto actualizado de introducción con $\\alpha + \\beta$.\n\n# Métodos\nTexto actualizado de métodos experimentales.\n\n# Resultados Finales\nNueva sección añadida desde la Hoja Visual.`;
+const assembledEditedTex = visualToLatex(
+  editedVisual,
+  { title: 'Tesis Doctoral Actualizada', author: 'Dra. Sofía Vargas' },
+  customMainTex
+);
+
+const surgicalPayload = syncAssembledLatexToExistingProject(
+  assembledEditedTex,
+  customMainTex,
+  customMap
+);
+
+assert(
+  surgicalPayload.mainTexContent.includes('\\title{Tesis Doctoral Actualizada}'),
+  'Debe actualizar \\title en main.tex sin destruir la estructura'
+);
+assert(
+  surgicalPayload.mainTexContent.includes('\\bibliography{referencias}'),
+  'Debe preservar comandos de bibliografía en main.tex'
+);
+assert(
+  surgicalPayload.updatedSubfiles[0]?.relative_path === 'chapters/01_intro.tex',
+  `El primer subarchivo debe conservar su ruta exacta chapters/01_intro.tex, recibido: ${surgicalPayload.updatedSubfiles[0]?.relative_path}`
+);
+assert(
+  surgicalPayload.updatedSubfiles[0]?.content.includes('Texto actualizado de introducción'),
+  'El contenido de chapters/01_intro.tex debe actualizarse quirúrgicamente'
+);
+assert(
+  surgicalPayload.updatedSubfiles[1]?.relative_path === 'chapters/02_methods.tex',
+  `El segundo subarchivo debe conservar su ruta exacta chapters/02_methods.tex, recibido: ${surgicalPayload.updatedSubfiles[1]?.relative_path}`
+);
+assert(
+  surgicalPayload.updatedSubfiles[2]?.relative_path.startsWith('chapters/03-resultados-finales'),
+  `La nueva sección añadida debe crearse en la misma carpeta chapters/, recibido: ${surgicalPayload.updatedSubfiles[2]?.relative_path}`
+);
+assert(
+  surgicalPayload.mainTexContent.includes('\\input{chapters/03-resultados-finales}'),
+  'El nuevo \\input debe insertarse automáticamente en main.tex antes de la bibliografía'
+);
+console.log('  ✓ Guardado quirúrgico multi-carpeta validado con éxito.');
 
 console.log('\n🎉 ¡TODAS LAS PRUEBAS DE CONVERSIÓN BIDIRECCIONAL PASARON CON ÉXITO!\n');

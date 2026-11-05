@@ -796,6 +796,28 @@
     blockDraftText = '';
   }
 
+  export function flushActiveBlock(): string {
+    if (activeBlockId !== null) {
+      const curBlock = liveBlocks.find(b => b.id === activeBlockId);
+      if (curBlock) {
+        const lines = content.split('\n');
+        const newLines = blockDraftText.split('\n');
+        lines.splice(curBlock.lineStart, curBlock.lineEnd - curBlock.lineStart, ...newLines);
+        content = lines.join('\n');
+        activeBlockId = null;
+        blockDraftText = '';
+      }
+    }
+    return content;
+  }
+
+  export function resetEditorState() {
+    activeBlockId = null;
+    blockDraftText = '';
+    showSlashMenu = false;
+    showToolbar = false;
+  }
+
   function appendNewBlock() {
     if (activeBlockId !== null) {
       const prevBlock = liveBlocks.find(b => b.id === activeBlockId);
@@ -1303,9 +1325,9 @@
                 class="w-full bg-transparent border-none outline-hidden resize-none p-0 focus:ring-0 {getBlockEditorClass(block.type)} overflow-hidden"
                 placeholder="Escribe en este bloque... (usa / para comandos LaTeX)"
               ></textarea>
-              <div class="flex items-center justify-between text-[10px] {activeTheme.mutedClass} pt-1.5 select-none font-mono opacity-75">
+              <div class="flex items-center justify-between flex-wrap gap-1 text-[10px] {activeTheme.mutedClass} pt-1.5 select-none font-mono opacity-75">
                 <span class="font-semibold text-indigo-500 dark:text-indigo-400">{getBlockTypeLabel(block.type)}</span>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                   {#if block.type === 'math'}
                     <button
                       type="button"
@@ -1395,15 +1417,16 @@
                   </blockquote>
                 {/if}
               {:else if block.type === 'math'}
-                <div class="my-3.5 py-1.5 relative flex items-center justify-center rounded-xs transition-colors {activeTheme.hoverMathClass}">
-                  <div class="text-center text-[12pt] overflow-x-auto max-w-[85%]">
+                <div class="my-3.5 py-1.5 relative flex items-center justify-between w-full rounded-xs transition-colors {activeTheme.hoverMathClass} px-2">
+                  <div class="w-12 shrink-0"></div>
+                  <div class="text-center text-[12pt] overflow-x-auto max-w-[calc(100%-96px)] px-2 py-0.5">
                     {@html renderKaTeXBlock(block.content)}
                   </div>
-                  {#if blockNumberMap.get(block.id)?.eqNumber}
-                    <span class="absolute right-1 text-[11.5pt] {activeTheme.textClass} select-none font-paper-serif">
+                  <div class="w-12 shrink-0 text-right select-none font-paper-serif text-[11.5pt] {activeTheme.textClass}">
+                    {#if blockNumberMap.get(block.id)?.eqNumber}
                       ({blockNumberMap.get(block.id)?.eqNumber})
-                    </span>
-                  {/if}
+                    {/if}
+                  </div>
                 </div>
               {:else if block.type === 'table' && block.tableData}
                 <!-- Tabla Científica Estilo booktabs (\toprule, \midrule, \bottomrule) -->
@@ -1438,7 +1461,7 @@
                 <figure class="my-5 flex flex-col items-center text-center">
                   <div class="px-6 py-4 rounded-xs border border-dashed {activeTheme.borderClass} max-w-md w-full flex flex-col items-center justify-center gap-2">
                     {#if block.figureData.url && (block.figureData.url.startsWith('http') || block.figureData.url.startsWith('data:') || block.figureData.url.startsWith('/'))}
-                      <img src={block.figureData.url} alt={block.figureData.caption} class="max-h-56 object-contain" />
+                      <img src={block.figureData.url} alt={block.figureData.caption} class="max-h-56 max-w-full object-contain" />
                     {:else}
                       <div class="text-xs font-paper-mono opacity-65 py-3">[\includegraphics&#123;{block.figureData.url}&#125;]</div>
                     {/if}
@@ -1463,7 +1486,7 @@
                 <div class="h-2.5 w-full cursor-text"></div>
               {:else}
                 <p 
-                  class="text-[11.5pt] leading-[1.58] text-justify {activeTheme.textClass}"
+                  class="text-[11.5pt] leading-[1.58] text-justify {activeTheme.textClass} break-words"
                   style="text-indent: {isFirstParagraph(block.id) ? '0' : '1.75em'}; margin-bottom: 0;"
                 >
                   {@html renderInlineMath(block.content)}
@@ -1504,7 +1527,7 @@
   {#if showFindBar}
     <div class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] w-[min(680px,95vw)]">
       <div class="flex flex-col gap-2 rounded-md border border-white/10 bg-[#161b22] shadow-2xl p-2 backdrop-blur-sm">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <input
             class="paper-find-input flex-1 px-2.5 py-1 rounded-xs bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
             placeholder="Buscar en el documento..."
@@ -1532,7 +1555,7 @@
           <button type="button" class="p-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center cursor-pointer" onclick={closeFindBar} title="Cerrar (Esc)"><X size={13} /></button>
         </div>
         {#if showReplace}
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <input
               class="flex-1 px-2.5 py-1 rounded-xs bg-[#0d1117] border border-white/10 text-slate-200 text-xs outline-none focus:border-indigo-400/60"
               placeholder="Reemplazar con..."
@@ -1646,15 +1669,16 @@
               </blockquote>
             {/if}
           {:else if b.type === 'math'}
-            <div class="my-3.5 relative flex items-center justify-center">
-              <div class="text-center text-[12pt] overflow-x-auto">
+            <div class="my-3.5 relative flex items-center justify-between w-full px-2">
+              <div class="w-12 shrink-0"></div>
+              <div class="text-center text-[12pt] overflow-x-auto max-w-[calc(100%-96px)] px-2 py-0.5">
                 {@html renderKaTeXBlock(b.content)}
               </div>
-              {#if blockNumberMap.get(b.id)?.eqNumber}
-                <span class="absolute right-0 text-[11pt] text-black select-none font-serif">
+              <div class="w-12 shrink-0 text-right select-none font-serif text-[11pt] text-black">
+                {#if blockNumberMap.get(b.id)?.eqNumber}
                   ({blockNumberMap.get(b.id)?.eqNumber})
-                </span>
-              {/if}
+                {/if}
+              </div>
             </div>
           {:else if b.type === 'table' && b.tableData}
             <div class="my-5 flex flex-col items-center">

@@ -6,12 +6,12 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 
 ## Stack Tecnológico Oficial (Alto Rendimiento)
 
-* **Desktop Shell & Backend Core:** **Tauri 2.0 (Rust)**
+* **Desktop Shell & Backend Core:** **Tauri 2.0 (Rust)** (`compiler.rs`, `fs_ops.rs`, `lib.rs`)
 * **Frontend UI:** **Svelte 5 + Vite + TypeScript + TailwindCSS**
-* **Editor de Código:** **CodeMirror 6** (con extensiones de virtualización y sintaxis LaTeX)
-* **Motor Matemático Reactivo:** **KaTeX** (renderizado síncrono < 5 ms)
-* **Motor CRDT:** **Yjs** (vía bindings nativos de Rust / WASM para Y-CRDT)
-* **Red P2P:** **WebRTC DataChannels / libp2p** con cifrado **Noise Protocol / ChaCha20-Poly1305**
+* **Editor de Código:** **CodeMirror 6** (con extensiones de virtualización, autocompletado y sintaxis LaTeX)
+* **Motor Matemático Reactivo:** **KaTeX** (renderizado síncrono < 10 ms)
+* **Exportación Multi-Formato:** **Compilador PDF Nativo/Autónomo + Generador OpenXML Word (`.docx` + OMML)**
+* **Motor CRDT & Red P2P:** **Yjs + WebRTC DataChannels / libp2p** con cifrado **Noise Protocol / ChaCha20-Poly1305**
 
 ---
 
@@ -80,9 +80,9 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 
 ---
 
-## Milestone 6: Sprint 5 — Navegación y Productividad Avanzada (v0.3.0)
+## Milestone 6: Sprint 5 — Estética LaTeX Canónica, Exportación Word (`.docx`) y Arquitectura Modular (v0.3.0)
 
-> **Meta del Sprint:** Maximizar la productividad en proyectos extensos con autocompletado en CodeMirror 6, scroll sincronizado bidireccional y búsqueda integrada.
+> **Meta del Sprint:** Maximizar la fidelidad tipográfica LaTeX (`article`), añadir exportación nativa a Microsoft Word (`.docx` con Office Math OMML), blindar la persistencia `.tex` y modularizar la arquitectura del repositorio.
 
 | Ticket | Título | Estado | Prioridad | Estimación |
 | :---: | :--- | :---: | :---: | :---: |
@@ -90,6 +90,11 @@ Este directorio gestiona la descomposición atómica de tareas para la fase de i
 | [TICKET-023](./TICKET-023-sincronizacion-scroll-sync.md) | Sincronización Proporcional de Scroll Bidireccional (Scroll Sync) | 🟢 Completado | Media-Alta (P2) | 5 SP |
 | [TICKET-024](./TICKET-024-busqueda-reemplazo-editor.md) | Panel de Búsqueda y Reemplazo Integrado en el Editor (`Ctrl+F` / `Ctrl+H`) | 🟢 Completado | Media (P2) | 3 SP |
 | [TICKET-027](./TICKET-027-integracion-fuente-oficial-computer-modern-cmu.md) | Integración de la Familia Tipográfica Oficial TeX (Computer Modern / CMU Serif) | 🟢 Completado | Alta (P1) | 3 SP |
+| [TICKET-028](./TICKET-028-plantilla-geometrica-maquetacion-latex-article.md) | Maquetación Canónica `\documentclass[12pt,a4paper]{article}`, Numeración y Entornos AMS | 🟢 Completado | Alta (P1) | 5 SP |
+| [TICKET-029](./TICKET-029-compilacion-nativa-vectorial-prioritaria-miktex-pdflatex.md) | Compilación Nativa Vectorial Prioritaria (`tectonic` / `pdflatex`) con Fallback Autónomo | 🟢 Completado | Alta (P1) | 5 SP |
+| **TICKET-030** | Exportador Nativo a Microsoft Word (`.docx` OpenXML) con Ecuaciones Editables Office Math (OMML) | 🟢 Completado | Alta (P1) | 8 SP |
+| **TICKET-031** | Persistencia Nativa Segura `.tex` (`fs_ops.rs`), Preservación de Preámbulos y Volcado de Bloque Activo | 🟢 Completado | Bloqueante (P1) | 5 SP |
+| **TICKET-032** | Refactorización de Arquitectura Organizacional por Dominios (`index.ts`, `fs_ops.rs`, `docs/ARCHITECTURE.md`) | 🟢 Completado | Media-Alta (P2) | 3 SP |
 
 ---
 
