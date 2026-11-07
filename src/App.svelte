@@ -6,7 +6,8 @@
     ErrorPanel,
     PreferencesModal,
     WorkspaceDrawer,
-    ExportModals
+    ExportModals,
+    LayratexLogo
   } from './lib/ui';
   import { LatexEditor } from './lib/editor';
   import { LatexPreview } from './lib/preview';
@@ -52,6 +53,7 @@
     Sun,
     Scroll,
     BookOpen,
+    Palette,
     Settings as SettingsIcon
   } from '@lucide/svelte';
 
@@ -59,6 +61,7 @@
   let selectedFont = $state<'serif' | 'sans'>('serif');
   let showPreferencesModal = $state(false);
   let showTemplatesMenu = $state(false);
+  let showAppearanceMenu = $state(false);
   let userPreferences = $state<UserPreferences>(preferencesService.getPreferences());
   let isLightTheme = $derived(preferencesService.resolveTheme(userPreferences.theme) === 'light');
   // Por defecto iniciamos con 'white' (Hoja Blanca LaTeX Clásica) para lucir idéntico a un artículo LaTeX real
@@ -1065,230 +1068,230 @@
   }
 </script>
 
-<div class="h-screen w-screen flex flex-col bg-[#0d1117] text-[#c9d1d9] select-none overflow-hidden font-sans">
+<div class="h-screen w-screen flex flex-col bg-[#090d16] text-[#c9d1d9] select-none overflow-hidden font-sans">
   
-  <!-- Barra Superior Editorial -->
-  <header class="h-12 bg-[#12141a] border-b border-white/10 px-4 flex items-center justify-between text-xs select-none z-30 transition-colors shrink-0">
-    <!-- Izquierda: Documentos, Abrir, Nuevo, Plantillas y Auto-Guardado -->
-    <div class="flex items-center gap-2.5 min-w-0">
+  <!-- Barra Superior Editorial Insana con Logo y Anti-Desbordamiento -->
+  <header class="h-12 bg-[#090d16]/95 backdrop-blur-md border-b border-white/10 px-3 sm:px-4 flex items-center justify-between text-xs select-none z-30 transition-colors shrink-0 overflow-x-auto no-scrollbar gap-2">
+    <!-- 1. Izquierda: Branding + Espacio de Trabajo + Guardar + Plantillas -->
+    <div class="flex items-center gap-2 min-w-0">
+      <!-- Logo Layratex con clic para abrir/cerrar panel de archivos -->
       <button 
-        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xs text-slate-200 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-xs font-semibold"
+        class="flex items-center gap-1.5 p-1 rounded-lg hover:bg-white/5 transition-all cursor-pointer group shrink-0"
         onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
-        title="Ver documentos recientes y archivos"
+        title="Layratex P2P • Clic para ver panel de archivos y proyectos"
       >
-        <span class="font-serif font-bold text-indigo-400 text-sm">LaTeX</span>
-        <span class="hidden sm:inline">Archivos</span>
+        <LayratexLogo size={24} showText={true} showBadge={false} />
       </button>
 
-      <span class="text-white/10">|</span>
+      <span class="text-white/10 hidden sm:inline shrink-0">|</span>
 
-      <button 
-        class="flex items-center gap-1 px-2 py-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs font-medium"
-        onclick={handleNewDocument}
-        title="Crear nuevo documento en blanco (Ctrl+N)"
+      <!-- Hub del Documento / Proyecto Activo (Píldora Inteligente) -->
+      <button
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all cursor-pointer min-w-0 max-w-[170px] sm:max-w-[210px] {activeTab === 'files' ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-slate-200'}"
+        onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
+        title="Clic para gestionar archivos y proyectos ({currentFileName})"
       >
-        <Plus size={13} />
-        <span class="hidden md:inline">Nuevo</span>
+        <span class="w-1.5 h-1.5 rounded-full {isDirty ? 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]' : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'} shrink-0"></span>
+        <span class="truncate font-mono font-medium text-[11px]">{projectWorkspace ? projectWorkspace.project_name : currentFileName}</span>
+        <FolderTree size={11} class="text-slate-400 shrink-0 ml-0.5" />
       </button>
 
+      <!-- Botón Rápido Guardar (Ctrl+S) -->
       <button 
-        class="flex items-center gap-1 px-2 py-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs font-medium"
-        onclick={handleOpen}
-        title="Abrir documento .tex (Ctrl+O)"
-      >
-        <FolderOpen size={13} />
-        <span class="hidden lg:inline">Abrir .tex</span>
-      </button>
-
-      <button 
-        class="flex items-center gap-1 px-2 py-1 rounded-xs bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-300 transition-colors cursor-pointer text-xs font-medium"
-        onclick={handleOpenProjectFolder}
-        title="Abrir carpeta de proyecto LaTeX con subcarpetas (secciones/, figuras/, .bib, build/)"
-      >
-        <FolderTree size={13} />
-        <span class="hidden lg:inline">Proyecto</span>
-      </button>
-
-      <button 
-        class="flex items-center gap-1 px-2 py-1 rounded-xs transition-colors cursor-pointer text-xs font-medium {isDirty ? 'bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300' : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white'}"
+        class="flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer text-xs font-medium shrink-0 {isDirty ? 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.25)]' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 hover:text-white'}"
         onclick={handleSave}
-        title="Guardar documento o proyecto .tex (Ctrl+S)"
+        title="Guardar cambios en disco (Ctrl+S)"
       >
-        <Save size={13} />
-        <span class="hidden lg:inline">Guardar</span>
+        <Save size={12} class="shrink-0" />
+        <span class="hidden md:inline">Guardar</span>
       </button>
 
       <!-- Menú Desplegable de Plantillas Académicas LaTeX -->
-      <div class="relative">
+      <div class="relative shrink-0">
         <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-xs bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 transition-colors cursor-pointer text-xs font-medium"
+          class="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 hover:text-white transition-all cursor-pointer text-xs"
           onclick={() => showTemplatesMenu = !showTemplatesMenu}
           title="Cargar plantilla académica de LaTeX"
         >
-          <BookOpen size={12} />
-          <span class="hidden md:inline">Plantillas</span>
-          <ChevronDown size={11} />
+          <BookOpen size={12} class="text-indigo-400 shrink-0" />
+          <span class="hidden lg:inline">Plantillas</span>
+          <ChevronDown size={10} class="text-slate-400" />
         </button>
 
         {#if showTemplatesMenu}
           <div class="fixed inset-0 z-40" onclick={() => showTemplatesMenu = false} role="presentation"></div>
-          <div class="absolute left-0 top-full mt-1.5 w-80 rounded-md bg-[#161b22] border border-[#30363d] shadow-2xl p-1.5 z-50 space-y-1">
-            <div class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div class="absolute left-0 top-full mt-1.5 w-80 rounded-xl bg-[#0e1320] border border-white/10 shadow-2xl p-2 z-50 space-y-1 backdrop-blur-xl">
+            <div class="px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
               Plantillas Canónicas LaTeX
             </div>
             {#each TEMPLATE_PRESETS as tpl}
               <button
                 type="button"
-                class="w-full text-left px-2.5 py-2 rounded-xs hover:bg-white/5 transition-colors cursor-pointer"
+                class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                 onclick={() => applyTemplate(tpl)}
               >
                 <div class="font-semibold text-white text-xs font-serif">{tpl.name}</div>
-                <div class="text-[10.5px] text-slate-400 leading-snug mt-0.5">{tpl.description}</div>
+                <div class="text-[10px] text-slate-400 leading-snug mt-0.5">{tpl.description}</div>
               </button>
             {/each}
           </div>
         {/if}
       </div>
-
-      <span class="text-white/10 hidden sm:inline">|</span>
-
-      <!-- Interruptor de Auto-Guardado -->
-      <button
-        class="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-xs text-xs transition-colors cursor-pointer {autoSaveEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-slate-400 hover:text-white border border-white/10'}"
-        onclick={toggleAutoSave}
-        title="Clic para {autoSaveEnabled ? 'desactivar' : 'activar'} el guardado automático"
-      >
-        <span class="w-1.5 h-1.5 rounded-full {autoSaveEnabled ? 'bg-emerald-400' : 'bg-slate-500'}"></span>
-        <span class="font-medium text-[11px] hidden lg:inline">Auto</span>
-        <span class="text-[10px] font-bold opacity-80">{autoSaveEnabled ? 'ON' : 'OFF'}</span>
-      </button>
-
-      {#if isAutoSaving}
-        <span class="text-[11px] text-indigo-400 hidden xl:flex items-center gap-1 font-mono">
-          <Loader2 size={11} class="animate-spin" />
-          <span>Guardando...</span>
-        </span>
-      {:else if isDirty}
-        <span class="text-[11px] text-amber-400 hidden xl:flex items-center gap-1 font-mono" title="Cambios sin guardar">
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-          <span>Sin guardar</span>
-        </span>
-      {:else}
-        <span class="text-[11px] text-slate-500 hidden xl:flex items-center gap-1 font-mono" title="Documento guardado">
-          <Check size={11} class="text-emerald-500" />
-          <span>Guardado</span>
-        </span>
-      {/if}
     </div>
 
-    <!-- Centro: Herramientas de Estética LaTeX (En modo Hoja) -->
-    {#if editorViewMode === 'visual'}
-      <div class="hidden xl:flex items-center gap-2 shrink-0">
+    <!-- 2. Centro: Selector de Modo (Hoja LaTeX vs Código .tex) + Herramientas de Edición -->
+    <div class="flex items-center gap-2 shrink-0">
+      <!-- Selector de Modo Segmentado Central -->
+      <div class="flex items-center p-0.5 bg-[#0e1320] rounded-lg border border-white/10 text-xs shadow-inner">
         <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-xs bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-medium transition-colors cursor-pointer text-xs"
-          onclick={() => paperEditorRef?.openMathEditor()}
-          title="Insertar ecuación matemática numerada (Ctrl+E)"
-        >
-          <Calculator size={12} />
-          <span>+ Ecuación fx</span>
-        </button>
-
-        <!-- Selector de Tono de Papel (Incluye Blanco LaTeX Original) -->
-        <div class="flex items-center p-0.5 rounded-xs border border-white/10 bg-white/5 text-xs">
-          <button 
-            type="button"
-            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center gap-1 {paperTone === 'white' ? 'bg-white text-slate-950 font-bold shadow-xs' : 'text-slate-300 opacity-70 hover:opacity-100'}"
-            onclick={() => paperTone = 'white'}
-            title="Papel Blanco LaTeX Original (Contraste editorial de imprenta)"
-          >
-            <FileText size={12} />
-            <span class="text-[10.5px] hidden xl:inline">Papel LaTeX</span>
-          </button>
-          <button 
-            type="button"
-            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center justify-center {paperTone === 'cream' ? 'bg-[#9c783e] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-            onclick={() => paperTone = 'cream'}
-            title="Tono Marfil Cálido (Papel de libro académico)"
-          >
-            <Sun size={13} />
-          </button>
-          <button 
-            type="button"
-            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center justify-center {paperTone === 'sepia' ? 'bg-[#7c5b35] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-            onclick={() => paperTone = 'sepia'}
-            title="Tono Sepia Clásico"
-          >
-            <Scroll size={13} />
-          </button>
-          <button 
-            type="button"
-            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center justify-center {paperTone === 'dark' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-            onclick={() => paperTone = 'dark'}
-            title="Tono Noche / Grafito (Descanso visual nocturno)"
-          >
-            <Moon size={13} />
-          </button>
-        </div>
-
-        <!-- Selector de Familia Tipográfica TeX -->
-        <button 
-          class="px-2.5 py-1 rounded-xs border border-white/10 hover:bg-white/5 text-slate-200 transition-colors cursor-pointer text-xs font-serif"
-          onclick={() => selectedFont = selectedFont === 'serif' ? 'sans' : 'serif'}
-          title="Tipografía TeX activa: {selectedFont === 'serif' ? 'Computer Modern Roman (Estándar LaTeX)' : 'CMU Sans Serif'}"
-        >
-          {selectedFont === 'serif' ? 'CMU Roman (TeX)' : 'CMU Sans'}
-        </button>
-      </div>
-    {/if}
-
-    <!-- Derecha: Selector de Modo (Hoja vs Código .tex), Exportar Word (.docx) y Exportar PDF -->
-    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-      {#if statusMessage}
-        <span class="text-[11px] text-indigo-300 font-mono hidden 2xl:inline max-w-[200px] truncate">{statusMessage}</span>
-      {/if}
-
-      <!-- Selector de Modo (Hoja Visual vs Código Fuente LaTeX) -->
-      <div class="flex items-center p-0.5 bg-white/5 rounded-xs border border-white/10 text-xs">
-        <button 
-          class="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+          class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
           onclick={() => switchViewMode('visual')}
-          title="Edición directa sobre hoja A4 con tipografía Computer Modern"
+          title="Edición directa sobre hoja A4 con estética LaTeX"
         >
           <FileText size={12} />
-          <span class="hidden sm:inline">Hoja LaTeX</span>
-          <span class="sm:hidden">Hoja</span>
+          <span>Hoja LaTeX</span>
         </button>
         <button 
-          class="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xs transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+          class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
           onclick={() => switchViewMode('code')}
           title="Editar código fuente .tex con vista previa en vivo"
         >
           <Code2 size={12} />
-          <span class="hidden sm:inline">Código .tex</span>
-          <span class="sm:hidden">Código</span>
+          <span>Código .tex</span>
         </button>
+      </div>
+
+      <!-- Herramientas de Modo Hoja (Insertar Ecuación & Estilo de Hoja) -->
+      {#if editorViewMode === 'visual'}
+        <button 
+          class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 font-medium transition-all cursor-pointer text-xs shadow-xs shrink-0"
+          onclick={() => paperEditorRef?.openMathEditor()}
+          title="Insertar ecuación matemática numerada (Ctrl+E)"
+        >
+          <Calculator size={12} />
+          <span class="hidden sm:inline">+ Ecuación</span>
+          <span class="sm:hidden">+ fx</span>
+        </button>
+
+        <!-- Popover de Estilo (Tono de Papel + Tipografía TeX) -->
+        <div class="relative shrink-0">
+          <button 
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer text-xs"
+            onclick={() => showAppearanceMenu = !showAppearanceMenu}
+            title="Personalizar tono de papel y tipografía TeX"
+          >
+            <Palette size={12} class="text-amber-400" />
+            <span class="hidden sm:inline">Estilo</span>
+            <ChevronDown size={10} class="text-slate-400" />
+          </button>
+
+          {#if showAppearanceMenu}
+            <div class="fixed inset-0 z-40" onclick={() => showAppearanceMenu = false} role="presentation"></div>
+            <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 w-64 rounded-xl bg-[#0e1320] border border-white/10 shadow-2xl p-3 z-50 space-y-3 backdrop-blur-xl">
+              <!-- Selector de Tono de Papel -->
+              <div class="space-y-1.5">
+                <div class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
+                  Tono del Papel
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'white' ? 'bg-white/10 border-indigo-500 text-white font-medium' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => paperTone = 'white'}
+                  >
+                    <span class="w-3.5 h-3.5 rounded-full bg-white border border-slate-300 shrink-0"></span>
+                    <span class="text-[11px]">Blanco LaTeX</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'cream' ? 'bg-white/10 border-amber-500 text-white font-medium' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => paperTone = 'cream'}
+                  >
+                    <span class="w-3.5 h-3.5 rounded-full bg-[#fbf0d9] border border-amber-200 shrink-0"></span>
+                    <span class="text-[11px]">Marfil Cálido</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'sepia' ? 'bg-white/10 border-amber-600 text-white font-medium' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => paperTone = 'sepia'}
+                  >
+                    <span class="w-3.5 h-3.5 rounded-full bg-[#f4ecd8] border border-stone-300 shrink-0"></span>
+                    <span class="text-[11px]">Sepia Clásico</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'dark' ? 'bg-white/10 border-indigo-500 text-white font-medium' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => paperTone = 'dark'}
+                  >
+                    <span class="w-3.5 h-3.5 rounded-full bg-[#1e2330] border border-slate-600 shrink-0"></span>
+                    <span class="text-[11px]">Modo Noche</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selector de Tipografía TeX -->
+              <div class="space-y-1.5 pt-1 border-t border-white/10">
+                <div class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
+                  Tipografía Oficial TeX
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-serif text-[11px] {selectedFont === 'serif' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 font-semibold' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => selectedFont = 'serif'}
+                  >
+                    CMU Roman
+                  </button>
+                  <button
+                    type="button"
+                    class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-sans text-[11px] {selectedFont === 'sans' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 font-semibold' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => selectedFont = 'sans'}
+                  >
+                    CMU Sans
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </div>
+
+    <!-- Derecha: Selector de Modo (Hoja vs Código .tex), Exportar Word (.docx) y Exportar PDF -->
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <!-- Indicador Minimalista de Auto-Guardado -->
+      <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
+        {#if isAutoSaving}
+          <Loader2 size={11} class="animate-spin text-indigo-400" />
+          <span class="text-indigo-400 text-[10px]">Guardando</span>
+        {:else if isDirty}
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]"></span>
+          <span class="text-amber-400 text-[10px]">Sin guardar</span>
+        {:else}
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span class="text-slate-500 text-[10px]">Guardado</span>
+        {/if}
       </div>
 
       <!-- Botón Exportar a Microsoft Word (.docx) -->
       <button 
-        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xs bg-[#185abd] hover:bg-[#1f6feb] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
+        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#185abd]/80 hover:bg-[#185abd] border border-blue-400/30 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-[0.98]"
         onclick={handleExportWord}
         disabled={isExportingWord}
-        title="Exportar a Microsoft Word (.docx) con ecuaciones nativas y formato LaTeX (Ctrl+Shift+W)"
+        title="Exportar a Microsoft Word (.docx) con formato LaTeX (Ctrl+Shift+W)"
       >
         {#if isExportingWord}
           <Loader2 size={12} class="animate-spin" />
           <span>Word...</span>
         {:else}
           <Download size={12} />
-          <span class="hidden md:inline">Exportar Word</span>
-          <span class="md:hidden">Word</span>
+          <span>Word</span>
         {/if}
       </button>
 
-      <!-- Botón Exportar PDF -->
+      <!-- Botón Primario Compilar / Exportar PDF -->
       <button 
-        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xs bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 border border-indigo-400/30 text-white text-xs font-semibold shadow-[0_0_12px_rgba(99,102,241,0.35)] hover:shadow-[0_0_16px_rgba(99,102,241,0.5)] transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-[0.98]"
         onclick={handleCompile}
         disabled={isCompiling}
         title="Compilar y exportar documento en PDF (Ctrl+Enter)"
@@ -1298,14 +1301,13 @@
           <span>PDF...</span>
         {:else}
           <Download size={12} />
-          <span class="hidden md:inline">Exportar PDF</span>
-          <span class="md:hidden">PDF</span>
+          <span>PDF</span>
         {/if}
       </button>
 
       <!-- Botón de Preferencias -->
       <button 
-        class="w-7 h-7 rounded-xs border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+        class="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
         onclick={() => showPreferencesModal = true}
         title="Preferencias de apariencia y compilación"
       >
@@ -1314,7 +1316,7 @@
 
       <!-- Botón de Ayuda y Atajos Rápidos -->
       <button 
-        class="w-7 h-7 rounded-xs border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold shrink-0"
+        class="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold shrink-0"
         onclick={() => showHelpModal = true}
         title="Atajos de teclado y ayuda rápida"
       >
@@ -1436,21 +1438,21 @@
       onToggleErrorPanel={() => showErrorPanel = !showErrorPanel}
     />
   {:else}
-    <footer class="h-6 bg-[#0f1219] border-t border-white/5 px-4 flex items-center justify-between text-[11px] text-slate-400 font-mono select-none shrink-0 overflow-hidden">
+    <footer class="h-6 bg-[#090d16] border-t border-white/10 px-4 flex items-center justify-between text-[11px] text-slate-400 font-mono select-none shrink-0 overflow-hidden">
       <div class="flex items-center gap-3 min-w-0 overflow-hidden">
         <div class="flex items-center gap-1.5 shrink-0">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span class="truncate max-w-[200px]">{currentFilePath ? currentFileName : 'Borrador Local (.tex)'}</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>
+          <span class="truncate max-w-[200px] text-slate-200">{currentFilePath ? currentFileName : 'Borrador Local (.tex)'}</span>
         </div>
-        <span class="opacity-30 shrink-0">•</span>
+        <span class="text-white/15 shrink-0">•</span>
         <span class="text-slate-400 truncate hidden md:inline">\documentclass[12pt,a4paper]&#123;article&#125;</span>
-        <span class="opacity-30 hidden lg:inline">•</span>
-        <span class="text-indigo-400 hidden lg:inline">{selectedFont === 'serif' ? 'Computer Modern Roman' : 'CMU Sans Serif'}</span>
+        <span class="text-white/15 hidden lg:inline">•</span>
+        <span class="text-indigo-400 hidden lg:inline font-medium">{selectedFont === 'serif' ? 'Computer Modern Roman' : 'CMU Sans Serif'}</span>
       </div>
       <div class="flex items-center gap-3 shrink-0 ml-2">
-        <span>{visualStats.words} palabras</span>
-        <span>•</span>
-        <span>{visualStats.pages} {visualStats.pages === 1 ? 'pág.' : 'págs.'}</span>
+        <span class="text-slate-300">{visualStats.words} palabras</span>
+        <span class="text-white/15">•</span>
+        <span class="text-slate-300">{visualStats.pages} {visualStats.pages === 1 ? 'pág.' : 'págs.'}</span>
       </div>
     </footer>
   {/if}

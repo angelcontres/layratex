@@ -1257,7 +1257,7 @@
 <!-- Mesa Editorial de Trabajo LaTeX -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
-  class="h-full w-full flex flex-col items-center {activeTheme.deskClass} overflow-y-auto select-text transition-colors duration-200 py-8 px-4 md:px-10 relative"
+  class="h-full w-full flex flex-col items-center {activeTheme.deskClass} overflow-y-auto overflow-x-auto select-text transition-colors duration-200 py-6 sm:py-8 px-2 sm:px-4 md:px-8 relative"
   onmouseup={checkSelection}
 >
 
@@ -1265,7 +1265,7 @@
   {#each pages as page, pageIndex (page.pageNumber)}
     <div 
       data-paper-page={pageIndex}
-      class="w-full max-w-[820px] min-h-[1158px] rounded-[1px] {activeTheme.sheetClass} px-12 sm:px-20 md:px-[92px] pt-[74px] pb-[64px] flex flex-col relative transition-all duration-200 mb-10"
+      class="w-full max-w-[820px] min-h-[1158px] rounded-[2px] {activeTheme.sheetClass} px-6 sm:px-12 md:px-16 lg:px-[92px] pt-[64px] sm:pt-[74px] pb-[56px] sm:pb-[64px] flex flex-col relative transition-all duration-200 mb-10 shadow-xl"
       style="hyphens: auto; -webkit-hyphens: auto;"
     >
       {#if showCropMarks}

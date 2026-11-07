@@ -12,7 +12,10 @@ rust-version = "1.90"
 
 [lib]
 name = "app_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# NOTA: Mantener solo "staticlib" y "rlib" para escritorio (Windows, Linux, macOS).
+# No agregar "cdylib" aquí: en Windows con MinGW/GCC intenta compilar un DLL con >65535
+# símbolos exportados y falla con "export ordinal too large: 96641" (límite PE de Windows).
+crate-type = ["staticlib", "rlib"]
 
 
 
