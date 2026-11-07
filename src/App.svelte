@@ -7,7 +7,8 @@
     PreferencesModal,
     WorkspaceDrawer,
     ExportModals,
-    LayratexLogo
+    LayratexLogo,
+    WindowControls
   } from './lib/ui';
   import { LatexEditor } from './lib/editor';
   import { LatexPreview } from './lib/preview';
@@ -261,9 +262,22 @@
       }
     }
 
+    function handleWindowClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (showTemplatesMenu && !target.closest('.templates-menu-container')) {
+        showTemplatesMenu = false;
+      }
+      if (showAppearanceMenu && !target.closest('.appearance-menu-container')) {
+        showAppearanceMenu = false;
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('click', handleWindowClick);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleWindowClick);
       if (pdfBlobUrl) {
         URL.revokeObjectURL(pdfBlobUrl);
       }
@@ -1071,11 +1085,15 @@
 <div class="h-screen w-screen flex flex-col bg-[#090d16] text-[#c9d1d9] select-none overflow-hidden font-sans">
   
   <!-- Barra Superior Editorial Insana con Logo y Anti-Desbordamiento -->
-  <header class="h-12 bg-[#090d16]/95 backdrop-blur-md border-b border-white/10 px-3 sm:px-4 flex items-center justify-between text-xs select-none z-30 transition-colors shrink-0 overflow-x-auto no-scrollbar gap-2">
+  <header 
+    data-tauri-drag-region
+    class="h-12 bg-[#090d16]/95 backdrop-blur-md border-b border-white/10 px-3 sm:px-4 flex items-center justify-between text-xs select-none z-30 transition-colors shrink-0 overflow-visible gap-2 relative"
+  >
     <!-- 1. Izquierda: Branding + Espacio de Trabajo + Guardar + Plantillas -->
-    <div class="flex items-center gap-2 min-w-0">
+    <div class="flex items-center gap-2 min-w-0" data-tauri-drag-region="false">
       <!-- Logo Layratex con clic para abrir/cerrar panel de archivos -->
       <button 
+        type="button"
         class="flex items-center gap-1.5 p-1 rounded-lg hover:bg-white/5 transition-all cursor-pointer group shrink-0"
         onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
         title="Layratex P2P • Clic para ver panel de archivos y proyectos"
@@ -1087,6 +1105,7 @@
 
       <!-- Hub del Documento / Proyecto Activo (Píldora Inteligente) -->
       <button
+        type="button"
         class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all cursor-pointer min-w-0 max-w-[170px] sm:max-w-[210px] {activeTab === 'files' ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-slate-200'}"
         onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
         title="Clic para gestionar archivos y proyectos ({currentFileName})"
@@ -1098,6 +1117,7 @@
 
       <!-- Botón Rápido Guardar (Ctrl+S) -->
       <button 
+        type="button"
         class="flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer text-xs font-medium shrink-0 {isDirty ? 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.25)]' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 hover:text-white'}"
         onclick={handleSave}
         title="Guardar cambios en disco (Ctrl+S)"
@@ -1107,10 +1127,15 @@
       </button>
 
       <!-- Menú Desplegable de Plantillas Académicas LaTeX -->
-      <div class="relative shrink-0">
+      <div class="relative shrink-0 templates-menu-container" data-tauri-drag-region="false">
         <button 
+          type="button"
           class="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 hover:text-white transition-all cursor-pointer text-xs"
-          onclick={() => showTemplatesMenu = !showTemplatesMenu}
+          onclick={(e) => {
+            e.stopPropagation();
+            showTemplatesMenu = !showTemplatesMenu;
+            showAppearanceMenu = false;
+          }}
           title="Cargar plantilla académica de LaTeX"
         >
           <BookOpen size={12} class="text-indigo-400 shrink-0" />
@@ -1119,18 +1144,20 @@
         </button>
 
         {#if showTemplatesMenu}
-          <div class="fixed inset-0 z-40" onclick={() => showTemplatesMenu = false} role="presentation"></div>
-          <div class="absolute left-0 top-full mt-1.5 w-80 rounded-xl bg-[#0e1320] border border-white/10 shadow-2xl p-2 z-50 space-y-1 backdrop-blur-xl">
-            <div class="px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
+          <div 
+            class="absolute left-0 top-full mt-2 w-80 rounded-xl bg-[#0e1320] border border-white/15 shadow-2xl p-2 z-50 space-y-1 backdrop-blur-xl"
+            data-tauri-drag-region="false"
+          >
+            <div class="px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wider text-indigo-400 border-b border-white/10 pb-1 mb-1">
               Plantillas Canónicas LaTeX
             </div>
             {#each TEMPLATE_PRESETS as tpl}
               <button
                 type="button"
-                class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer block group"
                 onclick={() => applyTemplate(tpl)}
               >
-                <div class="font-semibold text-white text-xs font-serif">{tpl.name}</div>
+                <div class="font-semibold text-white text-xs font-serif group-hover:text-indigo-300 transition-colors">{tpl.name}</div>
                 <div class="text-[10px] text-slate-400 leading-snug mt-0.5">{tpl.description}</div>
               </button>
             {/each}
@@ -1140,10 +1167,11 @@
     </div>
 
     <!-- 2. Centro: Selector de Modo (Hoja LaTeX vs Código .tex) + Herramientas de Edición -->
-    <div class="flex items-center gap-2 shrink-0">
+    <div class="flex items-center gap-2 shrink-0" data-tauri-drag-region="false">
       <!-- Selector de Modo Segmentado Central -->
       <div class="flex items-center p-0.5 bg-[#0e1320] rounded-lg border border-white/10 text-xs shadow-inner">
         <button 
+          type="button"
           class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
           onclick={() => switchViewMode('visual')}
           title="Edición directa sobre hoja A4 con estética LaTeX"
@@ -1152,6 +1180,7 @@
           <span>Hoja LaTeX</span>
         </button>
         <button 
+          type="button"
           class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
           onclick={() => switchViewMode('code')}
           title="Editar código fuente .tex con vista previa en vivo"
@@ -1164,6 +1193,7 @@
       <!-- Herramientas de Modo Hoja (Insertar Ecuación & Estilo de Hoja) -->
       {#if editorViewMode === 'visual'}
         <button 
+          type="button"
           class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 font-medium transition-all cursor-pointer text-xs shadow-xs shrink-0"
           onclick={() => paperEditorRef?.openMathEditor()}
           title="Insertar ecuación matemática numerada (Ctrl+E)"
@@ -1174,10 +1204,15 @@
         </button>
 
         <!-- Popover de Estilo (Tono de Papel + Tipografía TeX) -->
-        <div class="relative shrink-0">
+        <div class="relative shrink-0 appearance-menu-container" data-tauri-drag-region="false">
           <button 
+            type="button"
             class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer text-xs"
-            onclick={() => showAppearanceMenu = !showAppearanceMenu}
+            onclick={(e) => {
+              e.stopPropagation();
+              showAppearanceMenu = !showAppearanceMenu;
+              showTemplatesMenu = false;
+            }}
             title="Personalizar tono de papel y tipografía TeX"
           >
             <Palette size={12} class="text-amber-400" />
@@ -1186,17 +1221,19 @@
           </button>
 
           {#if showAppearanceMenu}
-            <div class="fixed inset-0 z-40" onclick={() => showAppearanceMenu = false} role="presentation"></div>
-            <div class="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 w-64 rounded-xl bg-[#0e1320] border border-white/10 shadow-2xl p-3 z-50 space-y-3 backdrop-blur-xl">
+            <div 
+              class="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 rounded-xl bg-[#0e1320] border border-white/15 shadow-2xl p-3 z-50 space-y-3 backdrop-blur-xl"
+              data-tauri-drag-region="false"
+            >
               <!-- Selector de Tono de Papel -->
               <div class="space-y-1.5">
-                <div class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
+                <div class="text-[9.5px] font-bold uppercase tracking-wider text-amber-400 border-b border-white/10 pb-1">
                   Tono del Papel
                 </div>
-                <div class="grid grid-cols-2 gap-1.5">
+                <div class="grid grid-cols-2 gap-1.5 pt-1">
                   <button
                     type="button"
-                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'white' ? 'bg-white/10 border-indigo-500 text-white font-medium' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'white' ? 'bg-white/15 border-indigo-500 text-white font-medium shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
                     onclick={() => paperTone = 'white'}
                   >
                     <span class="w-3.5 h-3.5 rounded-full bg-white border border-slate-300 shrink-0"></span>
@@ -1204,7 +1241,7 @@
                   </button>
                   <button
                     type="button"
-                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'cream' ? 'bg-white/10 border-amber-500 text-white font-medium' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'cream' ? 'bg-white/15 border-amber-500 text-white font-medium shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
                     onclick={() => paperTone = 'cream'}
                   >
                     <span class="w-3.5 h-3.5 rounded-full bg-[#fbf0d9] border border-amber-200 shrink-0"></span>
@@ -1212,7 +1249,7 @@
                   </button>
                   <button
                     type="button"
-                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'sepia' ? 'bg-white/10 border-amber-600 text-white font-medium' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'sepia' ? 'bg-white/15 border-amber-600 text-white font-medium shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
                     onclick={() => paperTone = 'sepia'}
                   >
                     <span class="w-3.5 h-3.5 rounded-full bg-[#f4ecd8] border border-stone-300 shrink-0"></span>
@@ -1220,7 +1257,7 @@
                   </button>
                   <button
                     type="button"
-                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'dark' ? 'bg-white/10 border-indigo-500 text-white font-medium' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'dark' ? 'bg-white/15 border-indigo-500 text-white font-medium shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
                     onclick={() => paperTone = 'dark'}
                   >
                     <span class="w-3.5 h-3.5 rounded-full bg-[#1e2330] border border-slate-600 shrink-0"></span>
@@ -1231,20 +1268,20 @@
 
               <!-- Selector de Tipografía TeX -->
               <div class="space-y-1.5 pt-1 border-t border-white/10">
-                <div class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400">
+                <div class="text-[9.5px] font-bold uppercase tracking-wider text-indigo-400">
                   Tipografía Oficial TeX
                 </div>
-                <div class="grid grid-cols-2 gap-1.5">
+                <div class="grid grid-cols-2 gap-1.5 pt-1">
                   <button
                     type="button"
-                    class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-serif text-[11px] {selectedFont === 'serif' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 font-semibold' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-serif text-[11px] {selectedFont === 'serif' ? 'bg-indigo-500/25 border-indigo-500 text-indigo-200 font-semibold shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
                     onclick={() => selectedFont = 'serif'}
                   >
                     CMU Roman
                   </button>
                   <button
                     type="button"
-                    class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-sans text-[11px] {selectedFont === 'sans' ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 font-semibold' : 'border-white/5 text-slate-300 hover:bg-white/5'}"
+                    class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-sans text-[11px] {selectedFont === 'sans' ? 'bg-indigo-500/25 border-indigo-500 text-indigo-200 font-semibold shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
                     onclick={() => selectedFont = 'sans'}
                   >
                     CMU Sans
@@ -1258,7 +1295,7 @@
     </div>
 
     <!-- Derecha: Selector de Modo (Hoja vs Código .tex), Exportar Word (.docx) y Exportar PDF -->
-    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0" data-tauri-drag-region="false">
       <!-- Indicador Minimalista de Auto-Guardado -->
       <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
         {#if isAutoSaving}
@@ -1322,6 +1359,9 @@
       >
         ?
       </button>
+
+      <!-- Botones de Control de Ventana Nativos / Frameless (Minimizar, Maximizar, Cerrar) -->
+      <WindowControls />
     </div>
   </header>
 

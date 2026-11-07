@@ -12,3 +12,4 @@ export { default as PreferencesModal } from './PreferencesModal.svelte';
 export { default as WorkspaceDrawer } from './WorkspaceDrawer.svelte';
 export { default as ExportModals, type CompiledExportArtifact } from './ExportModals.svelte';
 export { default as LayratexLogo } from './LayratexLogo.svelte';
+export { default as WindowControls } from './WindowControls.svelte';
