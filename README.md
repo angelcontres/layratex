@@ -26,6 +26,11 @@
 * **Apertura y Guardado Robusto de Archivos `.tex`:** Lectura/escritura nativa en Rust (`fs_ops.rs`) con preservación de preámbulos personalizados (`\usepackage{...}`), soporte de llaves anidadas en `\title{...}` y `\author{...}`, volcado automático del bloque activo antes de guardar (`flushActiveBlock`) y auto-guardado reactivo.
 * **Edición Híbrida Sincronizada (`Hoja LaTeX` ⇄ `Código .tex`):** Alterna instantáneamente entre el lienzo visual A4 y el editor **CodeMirror 6** con autocompletado inteligente, búsqueda y reemplazo (`Ctrl+F` / `Ctrl+H`), vista previa **KaTeX (< 10 ms)** y *Scroll Sync* proporcional.
 
+* **PaperCraft:** rediseño del espacio de trabajo y edición visual con exportación a PDF.
+* **Edición más ágil:** búsqueda y reemplazo, autocompletado, cierre automático de entornos y snippets.
+* **Vista previa sincronizada:** desplazamiento proporcional entre código y documento renderizado.
+* **Tipografía:** familia Computer Modern / CMU Serif.
+
 ---
 
 ## 🗂️ Arquitectura Organizacional del Proyecto

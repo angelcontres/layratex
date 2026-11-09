@@ -24,7 +24,6 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
   * Refactorización arquitectónica con barriles por dominio (`src/lib/{editor,preview,visual,services,ui}/index.ts`), extracción de `WorkspaceDrawer.svelte` y `ExportModals.svelte`, y separación de `src-tauri/src/fs_ops.rs`.
 
 ---
-
 ## [v0.2.0] - 2026-10-26
 
 ### ✨ Novedades
