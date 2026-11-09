@@ -53,7 +53,7 @@ jobs:
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          choco install wixtoolset --version=3.14.1 -y --no-progress
+          choco install wixtoolset -y --no-progress
           $wixBin = Join-Path ((Get-ChildItem 'C:\Program Files (x86)' -Directory -Filter 'WiX Toolset*' | Sort-Object Name -Descending | Select-Object -First 1).FullName) 'bin'
           if (-not (Test-Path $wixBin)) { throw "WiX bin directory not found." }
           "WIX=$wixBin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
