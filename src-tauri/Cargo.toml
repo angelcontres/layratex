@@ -12,10 +12,13 @@ rust-version = "1.90"
 
 [lib]
 name = "app_lib"
+# NOTA: Mantener solo "staticlib" y "rlib" para escritorio (Windows, Linux, macOS).
+# No agregar "cdylib" aquí: en Windows con MinGW/GCC intenta compilar un DLL con >65535
+# símbolos exportados y falla con "export ordinal too large: 96641" (límite PE de Windows).
 crate-type = ["staticlib", "rlib"]
 
-[target.'cfg(target_os = "android")'.lib]
-crate-type = ["cdylib"]
+
+
 
 [build-dependencies]
 tauri-build = { version = "2.7.3", features = [] }

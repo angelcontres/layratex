@@ -6,6 +6,24 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [v0.3.0] - 2026-11-04
+
+### ✨ Novedades
+
+* **Exportación Nativa a Microsoft Word (`.docx`) con Office Math (OMML):**
+  * Nuevo motor `wordExportService` que construye paquetes OpenXML (`.docx`) válidos sin dependencias externas.
+  * Traducción directa de expresiones matemáticas LaTeX (`$...$`, `$$...$$`, fracciones, raíces, sub/superíndices, sumatorias, integrales, matrices y símbolos griegos) a objetos `<m:oMath>` y `<m:oMathPara>` editables nativamente en Microsoft Word y LibreOffice Writer.
+  * Soporte para ecuaciones numeradas a la derecha `(1)`, tablas científicas estilo `booktabs` y entornos de teoremas/demostraciones.
+* **Estética Canónica LaTeX (`\documentclass[12pt,a4paper]{article}`):**
+  * Numeración jerárquica automática de secciones (`1`, `1.1`, `1.1.1`) y ecuaciones `(1)` tanto en el lienzo visual (`PaperEditor`) como en la vista previa reactiva (`LatexPreview`).
+  * Soporte completo de entornos académicos AMS (`theorem`, `definition`, `lemma`, `proposition`, `corollary`, `proof` con cuadrado Q.E.D. `∎`).
+  * Papel blanco editorial LaTeX predeterminado con tipografía `Computer Modern Roman`, sangría francesa (`1.5em`) y justificación tipográfica.
+* **Persistencia Robusta de Documentos `.tex` y Arquitectura Modular:**
+  * Comandos nativos en Rust (`read_tex_file` y `save_tex_file` en `src-tauri/src/fs_ops.rs`) que eliminan restricciones de scope al abrir o guardar archivos `.tex` en cualquier ruta del sistema o desde Archivos Recientes.
+  * Extractor de metadatos con soporte de llaves anidadas (`extractLatexMetadata`), filtrado de comentarios `%` no escapados y preservación de preámbulos personalizados al guardar desde el modo visual.
+  * Refactorización arquitectónica con barriles por dominio (`src/lib/{editor,preview,visual,services,ui}/index.ts`), extracción de `WorkspaceDrawer.svelte` y `ExportModals.svelte`, y separación de `src-tauri/src/fs_ops.rs`.
+
+---
 ## [v0.2.0] - 2026-10-26
 
 ### ✨ Novedades
@@ -56,5 +74,6 @@ Primera versión pública de **Layratex**, el editor de documentos técnicos y m
     * **Windows:** `.exe` (NSIS) y `.msi`.
     * **macOS:** `.dmg` binario universal (Apple Silicon ARM64 + Intel x86_64).
 
+[v0.3.0]: https://github.com/angelcontres/layratex/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/angelcontres/layratex/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/angelcontres/layratex/releases/tag/v0.1.0

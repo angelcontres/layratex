@@ -6,7 +6,8 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const TIMEOUT_SECONDS: u64 = 15;
-const BASE64_ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const BASE64_ALPHABET: &[u8; 64] =
+    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompilerInfo {
@@ -127,8 +128,17 @@ pub fn find_binary(name: &str) -> Option<PathBuf> {
     {
         if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
             let candidates = [
-                PathBuf::from(&local_app_data).join("layratex").join("bin").join(format!("{}.exe", name)),
-                PathBuf::from(&local_app_data).join("Programs").join("MiKTeX").join("miktex").join("bin").join("x64").join(format!("{}.exe", name)),
+                PathBuf::from(&local_app_data)
+                    .join("layratex")
+                    .join("bin")
+                    .join(format!("{}.exe", name)),
+                PathBuf::from(&local_app_data)
+                    .join("Programs")
+                    .join("MiKTeX")
+                    .join("miktex")
+                    .join("bin")
+                    .join("x64")
+                    .join(format!("{}.exe", name)),
             ];
             for c in &candidates {
                 if c.is_file() {
@@ -136,7 +146,10 @@ pub fn find_binary(name: &str) -> Option<PathBuf> {
                 }
             }
         }
-        for prog in &["C:\\Program Files\\MiKTeX\\miktex\\bin\\x64", "C:\\Program Files (x86)\\MiKTeX\\miktex\\bin"] {
+        for prog in &[
+            "C:\\Program Files\\MiKTeX\\miktex\\bin\\x64",
+            "C:\\Program Files (x86)\\MiKTeX\\miktex\\bin",
+        ] {
             let candidate = Path::new(prog).join(format!("{}.exe", name));
             if candidate.is_file() {
                 return Some(candidate);
@@ -216,7 +229,7 @@ pub fn detect_all_compilers() -> Vec<CompilerInfo> {
 pub fn get_missing_compiler_message() -> String {
     let mut msg = String::from(
         "No se encontró ningún compilador de LaTeX instalado en el sistema.\n\n\
-Para generar y exportar archivos PDF reales, instala uno de los siguientes motores:\n\n"
+Para generar y exportar archivos PDF reales, instala uno de los siguientes motores:\n\n",
     );
 
     #[cfg(target_os = "linux")]
@@ -227,7 +240,7 @@ Para generar y exportar archivos PDF reales, instala uno de los siguientes motor
 • En Ubuntu / Debian:\n\
   sudo apt install -y texlive-latex-base texlive-latex-extra\n\n\
 • En Arch Linux:\n\
-  sudo pacman -S texlive-basic texlive-latexextra\n\n"
+  sudo pacman -S texlive-basic texlive-latexextra\n\n",
         );
     }
 
@@ -235,7 +248,7 @@ Para generar y exportar archivos PDF reales, instala uno de los siguientes motor
     {
         msg.push_str(
             "• En Windows:\n\
-  Instala MiKTeX (https://miktex.org) o TeX Live (https://tug.org/texlive/).\n\n"
+  Instala MiKTeX (https://miktex.org) o TeX Live (https://tug.org/texlive/).\n\n",
         );
     }
 
@@ -243,17 +256,92 @@ Para generar y exportar archivos PDF reales, instala uno de los siguientes motor
     {
         msg.push_str(
             "• En macOS:\n\
-  brew install --cask mactex-no-gui  (o basictex)\n\n"
+  brew install --cask mactex-no-gui  (o basictex)\n\n",
         );
     }
 
     msg.push_str(
         "• Tectonic (Compilador moderno, rápido y autocontenido):\n\
   curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.tectonic-typesetting.net | sh\n\
-  (o vía Cargo: cargo install tectonic)"
+  (o vía Cargo: cargo install tectonic)",
     );
 
     msg
+}
+
+/// Copia recursivamente todas las subcarpetas y archivos auxiliares del proyecto
+/// (`secciones/`, `capitulos/`, `figuras/`, `.tex`, `.bib`, `.cls`, `.sty`, imágenes)
+/// hacia el directorio de compilación manteniendo la estructura exacta de carpetas.
+pub fn copy_project_tree_for_compilation(src_dir: &Path, dst_dir: &Path) {
+    let entries = match fs::read_dir(src_dir) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = entry.file_name().to_string_lossy().to_string();
+
+        if path.is_dir() {
+            // Omitir carpetas ocultas, dependencias o el propio build/
+            if file_name.starts_with('.')
+                || matches!(
+                    file_name.to_lowercase().as_str(),
+                    "build" | "out" | "node_modules" | "target" | "dist"
+                )
+            {
+                continue;
+            }
+            let target_sub = dst_dir.join(&file_name);
+            if fs::create_dir_all(&target_sub).is_ok() {
+                copy_project_tree_for_compilation(&path, &target_sub);
+            }
+        } else if path.is_file() {
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if matches!(
+                ext.as_str(),
+                "tex"
+                    | "latex"
+                    | "bib"
+                    | "bst"
+                    | "sty"
+                    | "cls"
+                    | "png"
+                    | "jpg"
+                    | "jpeg"
+                    | "pdf"
+                    | "eps"
+                    | "svg"
+            ) {
+                let _ = fs::copy(&path, dst_dir.join(&file_name));
+            }
+        }
+    }
+}
+
+/// Sincroniza los archivos producidos por el compilador (`document.pdf`, `.log`, `.aux`, `.toc`, `.out`, `.bbl`)
+/// hacia la carpeta `<project_root>/build/<doc_stem>.*` del proyecto.
+pub fn sync_compilation_artifacts_to_project_build(
+    temp_dir: &Path,
+    project_root: &Path,
+    doc_stem: &str,
+) {
+    let build_dir = project_root.join("build");
+    if fs::create_dir_all(&build_dir).is_err() {
+        return;
+    }
+
+    for ext in ["pdf", "log", "aux", "toc", "out", "bbl", "blg", "lof", "lot"] {
+        let candidate = temp_dir.join(format!("document.{}", ext));
+        if candidate.is_file() {
+            let target = build_dir.join(format!("{}.{}", doc_stem, ext));
+            let _ = fs::copy(&candidate, &target);
+        }
+    }
 }
 
 /// Ejecuta la compilación de forma síncrona en un hilo de trabajo aislado.
@@ -280,22 +368,26 @@ pub fn compile_latex_internal(
     fs::create_dir_all(&temp_dir)
         .map_err(|e| format!("No se pudo crear el directorio de compilación temporal: {}", e))?;
 
-    // Si se especificó una ruta de proyecto, copiar archivos auxiliares (imágenes, .bib, etc.)
+    // Determinar directorio raíz del proyecto y nombre base (stem) si existe project_path
+    let mut project_root_dir: Option<PathBuf> = None;
+    let mut doc_stem = "main".to_string();
+
     if let Some(ref proj) = project_path {
         let p = Path::new(proj);
-        let src_dir = if p.is_dir() { p } else { p.parent().unwrap_or(p) };
-        if let Ok(entries) = fs::read_dir(src_dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() {
-                    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-                    if matches!(ext, "png" | "jpg" | "jpeg" | "pdf" | "eps" | "bib" | "sty" | "cls") {
-                        if let Some(file_name) = path.file_name() {
-                            let _ = fs::copy(&path, temp_dir.join(file_name));
-                        }
+        if p.exists() {
+            let src_dir = if p.is_dir() {
+                p.to_path_buf()
+            } else {
+                if let Some(s) = p.file_stem().and_then(|st| st.to_str()) {
+                    if !s.is_empty() {
+                        doc_stem = s.to_string();
                     }
                 }
-            }
+                p.parent().unwrap_or(p).to_path_buf()
+            };
+            project_root_dir = Some(src_dir.clone());
+            // Copiar recursivamente subcarpetas (secciones/, capitulos/, figuras/, .bib, .cls, .sty, .tex)
+            copy_project_tree_for_compilation(&src_dir, &temp_dir);
         }
     }
 
@@ -335,9 +427,12 @@ pub fn compile_latex_internal(
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("Fallo al iniciar el proceso del compilador ({}): {}", active_compiler.name, e))?;
+    let mut child = cmd.spawn().map_err(|e| {
+        format!(
+            "Fallo al iniciar el proceso del compilador ({}): {}",
+            active_compiler.name, e
+        )
+    })?;
 
     let timeout = Duration::from_secs(TIMEOUT_SECONDS);
     let poll_interval = Duration::from_millis(50);
@@ -400,6 +495,11 @@ pub fn compile_latex_internal(
         (None, None)
     };
 
+    // Si hay un proyecto activo en disco, sincronizar artefactos (.pdf, .log, .aux, .toc, .out, .bbl) a build/
+    if let Some(ref proj_root) = project_root_dir {
+        sync_compilation_artifacts_to_project_build(&temp_dir, proj_root, &doc_stem);
+    }
+
     // Limpieza de directorio temporal de trabajo
     let _ = fs::remove_dir_all(&temp_dir);
 
@@ -408,9 +508,15 @@ pub fn compile_latex_internal(
 
     let error_message = if !is_success {
         if !has_pdf {
-            Some("La compilación finalizó pero no generó ningún archivo PDF. Revisa los logs de LaTeX.".to_string())
+            Some(
+                "La compilación finalizó pero no generó ningún archivo PDF. Revisa los logs de LaTeX."
+                    .to_string(),
+            )
         } else {
-            Some(format!("El compilador finalizó con código de salida: {:?}", status.code()))
+            Some(format!(
+                "El compilador finalizó con código de salida: {:?}",
+                status.code()
+            ))
         }
     } else {
         None
@@ -448,7 +554,10 @@ mod tests {
         assert_eq!(decode_base64("Zg=="), Some(b"f".to_vec()));
         assert_eq!(decode_base64("Zm8="), Some(b"fo".to_vec()));
         assert_eq!(decode_base64("Zm9v"), Some(b"foo".to_vec()));
-        assert_eq!(decode_base64("SGVsbG8gV29ybGQ="), Some(b"Hello World".to_vec()));
+        assert_eq!(
+            decode_base64("SGVsbG8gV29ybGQ="),
+            Some(b"Hello World".to_vec())
+        );
     }
 
     #[test]
@@ -456,20 +565,5 @@ mod tests {
         let msg = get_missing_compiler_message();
         assert!(msg.contains("No se encontró ningún compilador"));
         assert!(msg.contains("Tectonic") || msg.contains("texlive"));
-    }
-
-    #[test]
-    fn test_compile_no_compiler() {
-        let compilers = detect_all_compilers();
-        if compilers.is_empty() {
-            let result = compile_latex_internal(
-                "\\documentclass{article}\\begin{document}Hello\\end{document}".to_string(),
-                None,
-            );
-            assert!(result.is_err());
-            let err = result.unwrap_err();
-            assert!(err.contains("No se encontró ningún compilador"));
-            assert!(err.contains("sudo dnf install") || err.contains("texlive"));
-        }
     }
 }

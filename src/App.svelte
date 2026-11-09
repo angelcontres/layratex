@@ -1,124 +1,124 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Sidebar from './lib/ui/Sidebar.svelte';
-  import StatusBar from './lib/ui/StatusBar.svelte';
-  import LatexEditor from './lib/editor/LatexEditor.svelte';
-  import LatexPreview from './lib/preview/LatexPreview.svelte';
-  import ErrorPanel from './lib/ui/ErrorPanel.svelte';
-  import PaperEditor from './lib/visual/PaperEditor.svelte';
-  import KeyboardHelpModal from './lib/visual/KeyboardHelpModal.svelte';
-  import PreferencesModal from './lib/ui/PreferencesModal.svelte';
-  import { preferencesService, type UserPreferences } from './lib/services/preferencesService';
-  import { WELCOME_TITLE, WELCOME_CONTENT } from './lib/visual/welcomeDocument';
-  import { visualToLatex, latexToVisual } from './lib/visual/latexConverter';
-  import { fileService, type FileItem } from './lib/services/fileService';
-  import { compilerService } from './lib/services/compilerService';
-  import { pdfExportService } from './lib/services/pdfExportService';
-  import { parseLatexLog, type LogIssue } from './lib/services/latexLogParser';
-  import { ScrollSyncCoordinator } from './lib/services/scrollSyncService';
+  import {
+    Sidebar,
+    StatusBar,
+    ErrorPanel,
+    PreferencesModal,
+    WorkspaceDrawer,
+    ExportModals,
+    LayratexLogo,
+    WindowControls
+  } from './lib/ui';
+  import { LatexEditor } from './lib/editor';
+  import { LatexPreview } from './lib/preview';
+  import {
+    PaperEditor,
+    KeyboardHelpModal,
+    WELCOME_TITLE,
+    WELCOME_CONTENT,
+    TEMPLATE_PRESETS,
+    type DocumentTemplate,
+    visualToLatex,
+    latexToVisual,
+    extractLatexMetadata,
+    resolveLatexInputsInMemory
+  } from './lib/visual';
+  import {
+    preferencesService,
+    type UserPreferences,
+    fileService,
+    type FileItem,
+    type LatexProjectWorkspace,
+    type ProjectFileEntry,
+    compilerService,
+    pdfExportService,
+    wordExportService,
+    parseLatexLog,
+    type LogIssue,
+    ScrollSyncCoordinator
+  } from './lib/services';
   import { 
-    FileCode, 
-    QrCode, 
-    HardDrive, 
     Download, 
-    Play, 
     Plus, 
     FolderOpen, 
-    Save, 
-    Clock, 
-    Trash2, 
-    Laptop,
+    FolderTree,
+    Save,
     Check,
-    AlertCircle,
     Loader2,
-    ExternalLink,
-    X,
-    FileCheck,
-    Terminal,
-    Copy,
-    Eye,
     ChevronDown,
     FileText,
     Code2,
-    Sparkles,
-    Edit3,
     Calculator,
-    Printer,
     Moon,
     Sun,
     Scroll,
+    BookOpen,
+    Palette,
     Settings as SettingsIcon
   } from '@lucide/svelte';
 
-  // Modo de visualización: 'visual' (Notion-like PaperCraft) por defecto para usuarios cotidianos
   let editorViewMode = $state<'visual' | 'code'>('visual');
   let selectedFont = $state<'serif' | 'sans'>('serif');
-  let sheetViewMode = $state<'edit' | 'split' | 'print'>('edit');
   let showPreferencesModal = $state(false);
+  let showTemplatesMenu = $state(false);
+  let showAppearanceMenu = $state(false);
   let userPreferences = $state<UserPreferences>(preferencesService.getPreferences());
   let isLightTheme = $derived(preferencesService.resolveTheme(userPreferences.theme) === 'light');
-  let paperTone = $state<'dark' | 'cream' | 'sepia' | 'white'>('dark');
-  let paperEditorRef = $state<{ openMathEditor: (tex?: string) => void; getPrintPages?: () => HTMLElement[]; openFind?: () => void; openReplacePanel?: () => void } | null>(null);
+  // Por defecto iniciamos con 'white' (Hoja Blanca LaTeX Clásica) para lucir idéntico a un artículo LaTeX real
+  let paperTone = $state<'dark' | 'cream' | 'sepia' | 'white'>('white');
+  let paperEditorRef = $state<{
+    openMathEditor: (tex?: string) => void;
+    getPrintPages?: () => HTMLElement[];
+    openFind?: () => void;
+    openReplacePanel?: () => void;
+    flushActiveBlock?: () => string;
+    resetEditorState?: () => void;
+  } | null>(null);
   let documentTitle = $state<string>(WELCOME_TITLE);
-  let documentAuthor = $state<string>('Usuario');
+  let documentAuthor = $state<string>('Equipo Editorial Layratex');
   let visualContent = $state<string>(WELCOME_CONTENT);
   let visualStats = $state({ words: 0, pages: 1 });
   let showHelpModal = $state(false);
 
-  // Auto-Guardado (Opción B: con interruptor activable)
+  // Auto-Guardado
   let autoSaveEnabled = $state<boolean>(true);
   let isAutoSaving = $state<boolean>(false);
   let lastSavedTime = $state<Date | null>(null);
   let autoSaveTimer: any = null;
 
   let activeTab = $state<'files' | 'p2p' | 'settings' | ''>('');
-  let splitRatio = $state(50); // Porcentaje de ancho del editor
+  let splitRatio = $state(50);
   let isDragging = $state(false);
 
-  // Estado del Documento
+  // Estado del Documento y Proyecto Multi-Carpeta (main.tex + secciones/ + build/)
   let currentFilePath = $state<string | null>(null);
-  let currentFileName = $state<string>('documento.tex');
-  const initialTemplate = `\\documentclass{article}
-\\title{Layratex: Documentación Técnica de Software}
-\\author{Equipo de Ingeniería}
-\\date{\\today}
-
-\\begin{document}
-\\maketitle
-
-\\section{Introducción}
-\\textbf{Layratex} es un editor técnico multiplataforma basado en el paradigma \\textit{Local-First} y redes \\textit{Peer-to-Peer (P2P)}.
-
-\\subsection{Rendimiento Extremo}
-El sistema está diseñado para consumir la menor cantidad de memoria RAM y CPU en cualquier máquina:
-\\begin{itemize}
-  \\item \\textbf{Cero Latencia:} Renderizado incremental de fórmulas matemáticas con KaTeX en menos de 10 milisegundos.
-  \\item \\textbf{Convergencia CRDT:} Edición concurrente sin colisiones ni servidores centrales.
-  \\item \\textbf{Soberanía de Datos:} Archivos almacenados en texto plano local (.tex).
-\\end{itemize}
-
-\\section{Modelado Matemático}
-A continuación se ilustra una ecuación en bloque con integrales y derivadas:
-
-\\[
-\\mathcal{L}_{p2p} = \\oint_C \\vec{E} \\cdot d\\vec{\\ell} + \\frac{\\partial}{\\partial t} \\iint_S \\vec{B} \\cdot d\\vec{S}
-\\]
-
-Ecuación de equivalencia relativista en línea: $E = \\gamma m_0 c^2$, donde el factor de Lorentz es $\\gamma = \\frac{1}{\\sqrt{1 - v^2/c^2}}$.
-
-\\section{Conclusión}
-La arquitectura descentralizada asegura que puedas redactar sin conexión a Internet y sincronizar directamente con tus demás computadoras al reconectarte.
-
-\\end{document}`;
+  let currentFileName = $state<string>('articulo.tex');
+  let projectWorkspace = $state<LatexProjectWorkspace | null>(null);
+  let activeProjectRelPath = $state<string | null>(null);
 
   const initialLatex = visualToLatex(WELCOME_CONTENT, {
     title: WELCOME_TITLE,
-    author: 'Equipo Layratex',
+    author: 'Equipo Editorial Layratex',
     fontStyle: 'serif'
   });
   let documentContent = $state(initialLatex);
   let savedContent = $state(initialLatex);
-  let isDirty = $derived(documentContent !== savedContent);
+  let savedVisualContent = $state<string>(WELCOME_CONTENT);
+  let savedTitle = $state<string>(WELCOME_TITLE);
+  let savedAuthor = $state<string>('Equipo Editorial Layratex');
+  let isDirty = $derived(
+    editorViewMode === 'visual'
+      ? (visualContent !== savedVisualContent || documentTitle !== savedTitle || documentAuthor !== savedAuthor)
+      : (documentContent !== savedContent)
+  );
+
+  // Contenido LaTeX resuelto con todos los \input{...} e \include{...} para Vista Previa y Exportación
+  let previewLatexContent = $derived(
+    projectWorkspace
+      ? resolveLatexInputsInMemory(documentContent, projectWorkspace.tex_files_map)
+      : documentContent
+  );
 
   let stats = $state({ lines: 0, words: 0 });
   let renderTimeMs = $state(0);
@@ -126,8 +126,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   let statusMessageType = $state<'success' | 'error' | 'info'>('info');
   let recentFiles = $state<FileItem[]>([]);
 
-  // Estado de Compilación & Exportación de PDF (Sprint 2: TICKET-012)
+  // Estado de Compilación & Exportación (PDF y Word .docx)
   let isCompiling = $state(false);
+  let isExportingWord = $state(false);
   let compilationTimeMs = $state<number | null>(null);
   let compilationEngine = $state<string | null>(null);
   let compilationError = $state(false);
@@ -140,9 +141,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     base64: string | null;
     engine: string;
     durationMs: number;
+    format?: 'pdf' | 'docx';
   } | null>(null);
 
-  // Diagnóstico y Panel de Errores de Compilación (Sprint 2: TICKET-013)
   let editorRef = $state<{
     goToLine: (line: number) => void;
     getScrollElement?: () => HTMLElement | null;
@@ -150,7 +151,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     openSearch?: () => void;
     openReplace?: () => void;
   } | null>(null);
-  // Sincronización Proporcional de Scroll Bidireccional (TICKET-023)
+
   let previewRef = $state<{
     getScrollElement?: () => HTMLElement | null;
     setScrollTop?: (top: number) => void;
@@ -179,6 +180,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       editorRef?.setScrollTop?.(targetTop);
     });
   }
+
   let compilationIssues = $state<LogIssue[]>([]);
   let showErrorPanel = $state(false);
   let errorCount = $derived(compilationIssues.filter(i => i.type === 'error').length);
@@ -190,16 +192,32 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   let errorModalTitle = $state('');
   let errorModalMessage = $state('');
   let errorModalDetails = $state('');
-  let copiedError = $state(false);
 
   onMount(() => {
     recentFiles = fileService.getRecentFiles();
 
-    // Cargar preferencia de auto-guardado
     const savedAutoPref = localStorage.getItem('layratex_autosave_enabled');
     if (savedAutoPref !== null) {
       autoSaveEnabled = savedAutoPref === 'true';
     }
+
+    // Recuperación automática de borrador en segundo plano (Two-Tier Draft Recovery)
+    try {
+      const draftContent = localStorage.getItem('layratex_draft_content');
+      const draftTitle = localStorage.getItem('layratex_draft_title');
+      const draftAuthor = localStorage.getItem('layratex_draft_author');
+      if (draftContent && draftContent.trim().length > 0 && !currentFilePath && !projectWorkspace) {
+        if (draftTitle) documentTitle = draftTitle;
+        if (draftAuthor) documentAuthor = draftAuthor;
+        visualContent = draftContent;
+        documentContent = visualToLatex(draftContent, {
+          title: documentTitle,
+          author: documentAuthor,
+          fontStyle: selectedFont
+        });
+        syncSavedSnapshot();
+      }
+    } catch {}
 
     function handleKeyDown(e: KeyboardEvent) {
       const isMod = e.ctrlKey || e.metaKey;
@@ -216,6 +234,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       } else if (isMod && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         handleNewDocument();
+      } else if (isMod && e.shiftKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        handleExportWord();
       } else if ((isMod && e.key.toLowerCase() === 'f')) {
         e.preventDefault();
         if (editorViewMode === 'code') {
@@ -241,9 +262,22 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       }
     }
 
+    function handleWindowClick(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (showTemplatesMenu && !target.closest('.templates-menu-container')) {
+        showTemplatesMenu = false;
+      }
+      if (showAppearanceMenu && !target.closest('.appearance-menu-container')) {
+        showAppearanceMenu = false;
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('click', handleWindowClick);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('click', handleWindowClick);
       if (pdfBlobUrl) {
         URL.revokeObjectURL(pdfBlobUrl);
       }
@@ -282,7 +316,211 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     window.removeEventListener('mouseup', stopResize);
   }
 
-  // --- Operaciones de Archivo y Auto-Guardado (Opción B) ---
+  // --- Operaciones de Archivo, Proyectos Multi-Carpeta, Plantillas y Auto-Guardado ---
+
+  function syncSavedSnapshot() {
+    savedContent = documentContent;
+    savedVisualContent = visualContent;
+    savedTitle = documentTitle;
+    savedAuthor = documentAuthor;
+  }
+
+  function applyLoadedLatexContent(content: string, fallbackName?: string) {
+    paperEditorRef?.resetEditorState?.();
+    const resolved = projectWorkspace
+      ? resolveLatexInputsInMemory(content, projectWorkspace.tex_files_map)
+      : content;
+    documentContent = content;
+    visualContent = latexToVisual(resolved);
+
+    const meta = extractLatexMetadata(resolved);
+    if (meta.title) {
+      documentTitle = meta.title;
+    } else if (fallbackName) {
+      documentTitle = fallbackName.replace(/\.tex$/i, '');
+    }
+    if (meta.author) {
+      documentAuthor = meta.author;
+    }
+
+    syncSavedSnapshot();
+  }
+
+  function applyLoadedProjectWorkspace(ws: LatexProjectWorkspace) {
+    paperEditorRef?.resetEditorState?.();
+    projectWorkspace = ws;
+    activeProjectRelPath = null; // Por defecto en modo Ensamblado Completo para los 3 modos
+    currentFilePath = ws.main_tex_path;
+    currentFileName = `${ws.project_name} (${ws.main_tex_name})`;
+
+    documentContent = ws.raw_main_content;
+    visualContent = latexToVisual(ws.resolved_main_content);
+
+    const meta = extractLatexMetadata(ws.resolved_main_content);
+    if (meta.title) {
+      documentTitle = meta.title;
+    } else {
+      documentTitle = ws.project_name;
+    }
+    if (meta.author) {
+      documentAuthor = meta.author;
+    }
+
+    syncSavedSnapshot();
+    recentFiles = fileService.getRecentFiles();
+    activeTab = 'files';
+  }
+
+  async function handleOpenProjectFolder() {
+    if (editorViewMode === 'visual') {
+      paperEditorRef?.flushActiveBlock?.();
+    }
+    if (isDirty) {
+      const confirmDiscard = window.confirm('Tienes cambios sin guardar. ¿Deseas abrir una carpeta de proyecto y descartar los cambios actuales?');
+      if (!confirmDiscard) return;
+    }
+
+    try {
+      const ws = await fileService.openProjectFolder();
+      if (!ws) return;
+      applyLoadedProjectWorkspace(ws);
+      showNotification(`Proyecto cargado: ${ws.project_name} (${ws.files.length} archivos + build/)`, 'success');
+    } catch (err: any) {
+      showNotification(`Error al abrir carpeta de proyecto: ${err?.message || err}`, 'error');
+    }
+  }
+
+  async function handleModularizeProject() {
+    try {
+      if (editorViewMode === 'visual') {
+        const latestVisual = paperEditorRef?.flushActiveBlock?.() ?? visualContent;
+        visualContent = latestVisual;
+        documentContent = visualToLatex(latestVisual, {
+          title: documentTitle,
+          author: documentAuthor,
+          fontStyle: selectedFont
+        }, documentContent);
+      }
+
+      const fullCodeToSplit = projectWorkspace
+        ? resolveLatexInputsInMemory(documentContent, projectWorkspace.tex_files_map)
+        : documentContent;
+
+      const ws = await fileService.createModularProjectStructure(
+        fullCodeToSplit,
+        projectWorkspace?.root_dir || null
+      );
+      if (!ws) return;
+
+      applyLoadedProjectWorkspace(ws);
+      showNotification(
+        `Proyecto estructurado en carpetas: main.tex + ${ws.files.filter(f => f.relative_path.startsWith('secciones/')).length} secciones + build/`,
+        'success'
+      );
+    } catch (err: any) {
+      showNotification(`Error al estructurar proyecto en carpetas: ${err?.message || err}`, 'error');
+    }
+  }
+
+  async function handleSelectProjectFile(entry: ProjectFileEntry | null) {
+    if (!projectWorkspace) return;
+
+    if (editorViewMode === 'visual') {
+      paperEditorRef?.flushActiveBlock?.();
+    }
+
+    // Si selecciona "Documento Ensamblado Completo" (entry === null)
+    if (entry === null) {
+      activeProjectRelPath = null;
+      currentFilePath = projectWorkspace.main_tex_path;
+      currentFileName = `${projectWorkspace.project_name} (${projectWorkspace.main_tex_name})`;
+      const resolved = resolveLatexInputsInMemory(
+        projectWorkspace.raw_main_content,
+        projectWorkspace.tex_files_map
+      );
+      documentContent = projectWorkspace.raw_main_content;
+      visualContent = latexToVisual(resolved);
+      syncSavedSnapshot();
+      showNotification('Vista de Documento Ensamblado Completo activada', 'info');
+      return;
+    }
+
+    // Si es un PDF o DOCX dentro de build/, abrirlo en el visor del sistema
+    const lowerName = entry.name.toLowerCase();
+    if (lowerName.endsWith('.pdf') || lowerName.endsWith('.docx')) {
+      try {
+        await compilerService.openPath(entry.full_path);
+        showNotification(`Abriendo ${entry.relative_path} en el visor del sistema...`, 'info');
+      } catch (err: any) {
+        showNotification(`No se pudo abrir ${entry.name}: ${err?.message || err}`, 'error');
+      }
+      return;
+    }
+
+    // Cargar el subarchivo (.tex, .bib, .cls, .log, .toc, .aux)
+    let fileText = projectWorkspace.tex_files_map[entry.relative_path];
+    if (typeof fileText !== 'string' && fileService.isNative()) {
+      try {
+        fileText = await fileService.readNativeFile(entry.full_path);
+        projectWorkspace.tex_files_map[entry.relative_path] = fileText;
+      } catch (err: any) {
+        showNotification(`No se pudo leer ${entry.relative_path}: ${err?.message || err}`, 'error');
+        return;
+      }
+    }
+
+    if (typeof fileText === 'string') {
+      activeProjectRelPath = entry.relative_path;
+      currentFilePath = entry.full_path;
+      currentFileName = entry.relative_path;
+      documentContent = fileText;
+
+      if (entry.category === 'tex') {
+        const resolved = entry.is_main
+          ? resolveLatexInputsInMemory(fileText, projectWorkspace.tex_files_map)
+          : fileText;
+        visualContent = latexToVisual(resolved);
+      } else {
+        // Para archivos .bib, .cls, .log, .aux, .toc mostrar en modo código
+        editorViewMode = 'code';
+      }
+      syncSavedSnapshot();
+      showNotification(`Editando: ${entry.relative_path}`, 'info');
+    }
+  }
+
+  async function handleCleanBuildDir() {
+    if (!projectWorkspace) return;
+    try {
+      const count = await fileService.cleanProjectBuildDir(projectWorkspace.root_dir);
+      const refreshed = await fileService.refreshProjectWorkspace(projectWorkspace.root_dir);
+      if (refreshed) {
+        projectWorkspace = refreshed;
+      }
+      showNotification(`Carpeta build/ limpiada (${count} archivos eliminados)`, 'info');
+    } catch (err: any) {
+      showNotification(`Error al limpiar build/: ${err?.message || err}`, 'error');
+    }
+  }
+
+  function applyTemplate(tpl: DocumentTemplate) {
+    showTemplatesMenu = false;
+    paperEditorRef?.resetEditorState?.();
+    projectWorkspace = null;
+    activeProjectRelPath = null;
+    documentTitle = tpl.defaultTitle;
+    if (tpl.defaultAuthor) {
+      documentAuthor = tpl.defaultAuthor;
+    }
+    visualContent = tpl.initialContent;
+    documentContent = visualToLatex(tpl.initialContent, {
+      title: tpl.defaultTitle,
+      author: documentAuthor,
+      fontStyle: selectedFont
+    });
+    syncSavedSnapshot();
+    showNotification(`Plantilla cargada: ${tpl.name}`, 'success');
+  }
 
   function toggleAutoSave() {
     autoSaveEnabled = !autoSaveEnabled;
@@ -299,25 +537,40 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
     try {
       if (editorViewMode === 'visual') {
-        documentContent = visualToLatex(visualContent, {
+        const latestVisual = paperEditorRef?.flushActiveBlock?.() ?? visualContent;
+        visualContent = latestVisual;
+        documentContent = visualToLatex(latestVisual, {
           title: documentTitle,
           author: documentAuthor,
           fontStyle: selectedFont
-        });
+        }, documentContent);
       }
 
-      // 1. Guardar copia de seguridad en memoria local
+      if (projectWorkspace && activeProjectRelPath) {
+        projectWorkspace.tex_files_map[activeProjectRelPath] = documentContent;
+      }
+
       try {
         localStorage.setItem('layratex_draft_title', documentTitle);
+        localStorage.setItem('layratex_draft_author', documentAuthor);
         localStorage.setItem('layratex_draft_content', visualContent);
       } catch {}
 
-      // 2. Si el archivo ya tiene ruta en disco, escribir silenciosamente
-      if (currentFilePath) {
-        await fileService.saveTexFile(currentFilePath, documentContent);
+      if (currentFilePath && fileService.isNative()) {
+        if (projectWorkspace && activeProjectRelPath === null && editorViewMode === 'visual') {
+          const updatedWs = await fileService.saveExistingProjectChanges(
+            projectWorkspace,
+            documentContent
+          );
+          if (updatedWs) {
+            projectWorkspace = updatedWs;
+          }
+        } else {
+          await fileService.saveTexFile(currentFilePath, documentContent);
+        }
       }
 
-      savedContent = documentContent;
+      syncSavedSnapshot();
       lastSavedTime = new Date();
     } catch (err) {
       console.warn('Auto-save falló silenciosamente:', err);
@@ -326,12 +579,15 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     }
   }
 
-  // Reactividad: debounced auto-save tras 1.5s de inactividad
   $effect(() => {
-    // Declarar dependencias reactivas
     const _c = visualContent;
     const _t = documentTitle;
+    const _a = documentAuthor;
     const _d = documentContent;
+
+    if (projectWorkspace && activeProjectRelPath) {
+      projectWorkspace.tex_files_map[activeProjectRelPath] = _d;
+    }
 
     if (autoSaveEnabled && isDirty && !isAutoSaving) {
       if (autoSaveTimer) clearTimeout(autoSaveTimer);
@@ -349,22 +605,42 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     if (newMode === editorViewMode) return;
 
     if (newMode === 'code') {
-      // Sincronizar de visual a LaTeX preservando preámbulos y configuraciones
-      documentContent = visualToLatex(visualContent, {
-        title: documentTitle,
-        author: documentAuthor,
-        fontStyle: selectedFont
-      }, documentContent);
-    } else {
-      // Sincronizar de LaTeX a visual
-      visualContent = latexToVisual(documentContent);
-      const titleMatch = documentContent.match(/\\title\{([^}]+)\}/);
-      if (titleMatch) {
-        documentTitle = titleMatch[1];
+      const latestVisual = paperEditorRef?.flushActiveBlock?.() ?? visualContent;
+      visualContent = latestVisual;
+      if (projectWorkspace && activeProjectRelPath && activeProjectRelPath !== 'main.tex') {
+        // Si estamos editando un subarchivo individual (ej. secciones/01-intro.tex), guardar solo su cuerpo
+        const fullTex = visualToLatex(latestVisual, {
+          title: documentTitle,
+          author: documentAuthor,
+          fontStyle: selectedFont
+        });
+        const bIdx = fullTex.indexOf('\\begin{document}');
+        const eIdx = fullTex.lastIndexOf('\\end{document}');
+        const bodyOnly =
+          bIdx !== -1 && eIdx !== -1
+            ? fullTex.slice(bIdx + '\\begin{document}'.length, eIdx).replace('\\maketitle', '').trim()
+            : fullTex;
+        documentContent = bodyOnly + '\n';
+        projectWorkspace.tex_files_map[activeProjectRelPath] = documentContent;
+      } else {
+        documentContent = visualToLatex(latestVisual, {
+          title: documentTitle,
+          author: documentAuthor,
+          fontStyle: selectedFont
+        }, documentContent);
       }
-      const authorMatch = documentContent.match(/\\author\{([^}]+)\}/);
-      if (authorMatch) {
-        documentAuthor = authorMatch[1];
+    } else {
+      paperEditorRef?.resetEditorState?.();
+      const sourceForVisual = projectWorkspace
+        ? resolveLatexInputsInMemory(documentContent, projectWorkspace.tex_files_map)
+        : documentContent;
+      visualContent = latexToVisual(sourceForVisual);
+      const meta = extractLatexMetadata(sourceForVisual);
+      if (meta.title) {
+        documentTitle = meta.title;
+      }
+      if (meta.author) {
+        documentAuthor = meta.author;
       }
     }
 
@@ -372,6 +648,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   }
 
   async function handleOpen() {
+    if (editorViewMode === 'visual') {
+      paperEditorRef?.flushActiveBlock?.();
+    }
     if (isDirty) {
       const confirmDiscard = window.confirm('Tienes cambios sin guardar en este documento. ¿Deseas descartarlos y abrir otro archivo?');
       if (!confirmDiscard) return;
@@ -381,13 +660,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       const res = await fileService.openTexFile();
       if (!res || res.content === null) return;
 
-      documentContent = res.content;
-      savedContent = res.content;
-      visualContent = latexToVisual(res.content);
-      const titleMatch = res.content.match(/\\title\{([^}]+)\}/);
-      if (titleMatch) {
-        documentTitle = titleMatch[1];
-      }
+      projectWorkspace = null;
+      activeProjectRelPath = null;
+      applyLoadedLatexContent(res.content, res.name);
       currentFilePath = res.path;
       currentFileName = res.name;
       recentFiles = fileService.getRecentFiles();
@@ -399,21 +674,51 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
   async function handleSave() {
     if (editorViewMode === 'visual') {
-      documentContent = visualToLatex(visualContent, {
+      const latestVisual = paperEditorRef?.flushActiveBlock?.() ?? visualContent;
+      visualContent = latestVisual;
+      documentContent = visualToLatex(latestVisual, {
         title: documentTitle,
         author: documentAuthor,
         fontStyle: selectedFont
-      });
+      }, documentContent);
     }
 
     try {
-      const res = await fileService.saveTexFile(currentFilePath, documentContent);
+      if (projectWorkspace && activeProjectRelPath === null && editorViewMode === 'visual') {
+        // Guardado quirúrgico: sincroniza main.tex y cada subarchivo \input{...} en su carpeta original
+        const ws = await fileService.saveExistingProjectChanges(
+          projectWorkspace,
+          documentContent
+        );
+        if (ws) {
+          projectWorkspace = ws;
+          syncSavedSnapshot();
+          lastSavedTime = new Date();
+          recentFiles = fileService.getRecentFiles();
+          try {
+            localStorage.removeItem('layratex_draft_content');
+          } catch {}
+          showNotification(`Proyecto guardado quirúrgicamente (${ws.main_tex_name} + subarchivos + build/)`, 'success');
+          return;
+        }
+      }
+
+      const res = await fileService.saveTexFile(currentFilePath, documentContent, currentFileName);
       if (!res) return;
 
       currentFilePath = res.path;
       currentFileName = res.name;
-      savedContent = documentContent;
+      if (projectWorkspace && activeProjectRelPath) {
+        projectWorkspace.tex_files_map[activeProjectRelPath] = documentContent;
+        const refreshed = await fileService.refreshProjectWorkspace(projectWorkspace.root_dir);
+        if (refreshed) projectWorkspace = refreshed;
+      }
+      syncSavedSnapshot();
+      lastSavedTime = new Date();
       recentFiles = fileService.getRecentFiles();
+      try {
+        localStorage.removeItem('layratex_draft_content');
+      } catch {}
       showNotification(`Guardado: ${res.name}`, 'success');
     } catch (err: any) {
       showNotification(`Error al guardar: ${err?.message || err}`, 'error');
@@ -422,11 +727,13 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
   async function handleSaveAs() {
     if (editorViewMode === 'visual') {
-      documentContent = visualToLatex(visualContent, {
+      const latestVisual = paperEditorRef?.flushActiveBlock?.() ?? visualContent;
+      visualContent = latestVisual;
+      documentContent = visualToLatex(latestVisual, {
         title: documentTitle,
         author: documentAuthor,
         fontStyle: selectedFont
-      });
+      }, documentContent);
     }
 
     try {
@@ -435,7 +742,8 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
 
       currentFilePath = res.path;
       currentFileName = res.name;
-      savedContent = documentContent;
+      syncSavedSnapshot();
+      lastSavedTime = new Date();
       recentFiles = fileService.getRecentFiles();
       showNotification(`Guardado como: ${res.name}`, 'success');
     } catch (err: any) {
@@ -444,21 +752,27 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   }
 
   function handleNewDocument() {
+    if (editorViewMode === 'visual') {
+      paperEditorRef?.flushActiveBlock?.();
+    }
     if (isDirty) {
       const confirmDiscard = window.confirm('Tienes cambios sin guardar. ¿Deseas crear un nuevo documento y descartar los cambios?');
       if (!confirmDiscard) return;
     }
 
-    documentTitle = 'Documento Sin Título';
+    paperEditorRef?.resetEditorState?.();
+    projectWorkspace = null;
+    activeProjectRelPath = null;
+    documentTitle = 'Título del Artículo Científico';
     visualContent = '';
     documentContent = visualToLatex('', {
       title: documentTitle,
       author: documentAuthor,
       fontStyle: selectedFont
     });
-    savedContent = documentContent;
+    syncSavedSnapshot();
     currentFilePath = null;
-    currentFileName = 'documento.tex';
+    currentFileName = 'articulo.tex';
     lastCompiledPdf = null;
     lastExportedPath = null;
     compilationIssues = [];
@@ -469,30 +783,38 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       pdfBlobUrl = null;
     }
     previewMode = 'katex';
-    showNotification('Nuevo documento listo para redactar', 'info');
+    showNotification('Nuevo documento LaTeX listo para redactar', 'info');
   }
 
-  async function handleOpenRecent(path: string) {
+  async function handleOpenRecent(path: string, isProject?: boolean) {
+    if (editorViewMode === 'visual') {
+      paperEditorRef?.flushActiveBlock?.();
+    }
     if (isDirty) {
-      const confirmDiscard = window.confirm('Tienes cambios sin guardar. ¿Deseas descartarlos y abrir este archivo?');
+      const confirmDiscard = window.confirm('Tienes cambios sin guardar. ¿Deseas descartarlos y abrir este elemento?');
       if (!confirmDiscard) return;
     }
 
     try {
-      const content = await fileService.readFileFromPath(path);
-      documentContent = content;
-      savedContent = content;
-      visualContent = latexToVisual(content);
-      const titleMatch = content.match(/\\title\{([^}]+)\}/);
-      if (titleMatch) {
-        documentTitle = titleMatch[1];
+      if (isProject) {
+        const ws = await fileService.refreshProjectWorkspace(path);
+        if (ws) {
+          applyLoadedProjectWorkspace(ws);
+          showNotification(`Proyecto abierto: ${ws.project_name}`, 'success');
+          return;
+        }
       }
+      const content = await fileService.readFileFromPath(path);
+      const name = fileService.getFileName(path);
+      projectWorkspace = null;
+      activeProjectRelPath = null;
+      applyLoadedLatexContent(content, name);
       currentFilePath = path;
-      currentFileName = fileService.getFileName(path);
+      currentFileName = name;
       recentFiles = fileService.getRecentFiles();
       showNotification(`Abierto: ${currentFileName}`, 'success');
     } catch (err: any) {
-      showNotification(`No se pudo abrir el archivo reciente: ${err?.message || err}`, 'error');
+      showNotification(`No se pudo abrir el elemento reciente: ${err?.message || err}`, 'error');
     }
   }
 
@@ -502,26 +824,89 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     showNotification('Historial de recientes limpiado', 'info');
   }
 
+  // --- Exportación a Microsoft Word (.docx) con Estética LaTeX y Ecuaciones OMML ---
+
+  async function handleExportWord() {
+    if (isExportingWord) return;
+    isExportingWord = true;
+    showNotification('Generando documento Word (.docx) con estética LaTeX...', 'info');
+
+    try {
+      if (editorViewMode === 'code') {
+        const resolved = projectWorkspace
+          ? resolveLatexInputsInMemory(documentContent, projectWorkspace.tex_files_map)
+          : documentContent;
+        visualContent = latexToVisual(resolved);
+        const meta = extractLatexMetadata(resolved);
+        if (meta.title) documentTitle = meta.title;
+        if (meta.author) documentAuthor = meta.author;
+      } else {
+        const latestVisual = paperEditorRef?.flushActiveBlock?.() ?? visualContent;
+        visualContent = latestVisual;
+      }
+
+      const rawBaseName = (documentTitle || currentFileName.replace(/\.tex$/i, '') || 'documento');
+      const suggestedName = rawBaseName.replace(/[/\\?%*:|"<>]/g, '_') + '.docx';
+
+      const result = await wordExportService.exportToDocx(visualContent, suggestedName, {
+        title: documentTitle,
+        author: documentAuthor,
+        fontStyle: selectedFont,
+        isRawLatex: false
+      });
+
+      if (projectWorkspace?.root_dir) {
+        const refreshed = await fileService.refreshProjectWorkspace(projectWorkspace.root_dir);
+        if (refreshed) projectWorkspace = refreshed;
+      }
+
+      isExportingWord = false;
+      lastCompiledPdf = {
+        path: result.savedPath || result.tempPath || '',
+        name: suggestedName,
+        base64: result.docxBase64,
+        engine: 'Motor OpenXML LaTeX → Word (.docx)',
+        durationMs: result.durationMs,
+        format: 'docx'
+      };
+
+      if (result.savedPath) {
+        lastExportedPath = result.savedPath;
+        showNotification(`Word (.docx) exportado con éxito (${result.durationMs} ms)`, 'success');
+      } else {
+        showNotification(`Documento Word (.docx) generado (${result.durationMs} ms)`, 'success');
+      }
+      showPdfSuccessModal = true;
+    } catch (err: any) {
+      isExportingWord = false;
+      showNotification(`Error al exportar a Word: ${err?.message || err}`, 'error');
+    }
+  }
+
   // --- Motor Autónomo y Pipeline de Compilación/Exportación PDF ---
 
   async function handleAutonomousPdfExport() {
     if (isCompiling) return;
     isCompiling = true;
     compilationError = false;
-    showNotification('Generando PDF...', 'info');
+    showNotification('Generando PDF LaTeX...', 'info');
 
     try {
-      // 1. Si estamos en modo código, sincronizar con el modelo visual para que la hoja maquetada esté al día
       if (editorViewMode === 'code') {
-        visualContent = latexToVisual(documentContent);
-        // Breve espera para que el DOM reactivo calcule las páginas maquetadas
+        const resolved = projectWorkspace
+          ? resolveLatexInputsInMemory(documentContent, projectWorkspace.tex_files_map)
+          : documentContent;
+        visualContent = latexToVisual(resolved);
+        const meta = extractLatexMetadata(resolved);
+        if (meta.title) documentTitle = meta.title;
+        if (meta.author) documentAuthor = meta.author;
         await new Promise(resolve => setTimeout(resolve, 80));
       } else {
-        // Breve espera para asegurar que el DOM reactivo esté actualizado
+        const latestVisual = paperEditorRef?.flushActiveBlock?.() ?? visualContent;
+        visualContent = latestVisual;
         await new Promise(resolve => setTimeout(resolve, 50));
       }
 
-      // 2. Obtener los elementos de página renderizados en el DOM
       let pages = paperEditorRef?.getPrintPages?.() || [];
       if (!pages || pages.length === 0) {
         pages = Array.from(document.querySelectorAll<HTMLElement>('#layratex-pdf-render-target [data-paper-page]'));
@@ -538,8 +923,13 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       const suggestedName = rawBaseName.replace(/[/\\?%*:|"<>]/g, '_') + '.pdf';
       const result = await pdfExportService.exportFromDOM(pages, suggestedName);
 
+      if (projectWorkspace?.root_dir) {
+        const refreshed = await fileService.refreshProjectWorkspace(projectWorkspace.root_dir);
+        if (refreshed) projectWorkspace = refreshed;
+      }
+
       isCompiling = false;
-      compilationEngine = 'Motor Autónomo Layratex';
+      compilationEngine = 'Motor Tipográfico Autónomo Layratex';
       compilationTimeMs = result.durationMs;
 
       if (pdfBlobUrl) {
@@ -551,8 +941,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         path: result.savedPath || result.tempPath || '',
         name: suggestedName,
         base64: result.pdfBase64,
-        engine: 'Motor Autónomo Layratex',
-        durationMs: result.durationMs
+        engine: 'Motor Tipográfico Autónomo Layratex',
+        durationMs: result.durationMs,
+        format: 'pdf'
       };
 
       if (result.savedPath) {
@@ -560,7 +951,6 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         showNotification(`PDF exportado con éxito (${result.durationMs} ms)`, 'success');
         showPdfSuccessModal = true;
       } else {
-        // Guardado completado o visualización lista
         showPdfSuccessModal = true;
         showNotification(`PDF generado con éxito (${result.durationMs} ms)`, 'success');
       }
@@ -576,36 +966,43 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   async function handleCompile() {
     if (isCompiling) return;
 
-    // Sincronizar contenido visual a LaTeX si estamos en modo visual
     if (editorViewMode === 'visual') {
-      documentContent = visualToLatex(visualContent, {
+      const latestVisual = paperEditorRef?.flushActiveBlock?.() ?? visualContent;
+      visualContent = latestVisual;
+      documentContent = visualToLatex(latestVisual, {
         title: documentTitle,
         author: documentAuthor,
         fontStyle: selectedFont
       }, documentContent);
     }
 
-    // Iniciar compilación
     isCompiling = true;
     compilationError = false;
-    showNotification('Generando PDF...', 'info');
+    showNotification('Compilando documento LaTeX a PDF...', 'info');
 
     try {
       const compilers = await compilerService.getCompilers();
       if (compilers.length === 0) {
-        // Cero dependencias: exportar de forma transparente con el motor autónomo de Layratex
         isCompiling = false;
         await handleAutonomousPdfExport();
         return;
       }
 
-      const output = await compilerService.compileLatex(documentContent, currentFilePath);
+      const targetProjectPath = projectWorkspace?.root_dir || currentFilePath;
+      const sourceToCompile = projectWorkspace
+        ? resolveLatexInputsInMemory(documentContent, projectWorkspace.tex_files_map)
+        : documentContent;
+      const output = await compilerService.compileLatex(sourceToCompile, targetProjectPath);
       isCompiling = false;
+
+      if (projectWorkspace?.root_dir) {
+        const refreshed = await fileService.refreshProjectWorkspace(projectWorkspace.root_dir);
+        if (refreshed) projectWorkspace = refreshed;
+      }
 
       compilationTimeMs = output.duration_ms;
       compilationEngine = output.engine;
 
-      // Parsear logs de compilación (TICKET-013: HU-24, RF-40)
       const combinedLog = [output.log || '', output.stderr || '', output.stdout || ''].filter(Boolean).join('\n');
       let parsedIssues = parseLatexLog(combinedLog);
 
@@ -614,7 +1011,6 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         compilationIssues = parsedIssues;
         showErrorPanel = parsedIssues.some(i => i.type === 'error');
 
-        // Generar Blob URL local si disponemos del base64 para previsualización inmediata
         if (output.pdf_base64) {
           if (pdfBlobUrl) {
             URL.revokeObjectURL(pdfBlobUrl);
@@ -629,29 +1025,24 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           name: suggestedName,
           base64: output.pdf_base64,
           engine: output.engine,
-          durationMs: output.duration_ms
+          durationMs: output.duration_ms,
+          format: 'pdf'
         };
 
         showNotification(`Compilado con éxito con ${output.engine} (${output.duration_ms} ms)`, 'success');
-
-        // Abrir diálogo de exportación nativo para guardar el PDF
         await handleExportPdf(true);
       } else {
-        // Si el compilador externo no pudo completar el PDF (por sintaxis, paquetes ausentes o falta de red),
-        // Layratex activa inmediatamente su Motor Autónomo para que el usuario SIEMPRE obtenga su PDF.
         console.warn('Compilador nativo finalizó con advertencias, activando Motor Autónomo de Layratex...');
         await handleAutonomousPdfExport();
       }
     } catch (err: any) {
       isCompiling = false;
-      // Ante cualquier excepción o ausencia de motor nativo, exportar de inmediato con el motor autónomo
       await handleAutonomousPdfExport();
     }
   }
 
   async function handleExportPdf(afterCompilation = false) {
-    if (!lastCompiledPdf) {
-      // Si aún no se ha compilado, compilar primero automáticamente
+    if (!lastCompiledPdf || lastCompiledPdf.format === 'docx') {
       await handleCompile();
       return;
     }
@@ -668,7 +1059,6 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         showNotification(`PDF exportado correctamente a: ${fileService.getFileName(savedPath)}`, 'success');
         showPdfSuccessModal = true;
       } else if (afterCompilation) {
-        // Si el usuario canceló el diálogo de guardado, mostramos el modal para ofrecer abrir en visor o previsualizar
         showPdfSuccessModal = true;
       }
     } catch (err: any) {
@@ -679,330 +1069,332 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
   async function handleOpenInSystemViewer() {
     const targetPath = lastExportedPath || lastCompiledPdf?.path;
     if (!targetPath) {
-      showNotification('No hay archivo PDF disponible para abrir.', 'error');
+      showNotification('No hay archivo disponible para abrir.', 'error');
       return;
     }
 
     try {
       await compilerService.openPath(targetPath);
-      showNotification('Abriendo PDF en el visor predeterminado del sistema...', 'info');
+      showNotification('Abriendo archivo en la aplicación predeterminada del sistema...', 'info');
     } catch (err: any) {
       showNotification(`No se pudo abrir el visor: ${err?.message || err}`, 'error');
     }
   }
-
-  function copyErrorDetails() {
-    if (errorModalDetails) {
-      navigator.clipboard.writeText(errorModalDetails);
-      copiedError = true;
-      setTimeout(() => copiedError = false, 2500);
-    }
-  }
 </script>
 
-<div class="h-screen w-screen flex flex-col bg-[#0d1117] text-[#c9d1d9] select-none overflow-hidden font-sans">
+<div class="h-screen w-screen flex flex-col bg-[#090d16] text-[#c9d1d9] select-none overflow-hidden font-sans">
   
-  <!-- Barra Superior Minimalista Unificada (Single Slim Bar) -->
-  <header class="h-12 bg-[#12141a] border-b border-white/10 px-4 flex items-center justify-between text-xs select-none z-30 transition-colors shrink-0">
-    <!-- Izquierda: Documentos & Plantilla -->
-    <div class="flex items-center gap-3 min-w-0">
+  <!-- Barra Superior Editorial Insana con Logo y Anti-Desbordamiento -->
+  <header 
+    data-tauri-drag-region
+    class="h-12 bg-[#090d16]/95 backdrop-blur-md border-b border-white/10 px-3 sm:px-4 flex items-center justify-between text-xs select-none z-30 transition-colors shrink-0 overflow-visible gap-2 relative"
+  >
+    <!-- 1. Izquierda: Branding + Espacio de Trabajo + Guardar + Plantillas -->
+    <div class="flex items-center gap-2 min-w-0" data-tauri-drag-region="false">
+      <!-- Logo Layratex con clic para abrir/cerrar panel de archivos -->
       <button 
-        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xs text-slate-300 hover:text-white hover:bg-white/5 transition-colors cursor-pointer text-xs font-semibold"
+        type="button"
+        class="flex items-center gap-1.5 p-1 rounded-lg hover:bg-white/5 transition-all cursor-pointer group shrink-0"
         onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
-        title="Ver documentos recientes y archivos"
+        title="Layratex P2P • Clic para ver panel de archivos y proyectos"
       >
-        <span class="font-bold text-indigo-400">λ</span>
-        <span>Documentos</span>
+        <LayratexLogo size={24} showText={true} showBadge={false} />
       </button>
 
-      <span class="text-white/10">|</span>
+      <span class="text-white/10 hidden sm:inline shrink-0">|</span>
 
-      <!-- Botón + Nuevo Documento (Convención estándar de apps de notas/documentos) -->
-      <button 
-        class="flex items-center gap-1 px-2.5 py-1 rounded-xs bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer text-xs font-medium"
-        onclick={handleNewDocument}
-        title="Crear un nuevo documento en blanco (Ctrl+N)"
-      >
-        <Plus size={13} />
-        <span>Nuevo</span>
-      </button>
-
-      <span class="text-white/10">|</span>
-
-      <!-- Interruptor de Auto-Guardado (Opción B) -->
+      <!-- Hub del Documento / Proyecto Activo (Píldora Inteligente) -->
       <button
-        class="flex items-center gap-1.5 px-2 py-1 rounded-xs text-xs transition-colors cursor-pointer {autoSaveEnabled ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-slate-400 hover:text-white border border-white/10'}"
-        onclick={toggleAutoSave}
-        title="Clic para {autoSaveEnabled ? 'desactivar' : 'activar'} el guardado automático"
+        type="button"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all cursor-pointer min-w-0 max-w-[170px] sm:max-w-[210px] {activeTab === 'files' ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-slate-200'}"
+        onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
+        title="Clic para gestionar archivos y proyectos ({currentFileName})"
       >
-        <span class="w-1.5 h-1.5 rounded-full {autoSaveEnabled ? 'bg-emerald-400' : 'bg-slate-500'}"></span>
-        <span class="font-medium text-[11px] hidden sm:inline">Auto</span>
-        <span class="text-[10px] font-bold opacity-80">{autoSaveEnabled ? 'ON' : 'OFF'}</span>
+        <span class="w-1.5 h-1.5 rounded-full {isDirty ? 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]' : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'} shrink-0"></span>
+        <span class="truncate font-mono font-medium text-[11px]">{projectWorkspace ? projectWorkspace.project_name : currentFileName}</span>
+        <FolderTree size={11} class="text-slate-400 shrink-0 ml-0.5" />
       </button>
 
-      <!-- Indicador Dinámico de Guardado -->
-      {#if isAutoSaving}
-        <span class="text-[11px] text-indigo-400 flex items-center gap-1 font-mono">
-          <Loader2 size={11} class="animate-spin" />
-          <span class="hidden md:inline">Guardando...</span>
-        </span>
-      {:else if isDirty}
-        <span class="text-[11px] text-amber-400 flex items-center gap-1 font-mono" title="Cambios sin guardar">
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-          <span class="hidden md:inline">Sin guardar</span>
-        </span>
-      {:else}
-        <span class="text-[11px] text-slate-500 flex items-center gap-1 font-mono" title="Documento guardado">
-          <Check size={11} class="text-emerald-500" />
-          <span class="hidden md:inline">Guardado</span>
-        </span>
+      <!-- Botón Rápido Guardar (Ctrl+S) -->
+      <button 
+        type="button"
+        class="flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer text-xs font-medium shrink-0 {isDirty ? 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.25)]' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 hover:text-white'}"
+        onclick={handleSave}
+        title="Guardar cambios en disco (Ctrl+S)"
+      >
+        <Save size={12} class="shrink-0" />
+        <span class="hidden md:inline">Guardar</span>
+      </button>
+
+      <!-- Menú Desplegable de Plantillas Académicas LaTeX -->
+      <div class="relative shrink-0 templates-menu-container" data-tauri-drag-region="false">
+        <button 
+          type="button"
+          class="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 hover:text-white transition-all cursor-pointer text-xs"
+          onclick={(e) => {
+            e.stopPropagation();
+            showTemplatesMenu = !showTemplatesMenu;
+            showAppearanceMenu = false;
+          }}
+          title="Cargar plantilla académica de LaTeX"
+        >
+          <BookOpen size={12} class="text-indigo-400 shrink-0" />
+          <span class="hidden lg:inline">Plantillas</span>
+          <ChevronDown size={10} class="text-slate-400" />
+        </button>
+
+        {#if showTemplatesMenu}
+          <div 
+            class="absolute left-0 top-full mt-2 w-80 rounded-xl bg-[#0e1320] border border-white/15 shadow-2xl p-2 z-50 space-y-1 backdrop-blur-xl"
+            data-tauri-drag-region="false"
+          >
+            <div class="px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wider text-indigo-400 border-b border-white/10 pb-1 mb-1">
+              Plantillas Canónicas LaTeX
+            </div>
+            {#each TEMPLATE_PRESETS as tpl}
+              <button
+                type="button"
+                class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer block group"
+                onclick={() => applyTemplate(tpl)}
+              >
+                <div class="font-semibold text-white text-xs font-serif group-hover:text-indigo-300 transition-colors">{tpl.name}</div>
+                <div class="text-[10px] text-slate-400 leading-snug mt-0.5">{tpl.description}</div>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <!-- 2. Centro: Selector de Modo (Hoja LaTeX vs Código .tex) + Herramientas de Edición -->
+    <div class="flex items-center gap-2 shrink-0" data-tauri-drag-region="false">
+      <!-- Selector de Modo Segmentado Central -->
+      <div class="flex items-center p-0.5 bg-[#0e1320] rounded-lg border border-white/10 text-xs shadow-inner">
+        <button 
+          type="button"
+          class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+          onclick={() => switchViewMode('visual')}
+          title="Edición directa sobre hoja A4 con estética LaTeX"
+        >
+          <FileText size={12} />
+          <span>Hoja LaTeX</span>
+        </button>
+        <button 
+          type="button"
+          class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+          onclick={() => switchViewMode('code')}
+          title="Editar código fuente .tex con vista previa en vivo"
+        >
+          <Code2 size={12} />
+          <span>Código .tex</span>
+        </button>
+      </div>
+
+      <!-- Herramientas de Modo Hoja (Insertar Ecuación & Estilo de Hoja) -->
+      {#if editorViewMode === 'visual'}
+        <button 
+          type="button"
+          class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 font-medium transition-all cursor-pointer text-xs shadow-xs shrink-0"
+          onclick={() => paperEditorRef?.openMathEditor()}
+          title="Insertar ecuación matemática numerada (Ctrl+E)"
+        >
+          <Calculator size={12} />
+          <span class="hidden sm:inline">+ Ecuación</span>
+          <span class="sm:hidden">+ fx</span>
+        </button>
+
+        <!-- Popover de Estilo (Tono de Papel + Tipografía TeX) -->
+        <div class="relative shrink-0 appearance-menu-container" data-tauri-drag-region="false">
+          <button 
+            type="button"
+            class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer text-xs"
+            onclick={(e) => {
+              e.stopPropagation();
+              showAppearanceMenu = !showAppearanceMenu;
+              showTemplatesMenu = false;
+            }}
+            title="Personalizar tono de papel y tipografía TeX"
+          >
+            <Palette size={12} class="text-amber-400" />
+            <span class="hidden sm:inline">Estilo</span>
+            <ChevronDown size={10} class="text-slate-400" />
+          </button>
+
+          {#if showAppearanceMenu}
+            <div 
+              class="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 rounded-xl bg-[#0e1320] border border-white/15 shadow-2xl p-3 z-50 space-y-3 backdrop-blur-xl"
+              data-tauri-drag-region="false"
+            >
+              <!-- Selector de Tono de Papel -->
+              <div class="space-y-1.5">
+                <div class="text-[9.5px] font-bold uppercase tracking-wider text-amber-400 border-b border-white/10 pb-1">
+                  Tono del Papel
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'white' ? 'bg-white/15 border-indigo-500 text-white font-medium shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => paperTone = 'white'}
+                  >
+                    <span class="w-3.5 h-3.5 rounded-full bg-white border border-slate-300 shrink-0"></span>
+                    <span class="text-[11px]">Blanco LaTeX</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'cream' ? 'bg-white/15 border-amber-500 text-white font-medium shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => paperTone = 'cream'}
+                  >
+                    <span class="w-3.5 h-3.5 rounded-full bg-[#fbf0d9] border border-amber-200 shrink-0"></span>
+                    <span class="text-[11px]">Marfil Cálido</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'sepia' ? 'bg-white/15 border-amber-600 text-white font-medium shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => paperTone = 'sepia'}
+                  >
+                    <span class="w-3.5 h-3.5 rounded-full bg-[#f4ecd8] border border-stone-300 shrink-0"></span>
+                    <span class="text-[11px]">Sepia Clásico</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="flex items-center gap-2 p-1.5 rounded-lg border text-left transition-all cursor-pointer {paperTone === 'dark' ? 'bg-white/15 border-indigo-500 text-white font-medium shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => paperTone = 'dark'}
+                  >
+                    <span class="w-3.5 h-3.5 rounded-full bg-[#1e2330] border border-slate-600 shrink-0"></span>
+                    <span class="text-[11px]">Modo Noche</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selector de Tipografía TeX -->
+              <div class="space-y-1.5 pt-1 border-t border-white/10">
+                <div class="text-[9.5px] font-bold uppercase tracking-wider text-indigo-400">
+                  Tipografía Oficial TeX
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-serif text-[11px] {selectedFont === 'serif' ? 'bg-indigo-500/25 border-indigo-500 text-indigo-200 font-semibold shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => selectedFont = 'serif'}
+                  >
+                    CMU Roman
+                  </button>
+                  <button
+                    type="button"
+                    class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-sans text-[11px] {selectedFont === 'sans' ? 'bg-indigo-500/25 border-indigo-500 text-indigo-200 font-semibold shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
+                    onclick={() => selectedFont = 'sans'}
+                  >
+                    CMU Sans
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
       {/if}
     </div>
 
-    <!-- Centro: Herramientas de la Hoja (Solo en modo visual) -->
-    {#if editorViewMode === 'visual'}
-      <div class="hidden sm:flex items-center gap-2">
-        <!-- Botón Insertar Fórmula Rápida -->
-        <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-xs bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 font-medium transition-colors cursor-pointer text-xs"
-          onclick={() => paperEditorRef?.openMathEditor()}
-          title="Insertar fórmula matemática con clics"
-        >
-          <Calculator size={12} />
-          <span>+ Fórmula fx</span>
-        </button>
-
-        <!-- Selector de Tono de Papel (Iconos Profesionales Lucide) -->
-        <div class="flex items-center p-0.5 rounded-xs border border-white/10 bg-white/5 text-xs">
-          <button 
-            type="button"
-            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center justify-center {paperTone === 'dark' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-            onclick={() => paperTone = 'dark'}
-            title="Tono Noche / Grafito (Descanso visual)"
-          >
-            <Moon size={13} />
-          </button>
-          <button 
-            type="button"
-            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center justify-center {paperTone === 'cream' ? 'bg-[#9c783e] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-            onclick={() => paperTone = 'cream'}
-            title="Tono Marfil Cálido (Papel de libro natural)"
-          >
-            <Sun size={13} />
-          </button>
-          <button 
-            type="button"
-            class="px-2 py-1 rounded-xs transition-all cursor-pointer flex items-center justify-center {paperTone === 'sepia' ? 'bg-[#7c5b35] text-white font-bold shadow-xs' : 'opacity-60 hover:opacity-100'}"
-            onclick={() => paperTone = 'sepia'}
-            title="Tono Sepia Pergamino"
-          >
-            <Scroll size={13} />
-          </button>
-        </div>
-
-        <!-- Selector de Tipografía TeX (TICKET-027) -->
-        <button 
-          class="px-2 py-1 rounded-xs border border-white/10 hover:bg-white/5 text-slate-300 transition-colors cursor-pointer text-xs font-serif"
-          onclick={() => selectedFont = selectedFont === 'serif' ? 'sans' : 'serif'}
-          title="Tipografía de la hoja: {selectedFont === 'serif' ? 'Computer Modern (LaTeX Original)' : 'CMU Sans Serif'}"
-        >
-          {selectedFont === 'serif' ? 'Computer Modern' : 'Sans Serif'}
-        </button>
-      </div>
-    {/if}
-
-    <!-- Derecha: Selector de Modo (Hoja vs LaTeX) y Exportar PDF -->
-    <div class="flex items-center gap-2 shrink-0">
-      {#if statusMessage}
-        <span class="text-[11px] text-slate-500 font-mono hidden md:inline">{statusMessage}</span>
-      {/if}
-
-      <!-- Selector de Modo Discreto -->
-      <div class="flex items-center p-0.5 bg-white/5 rounded-xs border border-white/10 text-xs">
-        <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-xs transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
-          onclick={() => switchViewMode('visual')}
-          title="Vista de hoja limpia"
-        >
-          <FileText size={12} />
-          <span>Hoja</span>
-        </button>
-        <button 
-          class="flex items-center gap-1 px-2.5 py-1 rounded-xs transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-white text-slate-900 font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
-          onclick={() => switchViewMode('code')}
-          title="Ver código LaTeX crudo"
-        >
-          <Code2 size={12} />
-          <span>LaTeX</span>
-        </button>
+    <!-- Derecha: Selector de Modo (Hoja vs Código .tex), Exportar Word (.docx) y Exportar PDF -->
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0" data-tauri-drag-region="false">
+      <!-- Indicador Minimalista de Auto-Guardado -->
+      <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
+        {#if isAutoSaving}
+          <Loader2 size={11} class="animate-spin text-indigo-400" />
+          <span class="text-indigo-400 text-[10px]">Guardando</span>
+        {:else if isDirty}
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]"></span>
+          <span class="text-amber-400 text-[10px]">Sin guardar</span>
+        {:else}
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span class="text-slate-500 text-[10px]">Guardado</span>
+        {/if}
       </div>
 
+      <!-- Botón Exportar a Microsoft Word (.docx) -->
       <button 
-        class="px-2.5 py-1 rounded-xs hover:bg-white/5 text-slate-300 text-xs font-medium transition-colors cursor-pointer hidden md:inline"
-        onclick={handleSave}
-        title="Guardar archivo (Ctrl+S)"
+        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#185abd]/80 hover:bg-[#185abd] border border-blue-400/30 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-[0.98]"
+        onclick={handleExportWord}
+        disabled={isExportingWord}
+        title="Exportar a Microsoft Word (.docx) con formato LaTeX (Ctrl+Shift+W)"
       >
-        Guardar
+        {#if isExportingWord}
+          <Loader2 size={12} class="animate-spin" />
+          <span>Word...</span>
+        {:else}
+          <Download size={12} />
+          <span>Word</span>
+        {/if}
       </button>
 
-      <!-- Botón Exportar PDF Sobrio y Elegante -->
+      <!-- Botón Primario Compilar / Exportar PDF -->
       <button 
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xs bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 border border-indigo-400/30 text-white text-xs font-semibold shadow-[0_0_12px_rgba(99,102,241,0.35)] hover:shadow-[0_0_16px_rgba(99,102,241,0.5)] transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-[0.98]"
         onclick={handleCompile}
         disabled={isCompiling}
-        title="Descargar documento en PDF (Ctrl+Enter)"
+        title="Compilar y exportar documento en PDF (Ctrl+Enter)"
       >
         {#if isCompiling}
           <Loader2 size={12} class="animate-spin" />
-          <span>Compilando...</span>
+          <span>PDF...</span>
         {:else}
           <Download size={12} />
-          <span>Exportar PDF</span>
+          <span>PDF</span>
         {/if}
+      </button>
+
+      <!-- Botón de Preferencias -->
+      <button 
+        class="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+        onclick={() => showPreferencesModal = true}
+        title="Preferencias de apariencia y compilación"
+      >
+        <SettingsIcon size={13} />
       </button>
 
       <!-- Botón de Ayuda y Atajos Rápidos -->
       <button 
-        class="w-7 h-7 rounded-xs border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+        class="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold shrink-0"
         onclick={() => showHelpModal = true}
         title="Atajos de teclado y ayuda rápida"
       >
         ?
       </button>
+
+      <!-- Botones de Control de Ventana Nativos / Frameless (Minimizar, Maximizar, Cerrar) -->
+      <WindowControls />
     </div>
   </header>
 
   <!-- Cuerpo Principal: Sidebar + Drawer + Split Editor/Preview -->
   <div class="flex-1 flex overflow-hidden">
-    <!-- Icon Bar solo en modo código para maximizar el ancho de la hoja -->
     {#if editorViewMode === 'code'}
       <Sidebar bind:activeTab connectedPeersCount={2} />
     {/if}
 
-    <!-- Panel de Navegación Lateral (Drawer colapsable) -->
-    {#if activeTab === 'files'}
-      <div class="w-64 bg-[#0d1117] border-r border-[#21262d] flex flex-col text-xs">
-        <div class="p-3 border-b border-[#21262d] flex items-center justify-between font-semibold text-[#8b949e] tracking-wider uppercase text-[10px]">
-          <span>Documento Activo</span>
-          <button class="hover:text-white" onclick={handleNewDocument} title="Crear nuevo archivo (Ctrl+N)">
-            <Plus size={14} />
-          </button>
-        </div>
-        
-        <div class="p-2 space-y-1 border-b border-[#21262d]">
-          <div class="flex items-center justify-between px-2.5 py-1.5 rounded bg-[#1f6feb1f] text-[#58a6ff] font-mono">
-            <div class="flex items-center gap-2 truncate">
-              <FileCode size={14} />
-              <span class="truncate">{currentFileName}</span>
-            </div>
-            {#if isDirty}
-              <span class="w-1.5 h-1.5 rounded-full bg-[#f0883e]" title="Modificado"></span>
-            {/if}
-          </div>
-          {#if currentFilePath}
-            <div class="px-2.5 py-1 text-[10px] text-[#8b949e] font-mono truncate" title={currentFilePath}>
-              {currentFilePath}
-            </div>
-          {/if}
-        </div>
+    <WorkspaceDrawer
+      {activeTab}
+      {currentFileName}
+      {currentFilePath}
+      {isDirty}
+      {recentFiles}
+      {compilationEngine}
+      {projectWorkspace}
+      {activeProjectRelPath}
+      onOpen={handleOpen}
+      onOpenProjectFolder={handleOpenProjectFolder}
+      onModularizeProject={handleModularizeProject}
+      onSelectProjectFile={handleSelectProjectFile}
+      onCleanBuildDir={handleCleanBuildDir}
+      onNewDocument={handleNewDocument}
+      onSave={handleSave}
+      onExportWord={handleExportWord}
+      onOpenRecent={handleOpenRecent}
+      onClearRecents={handleClearRecents}
+      onOpenPreferences={() => (showPreferencesModal = true)}
+      onClose={() => (activeTab = '')}
+    />
 
-        <!-- Archivos Recientes (TICKET-010) -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-          <div class="p-3 pb-1 flex items-center justify-between font-semibold text-[#8b949e] tracking-wider uppercase text-[10px]">
-            <div class="flex items-center gap-1.5">
-              <Clock size={12} />
-              <span>Archivos Recientes</span>
-            </div>
-            {#if recentFiles.length > 0}
-              <button 
-                class="hover:text-[#f85149] transition-colors" 
-                onclick={handleClearRecents}
-                title="Limpiar recientes"
-              >
-                <Trash2 size={12} />
-              </button>
-            {/if}
-          </div>
-
-          <div class="p-2 space-y-1 overflow-y-auto flex-1">
-            {#if recentFiles.length === 0}
-              <div class="p-4 text-center text-[#484f58] text-[11px]">
-                No hay archivos recientes aún. Abre o guarda un archivo para verlo aquí.
-              </div>
-            {:else}
-              {#each recentFiles as file}
-                <button 
-                  class="w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-[#8b949e] hover:bg-[#161b22] hover:text-[#c9d1d9] transition-colors font-mono text-left group"
-                  onclick={() => handleOpenRecent(file.path)}
-                  title={file.path}
-                >
-                  <FileCode size={13} class="text-[#8b949e] group-hover:text-[#58a6ff] shrink-0" />
-                  <div class="truncate flex-1">
-                    <div class="truncate text-white text-[11px]">{file.name}</div>
-                    <div class="truncate text-[9px] text-[#484f58]">{file.path}</div>
-                  </div>
-                </button>
-              {/each}
-            {/if}
-          </div>
-        </div>
-      </div>
-    {:else if activeTab === 'p2p'}
-      <div class="w-64 bg-[#0d1117] border-r border-[#21262d] flex flex-col text-xs">
-        <div class="p-3 border-b border-[#21262d] flex items-center justify-between font-semibold text-[#8b949e] tracking-wider uppercase text-[10px]">
-          <span>Red P2P & Dispositivos</span>
-          <span class="w-2 h-2 rounded-full bg-[#3fb950]"></span>
-        </div>
-        <div class="p-3 space-y-4 overflow-y-auto">
-          <!-- Mi Identidad de Dispositivo -->
-          <div class="p-2.5 rounded border border-[#30363d] bg-[#161b22]">
-            <div class="text-[10px] text-[#8b949e] uppercase font-bold tracking-wider mb-1">Este Dispositivo</div>
-            <div class="flex items-center gap-2 text-white font-medium">
-              <Laptop size={15} class="text-[#58a6ff]" />
-              <span>Estación Principal (Fedora)</span>
-            </div>
-            <div class="mt-1 font-mono text-[10px] text-[#8b949e] truncate" title="Ed25519 PubKey">
-              ed25519:7a9c...f482
-            </div>
-          </div>
-
-          <!-- Botón de Emparejar QR -->
-          <button class="w-full py-2 px-3 rounded bg-[#a371f7]/20 border border-[#a371f7]/40 hover:bg-[#a371f7]/30 text-[#d2a8ff] flex items-center justify-center gap-2 font-medium transition-colors">
-            <QrCode size={14} />
-            <span>Vincular Nuevo Equipo (QR)</span>
-          </button>
-
-          <!-- Dispositivos Emparejados -->
-          <div>
-            <div class="text-[10px] text-[#8b949e] uppercase font-bold tracking-wider mb-2">Dispositivos en el Enjambre</div>
-            <div class="space-y-1.5">
-              <div class="p-2 rounded bg-[#161b22] border border-[#21262d] flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <Laptop size={14} class="text-[#3fb950]" />
-                  <div>
-                    <div class="text-white text-[11px] font-medium">Laptop Portátil</div>
-                    <div class="text-[10px] text-[#3fb950] flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-[#3fb950] animate-pulse"></span><span>En línea (P2P Directo)</span></div>
-                  </div>
-                </div>
-                <span class="text-[10px] text-[#8b949e] font-mono">12 ms</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    {:else if activeTab === 'settings'}
-      <div class="w-60 bg-[#0d1117] border-r border-[#21262d] p-4 text-xs">
-        <h3 class="font-bold text-white mb-3">Ajustes</h3>
-        <p class="text-[#8b949e] text-[11px] leading-relaxed mb-4">
-          Motor LaTeX: <span class="text-[#58a6ff] font-semibold">{compilationEngine || 'Detección Automática (Tectonic/pdflatex)'}</span>
-        </p>
-        <p class="text-[#8b949e] text-[11px] leading-relaxed">
-          Cifrado P2P: <span class="text-[#3fb950] font-semibold">ChaCha20-Poly1305 (E2EE)</span>
-        </p>
-      </div>
-    {/if}
-
-    <!-- Área de Trabajo: Modo Visual PaperCraft (Siempre montado para renderizado autónomo de PDF) -->
+    <!-- Área de Trabajo: Modo Visual Hoja LaTeX -->
     <div 
       class="flex-1 h-full overflow-hidden"
       style={editorViewMode === 'visual' ? '' : 'position: fixed; left: -9999px; top: 0; width: 820px; pointer-events: none; opacity: 0;'}
@@ -1015,14 +1407,14 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
         bind:author={documentAuthor}
         bind:fontStyle={selectedFont}
         bind:paperTone={paperTone}
+        bind:showCropMarks={userPreferences.showCropMarks}
         onStatsChange={(newStats: { words: number; pages: number }) => visualStats = newStats}
       />
     </div>
 
     {#if editorViewMode === 'code'}
       <div class="flex-1 flex overflow-hidden relative">
-        <!-- Panel de Edición de Código -->
-        <div class="h-full overflow-hidden" style="width: {splitRatio}%">
+        <div class="h-full overflow-hidden shrink-0" style="width: {splitRatio}%; min-width: 200px;">
           <LatexEditor 
             bind:this={editorRef}
             bind:content={documentContent}
@@ -1032,10 +1424,9 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           />
         </div>
 
-        <!-- Divisor Arrastrable (Resizer) -->
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <div 
-          class="w-1.5 hover:w-2 bg-[#21262d] hover:bg-[#58a6ff] transition-all cursor-col-resize select-none relative z-20 flex items-center justify-center group"
+          class="w-1.5 hover:w-2 bg-[#21262d] hover:bg-[#58a6ff] transition-all cursor-col-resize select-none relative z-20 flex items-center justify-center group shrink-0"
           onmousedown={startResize}
           role="separator"
           aria-orientation="vertical"
@@ -1044,17 +1435,17 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
           <div class="w-0.5 h-6 bg-[#484f58] group-hover:bg-white rounded-full"></div>
         </div>
 
-        <!-- Panel de Previsualización Reactiva KaTeX y PDF Real -->
-        <div class="h-full overflow-hidden flex-1" style="width: {100 - splitRatio}%">
+        <div class="h-full overflow-hidden flex-1" style="min-width: 200px;">
           <LatexPreview 
             bind:this={previewRef}
-            content={documentContent}
+            content={previewLatexContent}
             pdfBlobUrl={pdfBlobUrl}
             bind:previewMode
             bind:scrollSyncEnabled
             onScroll={handlePreviewScroll}
             onRenderTime={(ms: number) => renderTimeMs = ms}
             onExportPdf={() => handleExportPdf(false)}
+            onExportWord={handleExportWord}
             onOpenNative={handleOpenInSystemViewer}
             onTriggerCompile={handleCompile}
           />
@@ -1063,7 +1454,7 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
     {/if}
   </div>
 
-  <!-- Panel de Diagnóstico y Errores de Compilación (TICKET-013) -->
+  <!-- Panel de Diagnóstico y Errores de Compilación -->
   <ErrorPanel 
     issues={compilationIssues}
     bind:isOpen={showErrorPanel}
@@ -1087,162 +1478,55 @@ La arquitectura descentralizada asegura que puedas redactar sin conexión a Inte
       onToggleErrorPanel={() => showErrorPanel = !showErrorPanel}
     />
   {:else}
-    <!-- Barra de Estado Discreta para Modo Hoja: Cero Ruido Visual -->
-    <footer class="h-6 bg-[#0f1219] border-t border-white/5 px-4 flex items-center justify-between text-[11px] text-slate-500 font-mono select-none shrink-0">
-      <div class="flex items-center gap-3">
-        <div class="flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span>{currentFilePath ? currentFileName : 'Borrador Local'}</span>
+    <footer class="h-6 bg-[#090d16] border-t border-white/10 px-4 flex items-center justify-between text-[11px] text-slate-400 font-mono select-none shrink-0 overflow-hidden">
+      <div class="flex items-center gap-3 min-w-0 overflow-hidden">
+        <div class="flex items-center gap-1.5 shrink-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]"></span>
+          <span class="truncate max-w-[200px] text-slate-200">{currentFilePath ? currentFileName : 'Borrador Local (.tex)'}</span>
         </div>
-        <span class="opacity-30">•</span>
-        <span class="text-slate-400">A4 (210 × 297 mm)</span>
+        <span class="text-white/15 shrink-0">•</span>
+        <span class="text-slate-400 truncate hidden md:inline">\documentclass[12pt,a4paper]&#123;article&#125;</span>
+        <span class="text-white/15 hidden lg:inline">•</span>
+        <span class="text-indigo-400 hidden lg:inline font-medium">{selectedFont === 'serif' ? 'Computer Modern Roman' : 'CMU Sans Serif'}</span>
       </div>
-      <div class="flex items-center gap-4">
-        <span>{visualStats.words} palabras</span>
-        <span>•</span>
-        <span>{visualStats.pages} {visualStats.pages === 1 ? 'página' : 'páginas'}</span>
+      <div class="flex items-center gap-3 shrink-0 ml-2">
+        <span class="text-slate-300">{visualStats.words} palabras</span>
+        <span class="text-white/15">•</span>
+        <span class="text-slate-300">{visualStats.pages} {visualStats.pages === 1 ? 'pág.' : 'págs.'}</span>
       </div>
     </footer>
   {/if}
 
-  <!-- Modal de Éxito / Exportación de PDF (TICKET-012) -->
-  {#if showPdfSuccessModal && lastCompiledPdf}
-    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div class="bg-[#161b22] border border-[#30363d] rounded-md shadow-2xl max-w-md w-full p-6 text-xs text-[#c9d1d9] space-y-4">
-        <div class="flex items-start justify-between">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-full bg-[#238636]/20 text-[#3fb950] flex items-center justify-center shrink-0">
-              <FileCheck size={18} />
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-white">Compilación Completada</h3>
-              <p class="text-[11px] text-[#8b949e]">Generado con {lastCompiledPdf.engine} en {lastCompiledPdf.durationMs} ms</p>
-            </div>
-          </div>
-          <button 
-            class="text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-            onclick={() => showPdfSuccessModal = false}
-          >
-            <X size={16} />
-          </button>
-        </div>
+  <!-- Modales de Éxito de Exportación (PDF / Word .docx) y Diagnóstico de Errores -->
+  <ExportModals
+    bind:showPdfSuccessModal
+    {lastCompiledPdf}
+    {lastExportedPath}
+    bind:showErrorModal
+    {errorModalTitle}
+    {errorModalMessage}
+    {errorModalDetails}
+    onOpenInSystemViewer={handleOpenInSystemViewer}
+    onExportWord={handleExportWord}
+    onExportPdf={() => handleExportPdf(false)}
+    onPrintVectorSystem={() => pdfExportService.printSystemDialog()}
+    onViewPdfInApp={() => {
+      previewMode = 'pdf';
+    }}
+  />
 
-        <div class="p-3 rounded-xs bg-[#0d1117] border border-[#21262d] space-y-1.5 font-mono text-[11px]">
-          <div class="flex justify-between">
-            <span class="text-[#8b949e]">Archivo:</span>
-            <span class="text-white font-medium">{lastCompiledPdf.name}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-[#8b949e]">Motor:</span>
-            <span class="text-[#58a6ff]">{lastCompiledPdf.engine}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-[#8b949e]">Tiempo de compilación:</span>
-            <span class="text-[#3fb950]">{lastCompiledPdf.durationMs} ms</span>
-          </div>
-          {#if lastExportedPath}
-            <div class="pt-1 border-t border-[#21262d] flex flex-col gap-0.5">
-              <span class="text-[#8b949e] text-[10px]">Ubicación exportada:</span>
-              <span class="text-white text-[10px] break-all">{lastExportedPath}</span>
-            </div>
-          {/if}
-        </div>
-
-        <div class="space-y-2 pt-1">
-          <button
-            class="w-full py-2.5 px-4 rounded-xs bg-[#1f6feb] hover:bg-[#388bfd] text-white font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm cursor-pointer"
-            onclick={handleOpenInSystemViewer}
-          >
-            <ExternalLink size={14} />
-            <span>Abrir en Visor del Sistema</span>
-          </button>
-
-          <button
-            class="w-full py-2 px-4 rounded-xs bg-[#21262d] hover:bg-[#30363d] text-white font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            onclick={() => handleExportPdf(false)}
-          >
-            <Download size={14} />
-            <span>{lastExportedPath ? 'Exportar a otra carpeta...' : 'Guardar / Exportar PDF...'}</span>
-          </button>
-
-          <button
-            class="w-full py-2 px-4 rounded-xs bg-[#21262d] hover:bg-[#30363d] text-slate-300 hover:text-white font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer text-xs"
-            onclick={() => pdfExportService.printSystemDialog()}
-            title="Imprimir o guardar como PDF vectorial usando el diálogo nativo del sistema"
-          >
-            <Printer size={14} />
-            <span>Imprimir / Guardar con Diálogo del Sistema</span>
-          </button>
-
-          <button
-            class="w-full py-1.5 px-4 rounded-xs hover:bg-[#21262d] text-[#8b949e] hover:text-white font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-            onclick={() => {
-              previewMode = 'pdf';
-              showPdfSuccessModal = false;
-            }}
-          >
-            <Eye size={13} />
-            <span>Ver PDF en Layratex</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
-
-  <!-- Modal de Errores de Compilación o Falta de Compilador -->
-  {#if showErrorModal}
-    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div class="bg-[#161b22] border border-[#da3633]/40 rounded-md shadow-2xl max-w-lg w-full p-6 text-xs text-[#c9d1d9] space-y-4">
-        <div class="flex items-start justify-between">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-full bg-[#da3633]/20 text-[#f85149] flex items-center justify-center shrink-0">
-              <AlertCircle size={18} />
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-white">{errorModalTitle}</h3>
-              <p class="text-[11px] text-[#8b949e]">{errorModalMessage}</p>
-            </div>
-          </div>
-          <button 
-            class="text-[#8b949e] hover:text-white transition-colors cursor-pointer"
-            onclick={() => showErrorModal = false}
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {#if errorModalDetails}
-          <div class="relative">
-            <div class="p-3 rounded-xs bg-[#0d1117] border border-[#30363d] font-mono text-[10.5px] max-h-56 overflow-y-auto whitespace-pre-wrap text-[#e6edf3] leading-relaxed">
-              {errorModalDetails}
-            </div>
-            <button
-              class="absolute top-2 right-2 p-1.5 rounded-xs bg-[#21262d] hover:bg-[#30363d] text-[#8b949e] hover:text-white transition-colors flex items-center gap-1 text-[10px] cursor-pointer"
-              onclick={copyErrorDetails}
-              title="Copiar contenido"
-            >
-              {#if copiedError}
-                <Check size={11} class="text-[#3fb950]" />
-                <span class="text-[#3fb950]">Copiado</span>
-              {:else}
-                <Copy size={11} />
-                <span>Copiar</span>
-              {/if}
-            </button>
-          </div>
-        {/if}
-
-        <div class="flex items-center justify-end gap-2 pt-2">
-          <button
-            class="px-4 py-2 rounded-xs bg-[#21262d] hover:bg-[#30363d] text-white font-medium transition-colors cursor-pointer"
-            onclick={() => showErrorModal = false}
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
+  <!-- Modal de Preferencias -->
+  <PreferencesModal
+    bind:show={showPreferencesModal}
+    isLight={isLightTheme}
+    onPreferencesChanged={(newPrefs) => {
+      userPreferences = newPrefs;
+      paperTone = newPrefs.paperTone;
+      selectedFont = newPrefs.paperFont;
+      scrollSyncEnabled = newPrefs.scrollSync;
+      autoSaveEnabled = newPrefs.autoSave;
+    }}
+  />
 
   <!-- Modal de Atajos de Teclado y Ayuda Rápida -->
   <KeyboardHelpModal bind:isOpen={showHelpModal} />

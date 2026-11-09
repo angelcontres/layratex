@@ -103,6 +103,27 @@ export const compilerService = {
     return null;
   },
 
+  async saveDocxBytes(docxBase64: string, targetPath: string): Promise<string> {
+    if (this.isNative()) {
+      return await invoke<string>('save_docx_bytes', {
+        docxBase64,
+        targetPath
+      });
+    }
+    this.downloadDocxFromBase64(docxBase64, targetPath);
+    return targetPath;
+  },
+
+  async createTempDocxFromBytes(docxBase64: string, filename?: string): Promise<string | null> {
+    if (this.isNative()) {
+      return await invoke<string>('create_temp_docx_from_bytes', {
+        docxBase64,
+        filename: filename || null
+      });
+    }
+    return null;
+  },
+
   downloadPdfFromBase64(base64Data: string, filename: string): void {
     const byteCharacters = atob(base64Data);
     const byteNumbers = new Array(byteCharacters.length);
@@ -115,6 +136,24 @@ export const compilerService = {
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  downloadDocxFromBase64(base64Data: string, filename: string): void {
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename.toLowerCase().endsWith('.docx') ? filename : `${filename}.docx`;
     a.click();
     URL.revokeObjectURL(url);
   },

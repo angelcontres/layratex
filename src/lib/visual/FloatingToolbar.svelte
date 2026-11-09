@@ -7,12 +7,17 @@
     y = 0,
     onFormat = (action: string) => {}
   } = $props();
+
+  let clampedX = $derived(Math.max(140, Math.min(x, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 140)));
+  let isAbove = $derived(y > 75);
+  let computedY = $derived(isAbove ? y - 10 : y + 35);
+  let transformStyle = $derived(isAbove ? 'translate(-50%, -100%)' : 'translate(-50%, 0)');
 </script>
 
 {#if isOpen}
   <div 
-    class="fixed z-50 bg-slate-900/95 dark:bg-[#161c28]/95 text-white border border-white/10 rounded-md shadow-2xl flex items-center p-1 gap-0.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
-    style="left: {x}px; top: {y}px; transform: translate(-50%, -100%) translateY(-10px);"
+    class="fixed z-50 bg-slate-900/95 dark:bg-[#161c28]/95 text-white border border-white/10 rounded-md shadow-2xl flex items-center p-1 gap-0.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 pointer-events-auto"
+    style="left: {clampedX}px; top: {computedY}px; transform: {transformStyle};"
   >
     <button 
       type="button"
