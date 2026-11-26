@@ -13,6 +13,7 @@
     { key: 'Ctrl + F', label: 'Buscar', desc: 'Buscar texto o fórmulas en el documento' },
     { key: 'Ctrl + H', label: 'Reemplazar', desc: 'Buscar y reemplazar en todo el documento' },
     { key: 'Ctrl + B / I', label: 'Negrita / Cursiva', desc: 'Aplica formato \\textbf o \\textit a la selección' },
+    { key: 'Ctrl + ,', label: 'Preferencias', desc: 'Abre o cierra la configuración de la aplicación' },
     { key: '/', label: 'Comandos LaTeX', desc: 'Inserta secciones, teoremas, tablas booktabs y más' },
   ];
 
@@ -21,10 +22,27 @@
     { title: 'Exportación Híbrida PDF + Word (.docx)', desc: 'Tus fórmulas matemáticas se exportan como objetos nativos editables de Microsoft Word (Office Math) y tus tablas con estilo booktabs.' },
     { title: 'Doble clic en ecuaciones', desc: 'Haz doble clic sobre cualquier ecuación en la hoja para abrirla directamente en el Constructor Visual fx.' },
   ];
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && isOpen) {
+      e.preventDefault();
+      isOpen = false;
+    }
+  }
 </script>
 
+<svelte:window onkeydown={handleKeyDown} />
+
 {#if isOpen}
-  <div class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100"
+    onclick={(e) => { if (e.target === e.currentTarget) isOpen = false; }}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="help-modal-title"
+    tabindex="-1"
+  >
     <div class="bg-white dark:bg-[#161a24] border border-slate-200 dark:border-white/10 rounded-md shadow-2xl max-w-lg w-full p-6 text-slate-900 dark:text-slate-100 space-y-5 animate-in zoom-in-95 duration-100 max-h-[90vh] overflow-y-auto">
       
       <!-- Encabezado -->
@@ -34,7 +52,7 @@
             <Keyboard size={16} />
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Atajos de Teclado y Guía LaTeX</h3>
+            <h3 id="help-modal-title" class="text-sm font-bold text-slate-900 dark:text-white">Atajos de Teclado y Guía LaTeX</h3>
             <p class="text-[11px] text-slate-500 dark:text-slate-400">Composición tipográfica Computer Modern y exportación a PDF / Word</p>
           </div>
         </div>

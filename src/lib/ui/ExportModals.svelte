@@ -59,11 +59,33 @@
       setTimeout(() => (copiedError = false), 2500);
     }
   }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      if (showErrorModal) {
+        e.preventDefault();
+        showErrorModal = false;
+      } else if (showPdfSuccessModal) {
+        e.preventDefault();
+        showPdfSuccessModal = false;
+      }
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleKeyDown} />
 
 <!-- Modal de Éxito de Exportación (PDF o Microsoft Word .docx) -->
 {#if showPdfSuccessModal && lastCompiledPdf}
-  <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+    onclick={(e) => { if (e.target === e.currentTarget) showPdfSuccessModal = false; }}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="export-success-title"
+    tabindex="-1"
+  >
     <div class="bg-[#161b22] border border-[#30363d] rounded-md shadow-2xl max-w-md w-full p-6 text-xs text-[#c9d1d9] space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-start justify-between">
         <div class="flex items-center gap-2.5">
@@ -71,7 +93,7 @@
             <FileCheck size={18} />
           </div>
           <div>
-            <h3 class="text-sm font-bold text-white">
+            <h3 id="export-success-title" class="text-sm font-bold text-white">
               {lastCompiledPdf.format === 'docx' ? 'Documento Word (.docx) Listo' : 'Compilación PDF Completada'}
             </h3>
             <p class="text-[11px] text-[#8b949e]">Generado con {lastCompiledPdf.engine} en {lastCompiledPdf.durationMs} ms</p>
@@ -174,7 +196,15 @@
 
 <!-- Modal de Errores -->
 {#if showErrorModal}
-  <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+    onclick={(e) => { if (e.target === e.currentTarget) showErrorModal = false; }}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="export-error-title"
+    tabindex="-1"
+  >
     <div class="bg-[#161b22] border border-[#da3633]/40 rounded-md shadow-2xl max-w-lg w-full p-6 text-xs text-[#c9d1d9] space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-start justify-between">
         <div class="flex items-center gap-2.5">
@@ -182,7 +212,7 @@
             <AlertCircle size={18} />
           </div>
           <div>
-            <h3 class="text-sm font-bold text-white">{errorModalTitle}</h3>
+            <h3 id="export-error-title" class="text-sm font-bold text-white">{errorModalTitle}</h3>
             <p class="text-[11px] text-[#8b949e]">{errorModalMessage}</p>
           </div>
         </div>

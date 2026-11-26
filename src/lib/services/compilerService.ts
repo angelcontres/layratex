@@ -31,11 +31,16 @@ export const compilerService = {
     return [];
   },
 
-  async compileLatex(content: string, projectPath?: string | null): Promise<CompilationOutput> {
+  async compileLatex(
+    content: string,
+    projectPath?: string | null,
+    preferredEngine?: string | null
+  ): Promise<CompilationOutput> {
     if (this.isNative()) {
       return await invoke<CompilationOutput>('compile_latex', {
         content,
         projectPath: projectPath || null,
+        preferredEngine: preferredEngine || null,
       });
     }
     throw new Error('La compilación nativa de LaTeX requiere la aplicación de escritorio Tauri.');

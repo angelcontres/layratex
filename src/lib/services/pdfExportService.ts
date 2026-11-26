@@ -1,5 +1,3 @@
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas-pro';
 import { save } from '@tauri-apps/plugin-dialog';
 import { compilerService } from './compilerService';
 
@@ -30,6 +28,11 @@ export const pdfExportService = {
     const cleanSuggestedName = suggestedName.toLowerCase().endsWith('.pdf')
       ? suggestedName
       : `${suggestedName}.pdf`;
+
+    const [{ jsPDF }, { default: html2canvas }] = await Promise.all([
+      import('jspdf'),
+      import('html2canvas-pro')
+    ]);
 
     // Inicializar documento jsPDF en formato A4 vertical
     const doc = new jsPDF({

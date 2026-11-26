@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { EditorState } from '@codemirror/state';
+  import { Compartment, EditorState } from '@codemirror/state';
   import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, keymap } from '@codemirror/view';
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { StreamLanguage, syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
@@ -25,6 +25,8 @@
 
   let {
     content = $bindable('\\documentclass{article}\n\\title{Documento Layratex}\n\\begin{document}\n\\maketitle\n\n\\section{Introducción}\n¡Bienvenido a Layratex! Este es un editor híbrido local-first.\n\n\\subsection{Fórmulas Matemáticas}\nPodemos escribir ecuaciones en línea como $E = mc^2$ o en bloque destacado:\n\n\\[\n\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}\n\\]\n\n\\end{document}'),
+    fileName = 'main.tex',
+    wordWrap = true,
     onChange = (val: string) => {},
     onStatsChange = (stats: { lines: number; words: number }) => {},
     onScroll = (el: HTMLElement) => {},
@@ -33,6 +35,7 @@
 
   let editorContainer: HTMLDivElement;
   let view: EditorView | null = null;
+  const wordWrapCompartment = new Compartment();
 
   // Dark theme minimalista y de alto contraste para CodeMirror 6 con autocompletado LaTeX
   const darkTheme = EditorView.theme({
@@ -162,6 +165,7 @@
         StreamLanguage.define(stex),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         darkTheme,
+        wordWrapCompartment.of(wordWrap ? EditorView.lineWrapping : []),
         ...createLatexAutocompleteExtension(),
         search({ top: true }),
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
@@ -198,6 +202,16 @@
         changes: { from: 0, to: view.state.doc.length, insert: content }
       });
       calculateStats(content);
+    }
+  });
+
+  // Actualizar ajuste de línea (wordWrap) en caliente
+  $effect(() => {
+    const wrap = wordWrap;
+    if (view) {
+      view.dispatch({
+        effects: wordWrapCompartment.reconfigure(wrap ? EditorView.lineWrapping : [])
+      });
     }
   });
 
@@ -353,10 +367,10 @@
 
 <div class="h-full w-full overflow-hidden flex flex-col bg-[#0d1117]">
   <div class="flex items-center justify-between px-4 py-2 border-b border-[#21262d] bg-[#161b22] text-xs font-mono text-[#8b949e]">
-    <div class="flex items-center gap-2">
-      <span class="w-2.5 h-2.5 rounded-full bg-[#238636]"></span>
-      <span>main.tex</span>
-      <span class="text-[#58a6ff] bg-[#1f6feb1f] px-1.5 py-0.5 rounded text-[10px]">LaTeX 2e</span>
+    <div class="flex items-center gap-2 min-w-0">
+      <span class="w-2.5 h-2.5 rounded-full bg-[#238636] shrink-0"></span>
+      <span class="truncate max-w-[220px]" title={fileName}>{fileName}</span>
+      <span class="text-[#58a6ff] bg-[#1f6feb1f] px-1.5 py-0.5 rounded text-[10px] shrink-0">LaTeX 2e</span>
     </div>
     <div class="flex items-center gap-3">
       <!-- Botón de Sincronización de Scroll Bidireccional (TICKET-023) -->

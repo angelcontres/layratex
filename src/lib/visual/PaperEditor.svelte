@@ -4,7 +4,16 @@
     Calculator, 
     ChevronLeft,
     ChevronRight,
-    X
+    X,
+    Bold,
+    Italic,
+    Heading1,
+    Heading2,
+    Table,
+    Award,
+    List,
+    ListOrdered,
+    Search
   } from '@lucide/svelte';
   import MathBuilderModal from './MathBuilderModal.svelte';
   import TableBuilderModal from './TableBuilderModal.svelte';
@@ -837,6 +846,13 @@
     }, 25);
   }
 
+  function escapeHtmlText(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
   function renderInlineMath(text: string): string {
     const mathTokens: string[] = [];
     let processed = text.replace(/\$([^\$\n]+)\$/g, (_, math) => {
@@ -847,10 +863,12 @@
         return token;
       } catch {
         const token = `__ZXKTX${mathTokens.length}XZ__`;
-        mathTokens.push(`$${math}$`);
+        mathTokens.push(`$${escapeHtmlText(math)}$`);
         return token;
       }
     });
+
+    processed = escapeHtmlText(processed);
 
     // Microtipografía TeX: comillas tipográficas y guiones en-dash / em-dash
     processed = processed
@@ -1239,17 +1257,17 @@
 
   function getBlockTypeLabel(type: LiveBlock['type']): string {
     switch (type) {
-      case 'h1': return '\\section';
-      case 'h2': return '\\subsection';
-      case 'h3': return '\\subsubsection';
-      case 'math': return '\\begin{equation}';
-      case 'table': return '\\begin{tabular} (booktabs)';
-      case 'figure': return '\\begin{figure}';
-      case 'callout': return 'Entorno Académico';
-      case 'list': return '\\item';
-      case 'divider': return '\\newpage';
-      case 'empty': return 'Espacio vertical';
-      default: return 'Párrafo TeX';
+      case 'h1': return 'Sección Principal (H1)';
+      case 'h2': return 'Subsección (H2)';
+      case 'h3': return 'Apartado (H3)';
+      case 'math': return 'Ecuación Matemática';
+      case 'table': return 'Tabla Científica';
+      case 'figure': return 'Figura / Gráfico';
+      case 'callout': return 'Nota o Teorema';
+      case 'list': return 'Elemento de Lista';
+      case 'divider': return 'Salto de Página';
+      case 'empty': return 'Espacio';
+      default: return 'Párrafo';
     }
   }
 </script>
@@ -1257,9 +1275,129 @@
 <!-- Mesa Editorial de Trabajo LaTeX -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
-  class="h-full w-full flex flex-col items-center {activeTheme.deskClass} overflow-y-auto overflow-x-auto select-text transition-colors duration-200 py-6 sm:py-8 px-2 sm:px-4 md:px-8 relative"
+  class="h-full w-full flex flex-col items-center {activeTheme.deskClass} overflow-y-auto overflow-x-auto select-text transition-colors duration-200 py-4 sm:py-6 px-2 sm:px-4 md:px-8 relative"
   onmouseup={checkSelection}
 >
+
+  <!-- Barra de Herramientas Simplista y Accesible para cualquier usuario -->
+  <div class="sticky top-0 z-30 mb-5 w-full max-w-[820px] bg-[#121722]/90 dark:bg-[#121722]/90 backdrop-blur-md border border-white/10 rounded-xl p-1.5 shadow-xl flex items-center justify-between flex-wrap gap-1 text-slate-200 select-none animate-in fade-in duration-150 no-print">
+    <div class="flex items-center gap-0.5 sm:gap-1 flex-wrap">
+      <!-- Formato de Texto -->
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-lg hover:bg-white/10 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 text-slate-200 hover:text-white"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => handleFormat('bold')}
+        title="Negrita (Ctrl+B)"
+      >
+        <Bold size={13} />
+        <span class="hidden sm:inline">Negrita</span>
+      </button>
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-lg hover:bg-white/10 text-xs italic transition-colors cursor-pointer flex items-center gap-1 text-slate-200 hover:text-white"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => handleFormat('italic')}
+        title="Cursiva (Ctrl+I)"
+      >
+        <Italic size={13} />
+        <span class="hidden sm:inline">Cursiva</span>
+      </button>
+
+      <div class="w-px h-4 bg-white/15 mx-0.5 hidden sm:block"></div>
+
+      <!-- Títulos y Encabezados -->
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-lg hover:bg-white/10 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 text-blue-300 hover:text-blue-200"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => handleSelectSlashAction('h1')}
+        title="Insertar Sección Principal (\section)"
+      >
+        <Heading1 size={13} />
+        <span class="hidden md:inline">Sección</span>
+      </button>
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-lg hover:bg-white/10 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 text-purple-300 hover:text-purple-200"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => handleSelectSlashAction('h2')}
+        title="Insertar Subsección (\subsection)"
+      >
+        <Heading2 size={13} />
+        <span class="hidden md:inline">Subsección</span>
+      </button>
+
+      <div class="w-px h-4 bg-white/15 mx-0.5"></div>
+
+      <!-- Inserción de Fórmulas y Tablas -->
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => openMathEditor()}
+        title="Insertar Ecuación Matemática (Constructor Visual fx) - Ctrl+E"
+      >
+        <Calculator size={13} class="text-indigo-400" />
+        <span>+ Ecuación</span>
+      </button>
+
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-lg hover:bg-white/10 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 text-teal-300 hover:text-teal-200"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => showTableModal = true}
+        title="Insertar Tabla Científica"
+      >
+        <Table size={13} />
+        <span class="hidden sm:inline">Tabla</span>
+      </button>
+
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-lg hover:bg-white/10 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 text-amber-300 hover:text-amber-200"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => handleSelectSlashAction('theorem')}
+        title="Insertar Teorema o Definición"
+      >
+        <Award size={13} />
+        <span class="hidden lg:inline">Teorema</span>
+      </button>
+
+      <!-- Listas -->
+      <button
+        type="button"
+        class="p-1.5 rounded-lg hover:bg-white/10 text-xs transition-colors cursor-pointer flex items-center text-slate-300 hover:text-white"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => handleSelectSlashAction('bullet')}
+        title="Lista con viñetas"
+      >
+        <List size={13} />
+      </button>
+      <button
+        type="button"
+        class="p-1.5 rounded-lg hover:bg-white/10 text-xs transition-colors cursor-pointer flex items-center text-slate-300 hover:text-white"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => handleSelectSlashAction('numbered')}
+        title="Lista numerada"
+      >
+        <ListOrdered size={13} />
+      </button>
+    </div>
+
+    <!-- Herramienta Buscar -->
+    <div class="flex items-center gap-1">
+      <button
+        type="button"
+        class="px-2.5 py-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white text-xs transition-colors cursor-pointer flex items-center gap-1"
+        onclick={openFind}
+        title="Buscar y reemplazar texto (Ctrl+F)"
+      >
+        <Search size={12} />
+        <span class="hidden sm:inline">Buscar</span>
+      </button>
+    </div>
+  </div>
 
   <!-- HOJAS FÍSICAS A4 MAQUETADAS CON ESTÉTICA CANÓNICA LATEX (\documentclass[12pt,a4paper]{article}) -->
   {#each pages as page, pageIndex (page.pageNumber)}
@@ -1508,10 +1646,12 @@
             tabindex="0"
             onclick={appendNewBlock}
             onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') appendNewBlock(); }}
-            class="flex-1 min-h-[80px] w-full cursor-text py-4 text-xs {activeTheme.mutedClass} opacity-35 hover:opacity-75 transition-opacity flex items-start"
-            title="Haz clic para continuar redactando..."
+            class="mt-6 py-4 px-4 rounded-xl border border-dashed {activeTheme.borderClass} hover:border-indigo-400 text-xs {activeTheme.mutedClass} hover:text-indigo-500 cursor-pointer transition-all flex items-center justify-center gap-2 group select-none"
+            title="Haz clic para continuar redactando"
           >
-            <span class="italic">Haz clic para redactar o escribe «/» para insertar secciones, ecuaciones, teoremas o tablas...</span>
+            <span class="font-medium group-hover:scale-[1.01] transition-transform">
+              + Haz clic aquí para continuar redactando o escribe «/» para insertar fórmulas, tablas o secciones
+            </span>
           </div>
         {/if}
       </div>

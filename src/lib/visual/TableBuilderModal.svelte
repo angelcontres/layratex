@@ -48,10 +48,27 @@
     onInsert(md);
     isOpen = false;
   }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && isOpen) {
+      e.preventDefault();
+      isOpen = false;
+    }
+  }
 </script>
 
+<svelte:window onkeydown={handleKeyDown} />
+
 {#if isOpen}
-  <div class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100"
+    onclick={(e) => { if (e.target === e.currentTarget) isOpen = false; }}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="table-modal-title"
+    tabindex="-1"
+  >
     <div class="bg-white dark:bg-[#161a24] border border-slate-200 dark:border-white/10 rounded-md shadow-2xl max-w-sm w-full p-6 text-slate-900 dark:text-slate-100 space-y-4 animate-in zoom-in-95 duration-100">
       
       <!-- Encabezado -->
@@ -61,7 +78,7 @@
             <Table size={16} />
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Insertar Tabla</h3>
+            <h3 id="table-modal-title" class="text-sm font-bold text-slate-900 dark:text-white">Insertar Tabla</h3>
             <p class="text-[11px] text-slate-500 dark:text-slate-400">Selecciona filas y columnas</p>
           </div>
         </div>

@@ -6,32 +6,46 @@
   let isMaximized = $state(false);
   let appWindow: any = null;
 
-  onMount(async () => {
+  onMount(() => {
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+
     // Detectar si se está ejecutando dentro de Tauri (escritorio)
     isTauri = typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__);
-    
+
     if (isTauri) {
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        appWindow = getCurrentWindow();
-        isMaximized = await appWindow.isMaximized();
+      void (async () => {
+        try {
+          const { getCurrentWindow } = await import('@tauri-apps/api/window');
+          if (disposed) return;
+          appWindow = getCurrentWindow();
+          isMaximized = await appWindow.isMaximized();
+          if (disposed) return;
 
-        // Escuchar cambios de tamaño/maximización de la ventana
-        const unlisten = await appWindow.onResized(async () => {
-          try {
-            isMaximized = await appWindow.isMaximized();
-          } catch {
-            // Silencioso en caso de desmontaje
+          // Escuchar cambios de tamaño/maximización de la ventana
+          const stopListening = await appWindow.onResized(async () => {
+            try {
+              isMaximized = await appWindow.isMaximized();
+            } catch {
+              // Silencioso en caso de desmontaje
+            }
+          });
+
+          if (disposed) {
+            if (typeof stopListening === 'function') stopListening();
+          } else {
+            unlisten = typeof stopListening === 'function' ? stopListening : null;
           }
-        });
-
-        return () => {
-          if (typeof unlisten === 'function') unlisten();
-        };
-      } catch (err) {
-        console.warn('Tauri window API no disponible:', err);
-      }
+        } catch (err) {
+          console.warn('Tauri window API no disponible:', err);
+        }
+      })();
     }
+
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   });
 
   async function handleMinimize() {

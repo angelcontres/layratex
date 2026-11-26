@@ -14,9 +14,10 @@ pub use fs_ops::{
 async fn compile_latex(
     content: String,
     project_path: Option<String>,
+    preferred_engine: Option<String>,
 ) -> Result<CompilationOutput, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        compiler::compile_latex_internal(content, project_path)
+        compiler::compile_latex_internal(content, project_path, preferred_engine)
     })
     .await
     .map_err(|e| format!("Error en tarea de compilación en segundo plano: {}", e))?

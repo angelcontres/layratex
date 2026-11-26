@@ -13,7 +13,7 @@ use crate::compiler;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 /// Representa un archivo dentro de un proyecto LaTeX multi-carpeta.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,6 +62,47 @@ pub fn normalize_rel_path(path: &Path) -> String {
         .map(|c| c.as_os_str().to_string_lossy().to_string())
         .collect::<Vec<_>>()
         .join("/")
+}
+
+/// Resuelve de forma segura una ruta dentro de `root`, bloqueando path traversal (`..`) y rutas externas.
+pub fn resolve_safe_project_path(root: &Path, candidate: &str) -> Result<PathBuf, String> {
+    let trimmed = candidate.trim();
+    if trimmed.is_empty() {
+        return Err("La ruta del archivo dentro del proyecto no puede estar vacía.".to_string());
+    }
+
+    let candidate_path = Path::new(trimmed);
+    let normalized = if candidate_path.is_absolute() {
+        let rel = candidate_path.strip_prefix(root).map_err(|_| {
+            format!(
+                "Ruta fuera del directorio del proyecto ({}): {}",
+                root.display(),
+                candidate
+            )
+        })?;
+        normalize_rel_path(rel)
+    } else {
+        trimmed.trim_start_matches(['/', '\\']).replace('\\', "/")
+    };
+
+    if normalized.is_empty() {
+        return Err("La ruta del archivo dentro del proyecto no puede estar vacía.".to_string());
+    }
+
+    let rel_path = Path::new(&normalized);
+    for comp in rel_path.components() {
+        match comp {
+            Component::Normal(_) | Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(format!(
+                    "Ruta no permitida fuera del proyecto (path traversal): {}",
+                    candidate
+                ));
+            }
+        }
+    }
+
+    Ok(root.join(normalized.replace('/', std::path::MAIN_SEPARATOR_STR)))
 }
 
 /// Clasifica un archivo según su ruta relativa y extensión dentro de un proyecto LaTeX.
@@ -425,8 +466,7 @@ pub fn create_modular_project_internal(
 
     // Escribir cada subarchivo en su subcarpeta (ej. secciones/01-introduccion.tex)
     for sub in &subfiles {
-        let clean_rel = sub.relative_path.trim_start_matches('/').replace('\\', "/");
-        let target = root.join(clean_rel.replace('/', std::path::MAIN_SEPARATOR_STR));
+        let target = resolve_safe_project_path(root, &sub.relative_path)?;
         if let Some(parent) = target.parent() {
             let _ = fs::create_dir_all(parent);
         }
@@ -469,30 +509,29 @@ pub fn save_project_changes_internal(
         })?;
     }
 
-    let clean_main_rel = if main_tex_rel.trim().is_empty() {
-        "main.tex".to_string()
+    let main_candidate = if main_tex_rel.trim().is_empty() {
+        "main.tex"
     } else {
-        main_tex_rel.trim_start_matches('/').replace('\\', "/")
+        main_tex_rel
     };
 
-    let main_path = root.join(clean_main_rel.replace('/', std::path::MAIN_SEPARATOR_STR));
+    let main_path = resolve_safe_project_path(root, main_candidate)?;
     if let Some(parent) = main_path.parent() {
         let _ = fs::create_dir_all(parent);
     }
     atomic_write_bytes(&main_path, main_tex_content.as_bytes())
-        .map_err(|e| format!("Error al guardar {}: {}", clean_main_rel, e))?;
+        .map_err(|e| format!("Error al guardar {}: {}", main_candidate, e))?;
 
     for sub in &updated_subfiles {
-        let clean_rel = sub.relative_path.trim_start_matches('/').replace('\\', "/");
-        if clean_rel.is_empty() {
+        if sub.relative_path.trim().is_empty() {
             continue;
         }
-        let target = root.join(clean_rel.replace('/', std::path::MAIN_SEPARATOR_STR));
+        let target = resolve_safe_project_path(root, &sub.relative_path)?;
         if let Some(parent) = target.parent() {
             let _ = fs::create_dir_all(parent);
         }
         atomic_write_bytes(&target, sub.content.as_bytes())
-            .map_err(|e| format!("Error al guardar sub-archivo {}: {}", clean_rel, e))?;
+            .map_err(|e| format!("Error al guardar sub-archivo {}: {}", sub.relative_path, e))?;
     }
 
     let build_dir = root.join("build");
@@ -955,5 +994,65 @@ mod tests {
         let result = export_pdf_internal("/ruta/inexistente/source.pdf", "/tmp/dest.pdf");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("no existe"));
+    }
+
+    #[test]
+    fn test_resolve_safe_project_path_rejects_traversal() {
+        let root = std::env::temp_dir().join("layratex_safe_path_root");
+        let traversal = resolve_safe_project_path(&root, "../fuera.tex");
+        assert!(traversal.is_err());
+        assert!(traversal.unwrap_err().contains("path traversal"));
+
+        let nested_traversal = resolve_safe_project_path(&root, "secciones/../../fuera.tex");
+        assert!(nested_traversal.is_err());
+
+        let valid = resolve_safe_project_path(&root, "secciones/01-intro.tex");
+        assert!(valid.is_ok());
+        assert_eq!(
+            valid.unwrap(),
+            root.join("secciones").join("01-intro.tex")
+        );
+    }
+
+    #[test]
+    fn test_save_project_changes_accepts_relative_and_in_root_absolute_main_path() {
+        let epoch = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let proj_dir = std::env::temp_dir().join(format!("test_layratex_save_{}", epoch));
+        let main_rel = "main.tex";
+        let initial_main = "\\documentclass{article}\n\\begin{document}\nV1\n\\end{document}";
+
+        let _ = create_modular_project_internal(
+            &proj_dir.to_string_lossy(),
+            initial_main,
+            vec![],
+            None,
+        )
+        .expect("Debe crear proyecto inicial");
+
+        let updated_rel_main = "\\documentclass{article}\n\\begin{document}\nV2\n\\end{document}";
+        let ws_rel = save_project_changes_internal(
+            &proj_dir.to_string_lossy(),
+            main_rel,
+            updated_rel_main,
+            vec![],
+        )
+        .expect("Debe guardar con ruta relativa");
+        assert_eq!(ws_rel.raw_main_content, updated_rel_main);
+
+        let abs_main_path = proj_dir.join("main.tex").to_string_lossy().to_string();
+        let updated_abs_main = "\\documentclass{article}\n\\begin{document}\nV3\n\\end{document}";
+        let ws_abs = save_project_changes_internal(
+            &proj_dir.to_string_lossy(),
+            &abs_main_path,
+            updated_abs_main,
+            vec![],
+        )
+        .expect("Debe guardar con ruta absoluta dentro del proyecto");
+        assert_eq!(ws_abs.raw_main_content, updated_abs_main);
+
+        let _ = fs::remove_dir_all(&proj_dir);
     }
 }
