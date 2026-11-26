@@ -11,7 +11,7 @@
     compilationError = false,
     errorCount = 0,
     warningCount = 0,
-    p2pStatus = 'Local-First (Enjambre Activo)',
+    p2pStatus = 'Guardado localmente',
     isLight = false,
     onToggleErrorPanel = () => {}
   }: {
@@ -78,8 +78,10 @@
   </div>
 
   <div class="flex items-center gap-3 shrink-0 ml-2">
-    <span>L: {lines}</span>
-    <span>P: {words}</span>
+    {#if lines > 0}
+      <span>{lines} {lines === 1 ? 'línea' : 'líneas'}</span>
+    {/if}
+    <span>{words} {words === 1 ? 'palabra' : 'palabras'}</span>
     <span class="{isLight ? 'text-slate-800' : 'text-[#e6edf3]'} hidden xs:inline">UTF-8</span>
     <span class="hidden md:inline">LaTeX</span>
   </div>

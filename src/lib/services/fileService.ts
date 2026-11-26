@@ -312,17 +312,20 @@ export const fileService = {
       ws.tex_files_map
     );
 
+    const mainTexRel =
+      ws.files.find((f) => f.is_main)?.relative_path || ws.main_tex_name || 'main.tex';
+
     if (this.isNative()) {
       return await invoke<LatexProjectWorkspace>('save_project_changes', {
         rootDir: ws.root_dir,
-        mainTexRel: ws.main_tex_path,
+        mainTexRel,
         mainTexContent: payload.mainTexContent,
         updatedSubfiles: payload.updatedSubfiles
       });
     } else {
       const updatedMap: Record<string, string> = {
         ...ws.tex_files_map,
-        [ws.main_tex_path]: payload.mainTexContent
+        [mainTexRel]: payload.mainTexContent
       };
       const updatedFiles = [...ws.files];
 

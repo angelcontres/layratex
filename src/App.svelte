@@ -40,30 +40,29 @@
   } from './lib/services';
   import { 
     Download, 
-    Plus, 
-    FolderOpen, 
     FolderTree,
     Save,
-    Check,
     Loader2,
     ChevronDown,
     FileText,
     Code2,
-    Calculator,
-    Moon,
-    Sun,
-    Scroll,
     BookOpen,
     Palette,
-    Settings as SettingsIcon
+    Settings as SettingsIcon,
+    X,
+    CheckCircle2,
+    AlertCircle,
+    Info
   } from '@lucide/svelte';
 
+  const initialPreferences = preferencesService.getPreferences();
   let editorViewMode = $state<'visual' | 'code'>('visual');
-  let selectedFont = $state<'serif' | 'sans'>('serif');
   let showPreferencesModal = $state(false);
   let showTemplatesMenu = $state(false);
   let showAppearanceMenu = $state(false);
-  let userPreferences = $state<UserPreferences>(preferencesService.getPreferences());
+  let showExportMenu = $state(false);
+  let userPreferences = $state<UserPreferences>(initialPreferences);
+  let selectedFont = $state<'serif' | 'sans'>(initialPreferences.paperFont);
   let isLightTheme = $derived(preferencesService.resolveTheme(userPreferences.theme) === 'light');
   // Por defecto iniciamos con 'white' (Hoja Blanca LaTeX Clásica) para lucir idéntico a un artículo LaTeX real
   let paperTone = $state<'dark' | 'cream' | 'sepia' | 'white'>('white');
@@ -82,10 +81,11 @@
   let showHelpModal = $state(false);
 
   // Auto-Guardado
-  let autoSaveEnabled = $state<boolean>(true);
+  let autoSaveEnabled = $state<boolean>(initialPreferences.autoSave);
   let isAutoSaving = $state<boolean>(false);
   let lastSavedTime = $state<Date | null>(null);
-  let autoSaveTimer: any = null;
+  let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  let notificationTimer: ReturnType<typeof setTimeout> | null = null;
 
   let activeTab = $state<'files' | 'p2p' | 'settings' | ''>('');
   let splitRatio = $state(50);
@@ -156,8 +156,8 @@
     getScrollElement?: () => HTMLElement | null;
     setScrollTop?: (top: number) => void;
   } | null>(null);
-  let scrollSyncEnabled = $state<boolean>(true);
-  const scrollCoordinator = new ScrollSyncCoordinator({ debounceMs: 100, enabled: true });
+  let scrollSyncEnabled = $state<boolean>(initialPreferences.scrollSync);
+  const scrollCoordinator = new ScrollSyncCoordinator({ debounceMs: 100, enabled: initialPreferences.scrollSync });
 
   $effect(() => {
     scrollCoordinator.setEnabled(scrollSyncEnabled);
@@ -195,10 +195,13 @@
 
   onMount(() => {
     recentFiles = fileService.getRecentFiles();
+    preferencesService.applyTheme(userPreferences.theme);
 
-    const savedAutoPref = localStorage.getItem('layratex_autosave_enabled');
-    if (savedAutoPref !== null) {
-      autoSaveEnabled = savedAutoPref === 'true';
+    if (localStorage.getItem('layratex_user_preferences') === null) {
+      const savedAutoPref = localStorage.getItem('layratex_autosave_enabled');
+      if (savedAutoPref !== null) {
+        autoSaveEnabled = savedAutoPref === 'true';
+      }
     }
 
     // Recuperación automática de borrador en segundo plano (Two-Tier Draft Recovery)
@@ -256,6 +259,9 @@
       } else if (((isMod && (e.key === 'Enter' || (editorViewMode === 'code' && e.key.toLowerCase() === 'b'))) || e.key === 'F5')) {
         e.preventDefault();
         handleCompile();
+      } else if (isMod && e.key === ',') {
+        e.preventDefault();
+        showPreferencesModal = !showPreferencesModal;
       } else if ((isMod && e.key === '?')) {
         e.preventDefault();
         showHelpModal = !showHelpModal;
@@ -271,6 +277,9 @@
       if (showAppearanceMenu && !target.closest('.appearance-menu-container')) {
         showAppearanceMenu = false;
       }
+      if (showExportMenu && !target.closest('.export-menu-container')) {
+        showExportMenu = false;
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown);
@@ -278,6 +287,10 @@
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('click', handleWindowClick);
+      if (notificationTimer) {
+        clearTimeout(notificationTimer);
+        notificationTimer = null;
+      }
       if (pdfBlobUrl) {
         URL.revokeObjectURL(pdfBlobUrl);
       }
@@ -285,12 +298,14 @@
   });
 
   function showNotification(msg: string, type: 'success' | 'error' | 'info' = 'info') {
+    if (notificationTimer) {
+      clearTimeout(notificationTimer);
+    }
     statusMessage = msg;
     statusMessageType = type;
-    setTimeout(() => {
-      if (statusMessage === msg) {
-        statusMessage = null;
-      }
+    notificationTimer = setTimeout(() => {
+      statusMessage = null;
+      notificationTimer = null;
     }, 4500);
   }
 
@@ -522,15 +537,6 @@
     showNotification(`Plantilla cargada: ${tpl.name}`, 'success');
   }
 
-  function toggleAutoSave() {
-    autoSaveEnabled = !autoSaveEnabled;
-    localStorage.setItem('layratex_autosave_enabled', String(autoSaveEnabled));
-    showNotification(
-      autoSaveEnabled ? 'Auto-guardado activado (guarda cada 1.5s)' : 'Auto-guardado desactivado (usa Ctrl+S)', 
-      'info'
-    );
-  }
-
   async function performAutoSave() {
     if (!autoSaveEnabled || !isDirty || isAutoSaving) return;
     isAutoSaving = true;
@@ -591,9 +597,10 @@
 
     if (autoSaveEnabled && isDirty && !isAutoSaving) {
       if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      const delayMs = Math.max(1, userPreferences.autoSaveIntervalSec) * 1000;
       autoSaveTimer = setTimeout(() => {
         performAutoSave();
-      }, 1500);
+      }, delayMs);
     }
 
     return () => {
@@ -1084,19 +1091,19 @@
 
 <div class="h-screen w-screen flex flex-col bg-[#090d16] text-[#c9d1d9] select-none overflow-hidden font-sans">
   
-  <!-- Barra Superior Editorial Insana con Logo y Anti-Desbordamiento -->
+  <!-- Barra Superior Simplista, Elegante y Entendible para Cualquier Usuario -->
   <header 
     data-tauri-drag-region
     class="h-12 bg-[#090d16]/95 backdrop-blur-md border-b border-white/10 px-3 sm:px-4 flex items-center justify-between text-xs select-none z-30 transition-colors shrink-0 overflow-visible gap-2 relative"
   >
-    <!-- 1. Izquierda: Branding + Espacio de Trabajo + Guardar + Plantillas -->
+    <!-- 1. Izquierda: Branding + Documento Activo + Guardar -->
     <div class="flex items-center gap-2 min-w-0" data-tauri-drag-region="false">
       <!-- Logo Layratex con clic para abrir/cerrar panel de archivos -->
       <button 
         type="button"
         class="flex items-center gap-1.5 p-1 rounded-lg hover:bg-white/5 transition-all cursor-pointer group shrink-0"
         onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
-        title="Layratex P2P • Clic para ver panel de archivos y proyectos"
+        title="Espacio de trabajo y archivos"
       >
         <LayratexLogo size={24} showText={true} showBadge={false} />
       </button>
@@ -1108,9 +1115,15 @@
         type="button"
         class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all cursor-pointer min-w-0 max-w-[170px] sm:max-w-[210px] {activeTab === 'files' ? 'bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-slate-200'}"
         onclick={() => activeTab = activeTab === 'files' ? ('' as any) : 'files'}
-        title="Clic para gestionar archivos y proyectos ({currentFileName})"
+        title="Gestionar archivos y proyectos ({currentFileName})"
       >
-        <span class="w-1.5 h-1.5 rounded-full {isDirty ? 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]' : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'} shrink-0"></span>
+        {#if isAutoSaving}
+          <Loader2 size={11} class="animate-spin text-indigo-400 shrink-0" />
+        {:else if isDirty}
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)] shrink-0"></span>
+        {:else}
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] shrink-0"></span>
+        {/if}
         <span class="truncate font-mono font-medium text-[11px]">{projectWorkspace ? projectWorkspace.project_name : currentFileName}</span>
         <FolderTree size={11} class="text-slate-400 shrink-0 ml-0.5" />
       </button>
@@ -1118,92 +1131,43 @@
       <!-- Botón Rápido Guardar (Ctrl+S) -->
       <button 
         type="button"
-        class="flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer text-xs font-medium shrink-0 {isDirty ? 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.25)]' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 hover:text-white'}"
+        class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all cursor-pointer text-xs font-medium shrink-0 {isDirty ? 'bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 shadow-[0_0_8px_rgba(245,158,11,0.25)]' : 'bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 hover:text-white'}"
         onclick={handleSave}
-        title="Guardar cambios en disco (Ctrl+S)"
+        title="Guardar cambios (Ctrl+S)"
       >
         <Save size={12} class="shrink-0" />
         <span class="hidden md:inline">Guardar</span>
       </button>
+    </div>
 
-      <!-- Menú Desplegable de Plantillas Académicas LaTeX -->
-      <div class="relative shrink-0 templates-menu-container" data-tauri-drag-region="false">
+    <!-- 2. Centro: Selector de Modo Simplista (Documento Visual vs Código LaTeX) -->
+    <div class="flex items-center gap-2 shrink-0" data-tauri-drag-region="false">
+      <div class="flex items-center p-0.5 bg-[#0e1320] rounded-xl border border-white/10 text-xs shadow-inner">
         <button 
           type="button"
-          class="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-slate-300 hover:text-white transition-all cursor-pointer text-xs"
-          onclick={(e) => {
-            e.stopPropagation();
-            showTemplatesMenu = !showTemplatesMenu;
-            showAppearanceMenu = false;
-          }}
-          title="Cargar plantilla académica de LaTeX"
+          class="flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+          onclick={() => switchViewMode('visual')}
+          title="Modo Hoja: Escribe directamente sobre el documento visual"
         >
-          <BookOpen size={12} class="text-indigo-400 shrink-0" />
-          <span class="hidden lg:inline">Plantillas</span>
-          <ChevronDown size={10} class="text-slate-400" />
+          <FileText size={12} />
+          <span>Documento Visual</span>
         </button>
-
-        {#if showTemplatesMenu}
-          <div 
-            class="absolute left-0 top-full mt-2 w-80 rounded-xl bg-[#0e1320] border border-white/15 shadow-2xl p-2 z-50 space-y-1 backdrop-blur-xl"
-            data-tauri-drag-region="false"
-          >
-            <div class="px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wider text-indigo-400 border-b border-white/10 pb-1 mb-1">
-              Plantillas Canónicas LaTeX
-            </div>
-            {#each TEMPLATE_PRESETS as tpl}
-              <button
-                type="button"
-                class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer block group"
-                onclick={() => applyTemplate(tpl)}
-              >
-                <div class="font-semibold text-white text-xs font-serif group-hover:text-indigo-300 transition-colors">{tpl.name}</div>
-                <div class="text-[10px] text-slate-400 leading-snug mt-0.5">{tpl.description}</div>
-              </button>
-            {/each}
-          </div>
-        {/if}
+        <button 
+          type="button"
+          class="flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
+          onclick={() => switchViewMode('code')}
+          title="Modo Código: Editor de código fuente .tex con vista previa dividida"
+        >
+          <Code2 size={12} />
+          <span>Código LaTeX</span>
+        </button>
       </div>
     </div>
 
-    <!-- 2. Centro: Selector de Modo (Hoja LaTeX vs Código .tex) + Herramientas de Edición -->
-    <div class="flex items-center gap-2 shrink-0" data-tauri-drag-region="false">
-      <!-- Selector de Modo Segmentado Central -->
-      <div class="flex items-center p-0.5 bg-[#0e1320] rounded-lg border border-white/10 text-xs shadow-inner">
-        <button 
-          type="button"
-          class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'visual' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
-          onclick={() => switchViewMode('visual')}
-          title="Edición directa sobre hoja A4 con estética LaTeX"
-        >
-          <FileText size={12} />
-          <span>Hoja LaTeX</span>
-        </button>
-        <button 
-          type="button"
-          class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-md transition-all cursor-pointer {editorViewMode === 'code' ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'text-slate-400 hover:text-white'}"
-          onclick={() => switchViewMode('code')}
-          title="Editar código fuente .tex con vista previa en vivo"
-        >
-          <Code2 size={12} />
-          <span>Código .tex</span>
-        </button>
-      </div>
-
-      <!-- Herramientas de Modo Hoja (Insertar Ecuación & Estilo de Hoja) -->
+    <!-- 3. Derecha: Estilo, Plantillas, Menú Unificado de Exportación, Config y Controles -->
+    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0" data-tauri-drag-region="false">
+      <!-- Popover de Estilo (solo en Modo Visual) -->
       {#if editorViewMode === 'visual'}
-        <button 
-          type="button"
-          class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 font-medium transition-all cursor-pointer text-xs shadow-xs shrink-0"
-          onclick={() => paperEditorRef?.openMathEditor()}
-          title="Insertar ecuación matemática numerada (Ctrl+E)"
-        >
-          <Calculator size={12} />
-          <span class="hidden sm:inline">+ Ecuación</span>
-          <span class="sm:hidden">+ fx</span>
-        </button>
-
-        <!-- Popover de Estilo (Tono de Papel + Tipografía TeX) -->
         <div class="relative shrink-0 appearance-menu-container" data-tauri-drag-region="false">
           <button 
             type="button"
@@ -1212,17 +1176,18 @@
               e.stopPropagation();
               showAppearanceMenu = !showAppearanceMenu;
               showTemplatesMenu = false;
+              showExportMenu = false;
             }}
             title="Personalizar tono de papel y tipografía TeX"
           >
             <Palette size={12} class="text-amber-400" />
-            <span class="hidden sm:inline">Estilo</span>
+            <span class="hidden md:inline">Estilo</span>
             <ChevronDown size={10} class="text-slate-400" />
           </button>
 
           {#if showAppearanceMenu}
             <div 
-              class="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 rounded-xl bg-[#0e1320] border border-white/15 shadow-2xl p-3 z-50 space-y-3 backdrop-blur-xl"
+              class="absolute right-0 top-full mt-2 w-64 rounded-xl bg-[#0e1320] border border-white/15 shadow-2xl p-3 z-50 space-y-3 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
               data-tauri-drag-region="false"
             >
               <!-- Selector de Tono de Papel -->
@@ -1237,7 +1202,7 @@
                     onclick={() => paperTone = 'white'}
                   >
                     <span class="w-3.5 h-3.5 rounded-full bg-white border border-slate-300 shrink-0"></span>
-                    <span class="text-[11px]">Blanco LaTeX</span>
+                    <span class="text-[11px]">Blanco Clásico</span>
                   </button>
                   <button
                     type="button"
@@ -1253,7 +1218,7 @@
                     onclick={() => paperTone = 'sepia'}
                   >
                     <span class="w-3.5 h-3.5 rounded-full bg-[#f4ecd8] border border-stone-300 shrink-0"></span>
-                    <span class="text-[11px]">Sepia Clásico</span>
+                    <span class="text-[11px]">Sepia Suave</span>
                   </button>
                   <button
                     type="button"
@@ -1277,14 +1242,14 @@
                     class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-serif text-[11px] {selectedFont === 'serif' ? 'bg-indigo-500/25 border-indigo-500 text-indigo-200 font-semibold shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
                     onclick={() => selectedFont = 'serif'}
                   >
-                    CMU Roman
+                    CMU Serif (Roman)
                   </button>
                   <button
                     type="button"
                     class="p-1.5 rounded-lg border text-center transition-all cursor-pointer font-sans text-[11px] {selectedFont === 'sans' ? 'bg-indigo-500/25 border-indigo-500 text-indigo-200 font-semibold shadow-xs' : 'border-white/10 text-slate-300 hover:bg-white/5'}"
                     onclick={() => selectedFont = 'sans'}
                   >
-                    CMU Sans
+                    CMU Sans Serif
                   </button>
                 </div>
               </div>
@@ -1292,61 +1257,127 @@
           {/if}
         </div>
       {/if}
-    </div>
 
-    <!-- Derecha: Selector de Modo (Hoja vs Código .tex), Exportar Word (.docx) y Exportar PDF -->
-    <div class="flex items-center gap-1.5 sm:gap-2 shrink-0" data-tauri-drag-region="false">
-      <!-- Indicador Minimalista de Auto-Guardado -->
-      <div class="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
-        {#if isAutoSaving}
-          <Loader2 size={11} class="animate-spin text-indigo-400" />
-          <span class="text-indigo-400 text-[10px]">Guardando</span>
-        {:else if isDirty}
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)]"></span>
-          <span class="text-amber-400 text-[10px]">Sin guardar</span>
-        {:else}
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-          <span class="text-slate-500 text-[10px]">Guardado</span>
+      <!-- Menú Desplegable de Plantillas Académicas LaTeX -->
+      <div class="relative shrink-0 templates-menu-container" data-tauri-drag-region="false">
+        <button 
+          type="button"
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all cursor-pointer text-xs"
+          onclick={(e) => {
+            e.stopPropagation();
+            showTemplatesMenu = !showTemplatesMenu;
+            showAppearanceMenu = false;
+            showExportMenu = false;
+          }}
+          title="Elegir una plantilla inicial de LaTeX"
+        >
+          <BookOpen size={12} class="text-indigo-400 shrink-0" />
+          <span class="hidden md:inline">Plantillas</span>
+          <ChevronDown size={10} class="text-slate-400" />
+        </button>
+
+        {#if showTemplatesMenu}
+          <div 
+            class="absolute right-0 top-full mt-2 w-80 rounded-xl bg-[#0e1320] border border-white/15 shadow-2xl p-2 z-50 space-y-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
+            data-tauri-drag-region="false"
+          >
+            <div class="px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wider text-indigo-400 border-b border-white/10 pb-1 mb-1">
+              Plantillas Académicas LaTeX
+            </div>
+            {#each TEMPLATE_PRESETS as tpl}
+              <button
+                type="button"
+                class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer block group"
+                onclick={() => applyTemplate(tpl)}
+              >
+                <div class="font-semibold text-white text-xs font-serif group-hover:text-indigo-300 transition-colors">{tpl.name}</div>
+                <div class="text-[10px] text-slate-400 leading-snug mt-0.5">{tpl.description}</div>
+              </button>
+            {/each}
+          </div>
         {/if}
       </div>
 
-      <!-- Botón Exportar a Microsoft Word (.docx) -->
-      <button 
-        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#185abd]/80 hover:bg-[#185abd] border border-blue-400/30 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-[0.98]"
-        onclick={handleExportWord}
-        disabled={isExportingWord}
-        title="Exportar a Microsoft Word (.docx) con formato LaTeX (Ctrl+Shift+W)"
-      >
-        {#if isExportingWord}
-          <Loader2 size={12} class="animate-spin" />
-          <span>Word...</span>
-        {:else}
-          <Download size={12} />
-          <span>Word</span>
-        {/if}
-      </button>
+      <!-- Menú Unificado de Exportación (PDF y Word .docx) -->
+      <div class="relative shrink-0 export-menu-container" data-tauri-drag-region="false">
+        <button 
+          type="button"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 border border-indigo-400/30 text-white text-xs font-semibold shadow-[0_0_12px_rgba(99,102,241,0.35)] hover:shadow-[0_0_16px_rgba(99,102,241,0.5)] transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-[0.98]"
+          onclick={(e) => {
+            e.stopPropagation();
+            showExportMenu = !showExportMenu;
+            showTemplatesMenu = false;
+            showAppearanceMenu = false;
+          }}
+          disabled={isCompiling || isExportingWord}
+          title="Exportar documento en PDF o Word"
+        >
+          {#if isCompiling}
+            <Loader2 size={12} class="animate-spin" />
+            <span>PDF...</span>
+          {:else if isExportingWord}
+            <Loader2 size={12} class="animate-spin" />
+            <span>Word...</span>
+          {:else}
+            <Download size={12} />
+            <span>Exportar</span>
+            <ChevronDown size={11} class="text-indigo-200" />
+          {/if}
+        </button>
 
-      <!-- Botón Primario Compilar / Exportar PDF -->
-      <button 
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 border border-indigo-400/30 text-white text-xs font-semibold shadow-[0_0_12px_rgba(99,102,241,0.35)] hover:shadow-[0_0_16px_rgba(99,102,241,0.5)] transition-all cursor-pointer disabled:opacity-50 shrink-0 active:scale-[0.98]"
-        onclick={handleCompile}
-        disabled={isCompiling}
-        title="Compilar y exportar documento en PDF (Ctrl+Enter)"
-      >
-        {#if isCompiling}
-          <Loader2 size={12} class="animate-spin" />
-          <span>PDF...</span>
-        {:else}
-          <Download size={12} />
-          <span>PDF</span>
+        {#if showExportMenu}
+          <div 
+            class="absolute right-0 top-full mt-2 w-72 rounded-xl bg-[#0e1320] border border-white/15 shadow-2xl p-2 z-50 space-y-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
+            data-tauri-drag-region="false"
+          >
+            <div class="px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-wider text-indigo-400 border-b border-white/10 pb-1 mb-1">
+              Opciones de Exportación
+            </div>
+
+            <!-- Opción PDF -->
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer flex items-start gap-2.5 group"
+              onclick={() => { showExportMenu = false; handleCompile(); }}
+            >
+              <div class="w-7 h-7 rounded-md bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                <FileText size={15} />
+              </div>
+              <div class="min-w-0">
+                <div class="font-semibold text-white text-xs group-hover:text-indigo-300 transition-colors flex items-center gap-1.5">
+                  Documento PDF (.pdf)
+                  <span class="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/30 text-indigo-300 font-mono">Oficial</span>
+                </div>
+                <div class="text-[10px] text-slate-400 leading-snug mt-0.5">Listo para imprimir, publicar o enviar con tipografía canónica TeX.</div>
+              </div>
+            </button>
+
+            <!-- Opción Word -->
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer flex items-start gap-2.5 group"
+              onclick={() => { showExportMenu = false; handleExportWord(); }}
+            >
+              <div class="w-7 h-7 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-[#185abd] group-hover:text-white transition-colors">
+                <Download size={15} />
+              </div>
+              <div class="min-w-0">
+                <div class="font-semibold text-white text-xs group-hover:text-blue-300 transition-colors flex items-center gap-1.5">
+                  Microsoft Word (.docx)
+                  <span class="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/30 text-blue-300 font-mono">Editable</span>
+                </div>
+                <div class="text-[10px] text-slate-400 leading-snug mt-0.5">Documento editable con fórmulas matemáticas nativas de Word (OMML).</div>
+              </div>
+            </button>
+          </div>
         {/if}
-      </button>
+      </div>
 
       <!-- Botón de Preferencias -->
       <button 
         class="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
         onclick={() => showPreferencesModal = true}
-        title="Preferencias de apariencia y compilación"
+        title="Preferencias de la aplicación"
       >
         <SettingsIcon size={13} />
       </button>
@@ -1355,7 +1386,7 @@
       <button 
         class="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer text-xs font-bold shrink-0"
         onclick={() => showHelpModal = true}
-        title="Atajos de teclado y ayuda rápida"
+        title="Ayuda y atajos de teclado"
       >
         ?
       </button>
@@ -1368,7 +1399,12 @@
   <!-- Cuerpo Principal: Sidebar + Drawer + Split Editor/Preview -->
   <div class="flex-1 flex overflow-hidden">
     {#if editorViewMode === 'code'}
-      <Sidebar bind:activeTab connectedPeersCount={2} />
+      <Sidebar
+        bind:activeTab
+        connectedPeersCount={2}
+        isLight={isLightTheme}
+        onOpenPreferences={() => (showPreferencesModal = true)}
+      />
     {/if}
 
     <WorkspaceDrawer
@@ -1418,6 +1454,7 @@
           <LatexEditor 
             bind:this={editorRef}
             bind:content={documentContent}
+            fileName={currentFileName}
             bind:scrollSyncEnabled
             onScroll={handleEditorScroll}
             onStatsChange={(newStats: { lines: number; words: number }) => stats = newStats}
@@ -1475,6 +1512,7 @@
       errorCount={errorCount}
       warningCount={warningCount}
       p2pStatus={currentFilePath ? `Local: ${currentFileName}` : 'Sin Guardar (Memoria)'}
+      isLight={isLightTheme}
       onToggleErrorPanel={() => showErrorPanel = !showErrorPanel}
     />
   {:else}
@@ -1530,5 +1568,42 @@
 
   <!-- Modal de Atajos de Teclado y Ayuda Rápida -->
   <KeyboardHelpModal bind:isOpen={showHelpModal} />
+
+  <!-- Toast de Notificaciones de Estado -->
+  {#if statusMessage}
+    <div
+      role="status"
+      aria-live="polite"
+      class="no-print fixed bottom-9 right-4 z-50 max-w-sm flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border backdrop-blur-md shadow-2xl text-xs font-medium animate-in fade-in slide-in-from-bottom-2 duration-150 {statusMessageType === 'success'
+        ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-100'
+        : statusMessageType === 'error'
+          ? 'bg-rose-950/90 border-rose-500/40 text-rose-100'
+          : 'bg-[#0e1320]/95 border-indigo-500/35 text-slate-100'}"
+    >
+      {#if statusMessageType === 'success'}
+        <CheckCircle2 size={15} class="text-emerald-400 shrink-0" />
+      {:else if statusMessageType === 'error'}
+        <AlertCircle size={15} class="text-rose-400 shrink-0" />
+      {:else}
+        <Info size={15} class="text-indigo-400 shrink-0" />
+      {/if}
+      <span class="leading-snug flex-1">{statusMessage}</span>
+      <button
+        type="button"
+        class="p-0.5 rounded-md opacity-70 hover:opacity-100 hover:bg-white/10 transition-opacity cursor-pointer shrink-0"
+        onclick={() => {
+          statusMessage = null;
+          if (notificationTimer) {
+            clearTimeout(notificationTimer);
+            notificationTimer = null;
+          }
+        }}
+        title="Cerrar notificación"
+        aria-label="Cerrar notificación"
+      >
+        <X size={13} />
+      </button>
+    </div>
+  {/if}
 
 </div>

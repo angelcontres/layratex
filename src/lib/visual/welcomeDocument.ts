@@ -36,9 +36,9 @@ Las tablas se componen siguiendo las reglas de publicación académica del paque
 | **Word (.docx)** | OpenXML + Office Math | Ecuaciones OMML editables | Revisión y entrega en Word |
 | **LaTeX (.tex)** | Código fuente puro | Paquetes \`amsmath\` y \`booktabs\` | Archivos y repositorios |
 
-## Guía Rápida de Comandos
+## Guía Rápida de Uso
 
-* Haz clic en **Exportar Word (.docx)** en la barra superior para obtener un archivo nativo de Microsoft Word con ecuaciones editables y formato LaTeX.
-* Haz clic en **Exportar PDF** (o presiona \`Ctrl+Enter\`) para generar el documento PDF listo para impresión.
-* Cambia entre la vista **Hoja LaTeX** y el código fuente **LaTeX (.tex)** en cualquier momento desde la esquina superior derecha.
+* Haz clic en **Exportar** en la barra superior para descargar en **PDF** (formato oficial de publicación) o en **Microsoft Word (.docx)** con ecuaciones matemáticas editables.
+* Usa la **Barra de Herramientas** sobre la hoja para añadir secciones, tablas o fórmulas con el botón **+ Ecuación** sin tener que memorizar sintaxis compleja.
+* Alterna entre **Documento Visual** y **Código LaTeX** en el centro de la barra superior siempre que desees inspeccionar o editar el código .tex directamente.
 `;
