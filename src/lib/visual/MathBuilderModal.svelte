@@ -84,7 +84,7 @@
       renderError = null;
     } catch (err: any) {
       renderError = err.message || 'Error en la sintaxis de la fórmula';
-      previewHtml = `<span class="text-rose-500 text-xs font-mono">${renderError}</span>`;
+      previewHtml = '';
     }
   });
 
@@ -94,10 +94,27 @@
       isOpen = false;
     }
   }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && isOpen) {
+      e.preventDefault();
+      isOpen = false;
+    }
+  }
 </script>
 
+<svelte:window onkeydown={handleKeyDown} />
+
 {#if isOpen}
-  <div class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150"
+    onclick={(e) => { if (e.target === e.currentTarget) isOpen = false; }}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="math-modal-title"
+    tabindex="-1"
+  >
     <div class="bg-white dark:bg-[#161c28] border border-slate-200/80 dark:border-white/10 rounded-md shadow-2xl max-w-xl w-full p-6 text-slate-900 dark:text-[#c9d1d9] space-y-4 animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
       
       <!-- Encabezado del modal -->
@@ -107,7 +124,7 @@
             <Calculator size={18} />
           </div>
           <div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white tracking-tight">Constructor Visual de Fórmulas</h3>
+            <h3 id="math-modal-title" class="text-base font-bold text-slate-900 dark:text-white tracking-tight">Constructor Visual de Fórmulas</h3>
             <p class="text-[11px] text-slate-500 dark:text-[#8b949e]">Haz clic en cualquier estructura para insertarla de inmediato.</p>
           </div>
         </div>
@@ -125,7 +142,11 @@
           Vista Previa en Vivo
         </div>
         <div class="text-xl md:text-2xl py-2 text-indigo-950 dark:text-indigo-200 font-medium">
-          {@html previewHtml}
+          {#if renderError}
+            <span class="text-rose-500 text-xs font-mono">{renderError}</span>
+          {:else}
+            {@html previewHtml}
+          {/if}
         </div>
       </div>
 

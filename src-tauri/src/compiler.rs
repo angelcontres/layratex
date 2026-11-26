@@ -344,17 +344,33 @@ pub fn sync_compilation_artifacts_to_project_build(
     }
 }
 
+/// Selecciona el compilador preferido si está disponible, o el primero detectado por defecto.
+pub fn select_compiler<'a>(
+    compilers: &'a [CompilerInfo],
+    preferred_engine: Option<&str>,
+) -> Option<&'a CompilerInfo> {
+    if let Some(eng) = preferred_engine.map(str::trim).filter(|s| !s.is_empty()) {
+        if !eng.eq_ignore_ascii_case("auto") {
+            if let Some(found) = compilers
+                .iter()
+                .find(|c| c.name.eq_ignore_ascii_case(eng))
+            {
+                return Some(found);
+            }
+        }
+    }
+    compilers.first()
+}
+
 /// Ejecuta la compilación de forma síncrona en un hilo de trabajo aislado.
 pub fn compile_latex_internal(
     content: String,
     project_path: Option<String>,
+    preferred_engine: Option<String>,
 ) -> Result<CompilationOutput, String> {
     let compilers = detect_all_compilers();
-    if compilers.is_empty() {
-        return Err("COMPILER_NOT_FOUND_USE_AUTONOMOUS".to_string());
-    }
-
-    let active_compiler = &compilers[0];
+    let active_compiler = select_compiler(&compilers, preferred_engine.as_deref())
+        .ok_or_else(|| "COMPILER_NOT_FOUND_USE_AUTONOMOUS".to_string())?;
     let start_time = Instant::now();
 
     // Crear un directorio temporal único y aislado
@@ -434,6 +450,22 @@ pub fn compile_latex_internal(
         )
     })?;
 
+    // Drenar stdout y stderr concurrentemente para evitar deadlocks por llenado del buffer del pipe
+    let stdout_handle = child.stdout.take().map(|mut out| {
+        std::thread::spawn(move || {
+            let mut s = String::new();
+            let _ = out.read_to_string(&mut s);
+            s
+        })
+    });
+    let stderr_handle = child.stderr.take().map(|mut err| {
+        std::thread::spawn(move || {
+            let mut s = String::new();
+            let _ = err.read_to_string(&mut s);
+            s
+        })
+    });
+
     let timeout = Duration::from_secs(TIMEOUT_SECONDS);
     let poll_interval = Duration::from_millis(50);
     let mut exit_status = None;
@@ -448,6 +480,15 @@ pub fn compile_latex_internal(
                 std::thread::sleep(poll_interval);
             }
             Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                if let Some(h) = stdout_handle {
+                    let _ = h.join();
+                }
+                if let Some(h) = stderr_handle {
+                    let _ = h.join();
+                }
+                let _ = fs::remove_dir_all(&temp_dir);
                 return Err(format!("Error verificando estado del compilador: {}", e));
             }
         }
@@ -457,6 +498,12 @@ pub fn compile_latex_internal(
     if exit_status.is_none() {
         let _ = child.kill();
         let _ = child.wait(); // Evitar procesos zombies
+        if let Some(h) = stdout_handle {
+            let _ = h.join();
+        }
+        if let Some(h) = stderr_handle {
+            let _ = h.join();
+        }
         let _ = fs::remove_dir_all(&temp_dir);
         return Err(format!(
             "Tiempo de compilación agotado: superó el límite de seguridad de {} segundos.",
@@ -466,15 +513,12 @@ pub fn compile_latex_internal(
 
     let status = exit_status.unwrap();
 
-    let mut stdout_str = String::new();
-    if let Some(mut out) = child.stdout.take() {
-        let _ = out.read_to_string(&mut stdout_str);
-    }
-
-    let mut stderr_str = String::new();
-    if let Some(mut err) = child.stderr.take() {
-        let _ = err.read_to_string(&mut stderr_str);
-    }
+    let stdout_str = stdout_handle
+        .and_then(|h| h.join().ok())
+        .unwrap_or_default();
+    let stderr_str = stderr_handle
+        .and_then(|h| h.join().ok())
+        .unwrap_or_default();
 
     // Leer el archivo de log generado
     let log_path = temp_dir.join("document.log");
@@ -565,5 +609,39 @@ mod tests {
         let msg = get_missing_compiler_message();
         assert!(msg.contains("No se encontró ningún compilador"));
         assert!(msg.contains("Tectonic") || msg.contains("texlive"));
+    }
+
+    #[test]
+    fn test_select_compiler_preference_and_fallback() {
+        let compilers = vec![
+            CompilerInfo {
+                name: "tectonic".to_string(),
+                path: "/usr/bin/tectonic".to_string(),
+                version: Some("0.15.0".to_string()),
+            },
+            CompilerInfo {
+                name: "pdflatex".to_string(),
+                path: "/usr/bin/pdflatex".to_string(),
+                version: Some("3.14159".to_string()),
+            },
+        ];
+
+        assert_eq!(
+            select_compiler(&compilers, None).map(|c| c.name.as_str()),
+            Some("tectonic")
+        );
+        assert_eq!(
+            select_compiler(&compilers, Some("auto")).map(|c| c.name.as_str()),
+            Some("tectonic")
+        );
+        assert_eq!(
+            select_compiler(&compilers, Some("pdflatex")).map(|c| c.name.as_str()),
+            Some("pdflatex")
+        );
+        assert_eq!(
+            select_compiler(&compilers, Some("xelatex")).map(|c| c.name.as_str()),
+            Some("tectonic")
+        );
+        assert!(select_compiler(&[], Some("pdflatex")).is_none());
     }
 }

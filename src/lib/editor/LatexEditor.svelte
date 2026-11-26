@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { EditorState } from '@codemirror/state';
+  import { Compartment, EditorState } from '@codemirror/state';
   import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, keymap } from '@codemirror/view';
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { StreamLanguage, syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
@@ -26,6 +26,7 @@
   let {
     content = $bindable('\\documentclass{article}\n\\title{Documento Layratex}\n\\begin{document}\n\\maketitle\n\n\\section{Introducción}\n¡Bienvenido a Layratex! Este es un editor híbrido local-first.\n\n\\subsection{Fórmulas Matemáticas}\nPodemos escribir ecuaciones en línea como $E = mc^2$ o en bloque destacado:\n\n\\[\n\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}\n\\]\n\n\\end{document}'),
     fileName = 'main.tex',
+    wordWrap = true,
     onChange = (val: string) => {},
     onStatsChange = (stats: { lines: number; words: number }) => {},
     onScroll = (el: HTMLElement) => {},
@@ -34,6 +35,7 @@
 
   let editorContainer: HTMLDivElement;
   let view: EditorView | null = null;
+  const wordWrapCompartment = new Compartment();
 
   // Dark theme minimalista y de alto contraste para CodeMirror 6 con autocompletado LaTeX
   const darkTheme = EditorView.theme({
@@ -163,6 +165,7 @@
         StreamLanguage.define(stex),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         darkTheme,
+        wordWrapCompartment.of(wordWrap ? EditorView.lineWrapping : []),
         ...createLatexAutocompleteExtension(),
         search({ top: true }),
         keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
@@ -199,6 +202,16 @@
         changes: { from: 0, to: view.state.doc.length, insert: content }
       });
       calculateStats(content);
+    }
+  });
+
+  // Actualizar ajuste de línea (wordWrap) en caliente
+  $effect(() => {
+    const wrap = wordWrap;
+    if (view) {
+      view.dispatch({
+        effects: wordWrapCompartment.reconfigure(wrap ? EditorView.lineWrapping : [])
+      });
     }
   });
 

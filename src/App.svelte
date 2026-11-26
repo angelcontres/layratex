@@ -999,7 +999,11 @@
       const sourceToCompile = projectWorkspace
         ? resolveLatexInputsInMemory(documentContent, projectWorkspace.tex_files_map)
         : documentContent;
-      const output = await compilerService.compileLatex(sourceToCompile, targetProjectPath);
+      const output = await compilerService.compileLatex(
+        sourceToCompile,
+        targetProjectPath,
+        userPreferences.compilationEngine
+      );
       isCompiling = false;
 
       if (projectWorkspace?.root_dir) {
@@ -1455,6 +1459,7 @@
             bind:this={editorRef}
             bind:content={documentContent}
             fileName={currentFileName}
+            wordWrap={userPreferences.wordWrap}
             bind:scrollSyncEnabled
             onScroll={handleEditorScroll}
             onStatsChange={(newStats: { lines: number; words: number }) => stats = newStats}

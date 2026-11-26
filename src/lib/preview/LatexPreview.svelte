@@ -47,21 +47,57 @@
     previewScrollContainer.scrollTop = top;
   }
 
+  function escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
   function renderInlineMathInCell(text: string): string {
-    return text.replace(/\$([^\$\n]+)\$/g, (_, math) => {
-      try {
-        return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
-      } catch {
-        return `$${math}$`;
-      }
-    });
+    const mathTokens: string[] = [];
+    const stashMath = (raw: string, rendered: string) => {
+      const token = `__ZXLTXCELL${mathTokens.length}XZ__`;
+      mathTokens.push(rendered);
+      return token;
+    };
+
+    let processed = text
+      .replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
+        try {
+          return stashMath(math, katex.renderToString(math.trim(), { displayMode: false, throwOnError: false }));
+        } catch {
+          return stashMath(math, `<span>$${escapeHtml(math)}$</span>`);
+        }
+      })
+      .replace(/\$([^\$\n]+)\$/g, (_, math) => {
+        try {
+          return stashMath(math, katex.renderToString(math.trim(), { displayMode: false, throwOnError: false }));
+        } catch {
+          return stashMath(math, `$${escapeHtml(math)}$`);
+        }
+      });
+
+    processed = escapeHtml(processed)
+      .replace(/\\textbf\{([^}]+)\}/g, '<strong>$1</strong>')
+      .replace(/\\textit\{([^}]+)\}/g, '<em>$1</em>')
+      .replace(/\\emph\{([^}]+)\}/g, '<em>$1</em>')
+      .replace(/\\texttt\{([^}]+)\}/g, '<code class="font-paper-mono text-[0.92em]">$1</code>')
+      .replace(/\\%/g, '%')
+      .replace(/\\&amp;/g, '&amp;')
+      .replace(/\\_/g, '_');
+
+    for (let i = 0; i < mathTokens.length; i++) {
+      processed = processed.replace(`__ZXLTXCELL${i}XZ__`, mathTokens[i]);
+    }
+    return processed;
   }
 
   function parseTabularToBooktabsHtml(tabularBlock: string, tableNumber: number): string {
     const match = tabularBlock.match(/\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/);
-    if (!match) return tabularBlock;
+    if (!match) return escapeHtml(tabularBlock);
     const captionMatch = tabularBlock.match(/\\caption\{([^}]+)\}/);
-    const captionText = captionMatch ? captionMatch[1] : 'Datos tabulados';
+    const captionText = escapeHtml(captionMatch ? captionMatch[1] : 'Datos tabulados');
 
     const inner = match[1];
     const rawRows = inner.split(/\\\\/);
@@ -69,9 +105,7 @@
     for (const rawRow of rawRows) {
       const cleanRow = rawRow.replace(/\\(hline|toprule|midrule|bottomrule)/g, '').trim();
       if (!cleanRow) continue;
-      const cells = cleanRow.split('&').map(cell =>
-        renderInlineMathInCell(cell.trim().replace(/\\textbf\{([^}]+)\}/g, '$1'))
-      );
+      const cells = cleanRow.split('&').map(cell => renderInlineMathInCell(cell.trim()));
       if (cells.length > 0 && !cells.every(c => !c)) parsedRows.push(cells);
     }
     if (parsedRows.length === 0) return '';
@@ -120,9 +154,9 @@
       if (titleMatch) {
         titleHtml = `
           <div class="mt-2 mb-9 text-center">
-            <h1 class="text-[21pt] font-normal leading-tight mb-3">${titleMatch[1]}</h1>
-            ${authorMatch ? `<div class="text-[12.5pt] font-normal">${authorMatch[1].replace(/\\and/g, ' · ')}</div>` : ''}
-            <div class="text-[11pt] opacity-80 mt-1">${dateStr}</div>
+            <h1 class="text-[21pt] font-normal leading-tight mb-3">${escapeHtml(titleMatch[1])}</h1>
+            ${authorMatch ? `<div class="text-[12.5pt] font-normal">${escapeHtml(authorMatch[1]).replace(/\\and/g, ' · ')}</div>` : ''}
+            <div class="text-[11pt] opacity-80 mt-1">${escapeHtml(dateStr)}</div>
           </div>
         `;
       }
@@ -147,7 +181,7 @@
             const ktx = katex.renderToString(math.trim(), { displayMode: true, throwOnError: false });
             return stash(`<div class="my-3.5 py-1 relative flex items-center justify-center"><div class="text-center text-[12pt] overflow-x-auto max-w-[85%]">${ktx}</div><span class="absolute right-0 text-[11pt]">(${eqCounter})</span></div>`);
           } catch (e) {
-            return stash(`<div class="text-red-500 font-mono text-xs">[Error KaTeX: ${e}]</div>`);
+            return stash(`<div class="text-red-500 font-mono text-xs">[Error KaTeX: ${escapeHtml(String(e))}]</div>`);
           }
         })
         .replace(/\\begin\{(equation\*?|align\*?|gather\*?|multline\*?)\}([\s\S]*?)\\end\{\1\}/g, (_, env, math) => {
@@ -158,7 +192,7 @@
             const numHtml = !isUnnumbered ? `<span class="absolute right-0 text-[11pt]">(${eqCounter})</span>` : '';
             return stash(`<div class="my-3.5 py-1 relative flex items-center justify-center"><div class="text-center text-[12pt] overflow-x-auto max-w-[85%]">${ktx}</div>${numHtml}</div>`);
           } catch (e) {
-            return stash(`<div class="text-red-500 font-mono text-xs">[Error KaTeX: ${e}]</div>`);
+            return stash(`<div class="text-red-500 font-mono text-xs">[Error KaTeX: ${escapeHtml(String(e))}]</div>`);
           }
         });
 
@@ -217,22 +251,32 @@
         return stash(`<blockquote class="my-3 mx-8 text-[11pt] italic text-justify leading-[1.55]">${renderInlineMathInCell(q.trim().replace(/\n/g, '<br/>'))}</blockquote>`);
       });
 
-      // 7. Matemáticas en línea $...$ y \(...\)
+      // 7. Matemáticas en línea $...$ y \(...\) (guardadas en tokens antes de escapar HTML)
+      const inlineMathTokens: string[] = [];
+      const stashInlineMath = (html: string) => {
+        const token = `ZXLTXINL${inlineMathTokens.length}XZ`;
+        inlineMathTokens.push(html);
+        return token;
+      };
+
       processed = processed
         .replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
           try {
-            return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
+            return stashInlineMath(katex.renderToString(math.trim(), { displayMode: false, throwOnError: false }));
           } catch {
-            return `<span>$${math}$</span>`;
+            return stashInlineMath(`<span>$${escapeHtml(math)}$</span>`);
           }
         })
         .replace(/\$([^\$\n]+)\$/g, (_, math) => {
           try {
-            return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
+            return stashInlineMath(katex.renderToString(math.trim(), { displayMode: false, throwOnError: false }));
           } catch {
-            return `<span class="text-red-500">$${math}$</span>`;
+            return stashInlineMath(`<span class="text-red-500">$${escapeHtml(math)}$</span>`);
           }
         });
+
+      // Sanitizar HTML libre antes de generar encabezados, formato y párrafos
+      processed = escapeHtml(processed);
 
       // 8. Secciones numeradas canónicamente (\section, \subsection, \subsubsection)
       let sec1 = 0;
@@ -283,8 +327,12 @@
         .replace(/\\texttt\{([^}]+)\}/g, '<code class="font-paper-mono text-[0.92em]">$1</code>')
         .replace(/\\underline\{([^}]+)\}/g, '<u>$1</u>')
         .replace(/\\%/g, '%')
-        .replace(/\\&/g, '&')
+        .replace(/\\&amp;/g, '&amp;')
         .replace(/\\_/g, '_');
+
+      for (let i = 0; i < inlineMathTokens.length; i++) {
+        processed = processed.replace(`ZXLTXINL${i}XZ`, inlineMathTokens[i]);
+      }
 
       // 10. Párrafos con regla \noindent tras encabezados y sangría 1.75em en párrafos sucesivos
       let isAfterHeading = true;
@@ -306,7 +354,7 @@
 
       renderedHtml = titleHtml + blocks;
     } catch (err) {
-      renderedHtml = `<div class="text-red-500 font-mono text-sm p-4">Error en renderizado: ${err}</div>`;
+      renderedHtml = `<div class="text-red-500 font-mono text-sm p-4">Error en renderizado: ${escapeHtml(String(err))}</div>`;
     } finally {
       const ms = Math.round((performance.now() - t0) * 10) / 10;
       onRenderTime(ms);
